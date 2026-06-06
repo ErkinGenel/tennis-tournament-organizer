@@ -1,16 +1,16 @@
 {
   "homepage": "https://erkingenel.github.io/tennis-tournament-organizer",
-  "name": "tennis-organizer",
+  "name": "tennis-tournament-organizer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
 	  "dev": "vite",
 	  "build": "vite build",
+	  "lint": "eslint ."
 	  "preview": "vite preview",
 	  "predeploy": "npm run build",
-	  "deploy": "gh-pages -d dist",
-	  "lint": "eslint ."
+	  "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "lucide-react": "^1.17.0",
