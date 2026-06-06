@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Users, Calendar, Trophy, GitCommit, Printer, PlusCircle,
-  Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward
+  Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward,
+  Trash2, Edit2, Download, Upload
 } from 'lucide-react';
 
 // --- Constants & Config ---
@@ -49,6 +50,8 @@ export default function App() {
   const [brackets, setBrackets] = useState({ U50: null, O50: null });
   
   const [regForm, setRegForm] = useState({ name: '', club: '', level: '2', category: 'U50' });
+  const [editingId, setEditingId] = useState(null);
+  const fileInputRef = useRef(null);
   const [scoreModal, setScoreModal] = useState(null);
   
   // Simulation State
@@ -70,8 +73,87 @@ export default function App() {
   const handleRegister = (e) => {
     e.preventDefault();
     if (!regForm.name || !regForm.club) return;
-    setTeams([...teams, { id: generateId(), ...regForm, level: parseInt(regForm.level) }]);
+    
+    if (editingId) {
+      setTeams(teams.map(t => t.id === editingId ? { ...t, ...regForm, level: parseInt(regForm.level) } : t));
+      setEditingId(null);
+    } else {
+      setTeams([...teams, { id: generateId(), ...regForm, level: parseInt(regForm.level) }]);
+    }
+    
     setRegForm({ name: '', club: '', level: '2', category: 'U50' });
+    // Reset tournament state to prevent mismatches
+    setGroups({ U50: {}, O50: {} }); setMatches([]); setBrackets({ U50: null, O50: null });
+  };
+
+  const handleEditTeam = (team) => {
+    setRegForm({ name: team.name, club: team.club, level: team.level.toString(), category: team.category });
+    setEditingId(team.id);
+  };
+
+  const handleDeleteTeam = (id) => {
+    setTeams(teams.filter(t => t.id !== id));
+    if (editingId === id) {
+      setEditingId(null);
+      setRegForm({ name: '', club: '', level: '2', category: 'U50' });
+    }
+    // Reset tournament state to prevent mismatches
+    setGroups({ U50: {}, O50: {} }); setMatches([]); setBrackets({ U50: null, O50: null });
+  };
+
+  const handleExportTournament = () => {
+    const exportData = { teams, groups, matches, brackets };
+    // Use Blob instead of Data URI for safety with larger tournament files
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", url);
+    downloadAnchorNode.setAttribute("download", "tennis_tournament.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportTournament = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        if (Array.isArray(importedData)) {
+          // Legacy support: if the file only contains the teams array
+          setTeams(importedData);
+          setGroups({ U50: {}, O50: {} }); setMatches([]); setBrackets({ U50: null, O50: null });
+          setActiveTab('registration');
+        } else if (importedData && importedData.teams) {
+          // New support: full tournament state
+          setTeams(importedData.teams || []);
+          setGroups(importedData.groups || { U50: {}, O50: {} });
+          setMatches(importedData.matches || []);
+          setBrackets(importedData.brackets || { U50: null, O50: null });
+          
+          // Auto-navigate to show the latest loaded data visually
+          if (importedData.brackets && (importedData.brackets.U50 || importedData.brackets.O50)) {
+            setActiveTab('bracket');
+          } else if (importedData.matches && importedData.matches.length > 0) {
+            setActiveTab('schedule');
+          } else if (Object.keys(importedData.groups?.U50 || {}).length > 0) {
+            setActiveTab('groups');
+          } else {
+            setActiveTab('registration');
+          }
+        }
+        setEditingId(null);
+        setRegForm({ name: '', club: '', level: '2', category: 'U50' });
+      } catch (error) {
+        console.error("Invalid file format", error);
+        alert("Error loading file. Please ensure it is a valid tournament file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null; // reset input
   };
 
   const loadMockData = () => {
@@ -493,16 +575,26 @@ export default function App() {
             <Trophy className="h-8 w-8 text-yellow-400" />
             <h1 className="text-2xl font-bold hidden sm:block">Tennis Tournament Organizer</h1>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex space-x-2 items-center">
+            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportTournament} />
+            <button onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 py-2 rounded-lg transition text-sm font-medium" title="Load Save File">
+              <Upload size={16} /> <span className="hidden lg:inline">Load File</span>
+            </button>
+            <button onClick={handleExportTournament} disabled={teams.length === 0} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 py-2 rounded-lg transition text-sm font-medium disabled:opacity-50" title="Download Save File">
+              <Download size={16} /> <span className="hidden lg:inline">Save File</span>
+            </button>
+            
+            <div className="w-px h-6 bg-blue-700 mx-1 hidden sm:block"></div>
+
             <button 
               onClick={handleSimulateTournament} 
               disabled={simState !== 'idle'}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition shadow-sm ${simState !== 'idle' ? 'bg-purple-800 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white animate-pulse'}`}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-bold transition shadow-sm ${simState !== 'idle' ? 'bg-purple-800 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white animate-pulse'}`}
             >
-              {simState !== 'idle' ? <><Loader2 size={18} className="animate-spin" /> <span>Simulating...</span></> : <><FastForward size={18} /> <span>Simulate Full Tournament</span></>}
+              {simState !== 'idle' ? <><Loader2 size={16} className="animate-spin" /> <span className="hidden md:inline">Simulating...</span></> : <><FastForward size={16} /> <span className="hidden md:inline">Auto-Simulate</span></>}
             </button>
-            <button onClick={() => window.print()} className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded-lg transition">
-              <Printer size={18} /> <span>Print A3</span>
+            <button onClick={() => window.print()} className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 px-3 py-2 rounded-lg transition text-sm font-bold">
+              <Printer size={16} /> <span className="hidden md:inline">Print A3</span>
             </button>
           </div>
         </div>
@@ -537,20 +629,24 @@ export default function App() {
           {/* TAB 1: REGISTRATION */}
           {activeTab === 'registration' && (
             <div className="space-y-8 print:hidden">
-              <div className="flex justify-between items-center bg-blue-50 p-6 rounded-xl border border-blue-100">
+              <div className="flex justify-between items-center bg-blue-50 p-6 rounded-xl border border-blue-100 flex-wrap gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-blue-900">Tournament Setup</h2>
                   <p className="text-blue-700 text-sm mt-1">Register teams manually or load mock data.</p>
                 </div>
-                <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-50 font-medium">
-                  <Play size={18} /> <span>Load Mock Teams</span>
-                </button>
+                <div className="flex space-x-3 flex-wrap gap-y-2">
+                  <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-blue-700 border border-blue-200 px-5 py-2 rounded-lg shadow-sm hover:bg-blue-50 font-medium">
+                    <Play size={18} /> <span>Load Mock Teams</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Form */}
-                <div className="col-span-1 bg-gray-50 p-6 rounded-xl border border-gray-200">
-                  <h3 className="font-bold text-lg mb-4 flex items-center"><PlusCircle size={18} className="mr-2"/> New Team</h3>
+                <div className="col-span-1 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                  <h3 className="font-bold text-lg mb-4 flex items-center">
+                    {editingId ? <><Edit2 size={18} className="mr-2 text-orange-600"/> Edit Team</> : <><PlusCircle size={18} className="mr-2 text-blue-600"/> New Team</>}
+                  </h3>
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div><label className="block text-sm font-medium mb-1">Team Name</label>
                       <input value={regForm.name} onChange={e=>setRegForm({...regForm, name: e.target.value})} className="w-full p-2 border rounded-md" placeholder="e.g. Müller / Schmidt" required /></div>
@@ -566,25 +662,38 @@ export default function App() {
                           <option value="U50">U50</option><option value="O50">O50</option>
                         </select></div>
                     </div>
-                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 font-medium mt-2">Register</button>
+                    <div className="flex space-x-2 mt-2">
+                      <button type="submit" className={`flex-1 text-white py-2 rounded-md font-medium ${editingId ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                        {editingId ? 'Update' : 'Register'}
+                      </button>
+                      {editingId && (
+                        <button type="button" onClick={() => { setEditingId(null); setRegForm({ name: '', club: '', level: '2', category: 'U50' }); }} className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-md hover:bg-gray-400 font-medium">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </form>
                 </div>
                 
                 {/* List */}
                 <div className="col-span-2">
                   <h3 className="font-bold text-lg mb-4">Registered Teams ({teams.length})</h3>
-                  <div className="overflow-auto max-h-[400px] border border-gray-200 rounded-xl">
+                  <div className="overflow-auto max-h-[500px] border border-gray-200 rounded-xl">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-gray-50 sticky top-0 shadow-sm">
-                        <tr><th className="p-3 border-b">Team</th><th className="p-3 border-b">Club</th><th className="p-3 border-b">Category</th><th className="p-3 border-b">Level</th></tr>
+                        <tr><th className="p-3 border-b">Team</th><th className="p-3 border-b">Club</th><th className="p-3 border-b">Category</th><th className="p-3 border-b">Level</th><th className="p-3 border-b text-center">Actions</th></tr>
                       </thead>
                       <tbody>
-                        {teams.length === 0 ? <tr><td colSpan="4" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
+                        {teams.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
                          teams.map((t, i) => (
                           <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
                             <td className="p-3 font-medium">{t.name}</td><td className="p-3">{t.club}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${t.category==='U50'?'bg-green-100 text-green-700':'bg-purple-100 text-purple-700'}`}>{CATEGORIES[t.category]}</span></td>
                             <td className="p-3"><span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">Lvl {t.level}</span></td>
+                            <td className="p-3 text-center">
+                              <button onClick={() => handleEditTeam(t)} className="text-gray-500 hover:text-blue-600 mx-1 transition" title="Edit"><Edit2 size={16} /></button>
+                              <button onClick={() => handleDeleteTeam(t.id)} className="text-gray-500 hover:text-red-600 mx-1 transition" title="Delete"><Trash2 size={16} /></button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
