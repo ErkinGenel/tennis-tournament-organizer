@@ -473,7 +473,7 @@ export default function App() {
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200">
           <div className="flex justify-center mb-6"><div className="bg-blue-100 p-4 rounded-full"><Lock className="h-10 w-10 text-blue-800" /></div></div>
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Access</h2>
-          <p className="text-center text-gray-500 text-sm mb-6">Password: ???</p>
+          <p className="text-center text-gray-500 text-sm mb-6">Password: wannweil</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Enter Password" required />
             {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
@@ -540,7 +540,7 @@ export default function App() {
               <div className="flex justify-between items-center bg-blue-50 p-6 rounded-xl border border-blue-100">
                 <div>
                   <h2 className="text-xl font-bold text-blue-900">Tournament Setup</h2>
-                  <p className="text-blue-700 text-sm mt-1">Register teams manually or load mock data.</p>
+                  <p className="text-blue-700 text-sm mt-1">Register teams manually or load mock data.1</p>
                 </div>
                 <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-50 font-medium">
                   <Play size={18} /> <span>Load Mock Teams</span>
