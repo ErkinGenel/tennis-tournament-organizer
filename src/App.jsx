@@ -117,31 +117,69 @@ export default function App() {
 
   const generateSchedule = () => {
     let newMatches = [];
-    let day = 1; let slotIndex = 0; let courtIndex = 1;
-    const addMatch = (team1, team2, category, groupName) => {
-      if (courtIndex > COURTS) { courtIndex = 1; slotIndex++; if (slotIndex >= TIME_SLOTS.length) { slotIndex = 0; day++; } }
-      newMatches.push({ id: generateId(), day, time: TIME_SLOTS[slotIndex], court: courtIndex, category, stage: 'Group', groupName, team1, team2, score: null, winnerId: null });
-      courtIndex++;
-    };
+    let unassignedMatches = [];
+
+    // 1. Collect all matches
     ['U50', 'O50'].forEach(cat => {
       Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
         for (let i = 0; i < groupTeams.length; i++) {
           for (let j = i + 1; j < groupTeams.length; j++) {
-            addMatch(groupTeams[i], groupTeams[j], cat, groupName);
+            unassignedMatches.push({
+              id: generateId(), category: cat, stage: 'Group', groupName,
+              team1: groupTeams[i], team2: groupTeams[j], score: null, winnerId: null
+            });
           }
         }
       });
     });
+
+    // 2. Assign time slots avoiding team overlaps and court limits
+    let scheduleState = {}; 
+
+    unassignedMatches.forEach(match => {
+      let day = 1; let slotIdx = 0; let assigned = false;
+
+      while (!assigned) {
+        let time = TIME_SLOTS[slotIdx];
+        let slotKey = `${day}_${time}`;
+
+        if (!scheduleState[slotKey]) {
+          scheduleState[slotKey] = { courtsUsed: 0, teams: new Set() };
+        }
+
+        let slot = scheduleState[slotKey];
+
+        // Check if court is free AND neither team is already scheduled for this slot
+        if (slot.courtsUsed < COURTS && !slot.teams.has(match.team1.id) && !slot.teams.has(match.team2.id)) {
+          match.day = day; 
+          match.time = time; 
+          match.court = slot.courtsUsed + 1;
+          
+          slot.courtsUsed++;
+          slot.teams.add(match.team1.id); 
+          slot.teams.add(match.team2.id);
+          assigned = true;
+        } else {
+          // Move to next time slot
+          slotIdx++;
+          if (slotIdx >= TIME_SLOTS.length) {
+            slotIdx = 0; day++;
+          }
+        }
+      }
+      newMatches.push(match);
+    });
+
     setMatches(newMatches);
   };
 
   // Automated Scoring Logic
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
     setMatches(prev => prev.map(m => {
-      const isStageMatch = stageFilter === '' || m.stage === stageFilter || (stageFilter === 'Placement' && m.stage === 'Placement');
+      const isStageMatch = stageFilter === '' || m.stage === stageFilter;
       const isGroupMatch = groupFilter === '' || m.groupName.includes(groupFilter);
 
-      if (m.score || !m.team1 || !m.team2 || m.team1.isBye || m.team2.isBye || !isStageMatch || !isGroupMatch) return m;
+      if (m.score || m.winnerId || !m.team1 || !m.team2 || m.team1.name === 'BYE' || m.team2.name === 'BYE' || !isStageMatch || !isGroupMatch) return m;
       
       const randomData = generateRandomScore();
       return { 
@@ -231,38 +269,44 @@ export default function App() {
       });
       if (qualifiers.length === 0) return;
 
+      // Sort qualifiers to determine seeds
       qualifiers.sort((a, b) => {
         if (a.seedType !== b.seedType) return a.seedType === '1st' ? -1 : 1;
         if (b.won !== a.won) return b.won - a.won;
         return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
       });
 
+      // Fill empty spots with Byes to reach 8-team bracket
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
 
+      // Define Quarter-Final matches and their routing paths
       const qfNodes = [
-        { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}` },
-        { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}` },
-        { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}` },
-        { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}` }
+        { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `psf1_${cat}` },
+        { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `psf1_${cat}` },
+        { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `psf2_${cat}` },
+        { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `psf2_${cat}` }
       ];
 
       qfNodes.forEach(node => {
-        if (!node.team1.isBye && !node.team2.isBye) {
-           newMatches.push({
-             id: node.id, category: cat, stage: 'KO', groupName: 'Quarter-Final',
-             team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next,
-             ...getNextTime()
-           });
-        }
+        const isByeMatch = node.team1.isBye || node.team2.isBye;
+        const schedule = isByeMatch ? { day: 2, time: 'BYE', court: '-' } : getNextTime();
+
+        newMatches.push({
+          id: node.id, category: cat, stage: 'KO', groupName: 'Quarter-Final',
+          team1: node.team1, team2: node.team2, score: null, winnerId: null, 
+          nextMatchId: node.next, nextLoserMatchId: node.nextLoser,
+          ...schedule
+        });
       });
 
       timeSlotIndex++; courtIndex = 1;
 
       newBrackets[cat] = { 
         qf: qfNodes, 
-        sf: [{ id: `sf1_${cat}`, title: 'Semi-Final 1', next: `final_${cat}` }, { id: `sf2_${cat}`, title: 'Semi-Final 2', next: `final_${cat}` }], 
+        sf: [{ id: `sf1_${cat}`, title: 'Semi-Final 1' }, { id: `sf2_${cat}`, title: 'Semi-Final 2' }], 
         final: { id: `final_${cat}`, title: 'Grand Final' }, 
-        placements: [{ id: `place_5_${cat}`, title: 'Placement (Losers QF)' }, { id: `place_3_${cat}`, title: '3rd Place Match (Losers SF)' }] 
+        psf: [{ id: `psf1_${cat}`, title: 'Placement SF 1 (5-8)' }, { id: `psf2_${cat}`, title: 'Placement SF 2 (5-8)' }],
+        placements: [{ id: `place_5_${cat}`, title: '5th Place Match' }, { id: `place_7_${cat}`, title: '7th Place Match' }, { id: `place_3_${cat}`, title: '3rd Place Match' }] 
       };
     });
 
@@ -277,61 +321,79 @@ export default function App() {
     let updatedMatches = [...matches];
     let changesMade = false;
 
-    const pushToNextRound = (matchId, winnerTeam, loserTeam) => {
-       const match = matches.find(m => m.id === matchId);
-       if (!match || !match.nextMatchId) return;
+    // 1. Auto-resolve Byes instantly
+    updatedMatches.forEach(m => {
+       if (!m.winnerId && m.team1 && m.team2) {
+           if (m.team1.isBye || m.team2.isBye) {
+               m.winnerId = m.team1.isBye ? m.team2.id : m.team1.id;
+               changesMade = true;
+           }
+       }
+    });
 
-       let nextMatch = updatedMatches.find(m => m.id === match.nextMatchId);
-       if (!nextMatch) {
-         const isFinal = match.nextMatchId.startsWith('final');
-         nextMatch = {
-           id: match.nextMatchId, category: match.category, stage: 'KO', 
-           groupName: isFinal ? 'Final' : 'Semi-Final',
-           team1: winnerTeam, team2: null, score: null, winnerId: null,
-           day: 2, time: TIME_SLOTS[4], court: Math.floor(Math.random() * 3) + 1,
-           nextMatchId: isFinal ? null : `final_${match.category}`
-         };
-         updatedMatches.push(nextMatch);
-         changesMade = true;
-       } else if (!nextMatch.team2 && nextMatch.team1.id !== winnerTeam.id) {
-         nextMatch.team2 = winnerTeam;
-         changesMade = true;
+    const pushToNextRound = (matchId, winnerTeam, loserTeam) => {
+       const match = updatedMatches.find(m => m.id === matchId);
+       if (!match) return;
+
+       // Route Winner upwards
+       if (match.nextMatchId && winnerTeam) {
+         let nextMatch = updatedMatches.find(m => m.id === match.nextMatchId);
+         if (!nextMatch) {
+            let nextGroupName = 'Semi-Final';
+            if (match.nextMatchId.startsWith('final')) nextGroupName = 'Grand Final';
+            if (match.nextMatchId.startsWith('place_5')) nextGroupName = '5th Place Match';
+
+            nextMatch = {
+               id: match.nextMatchId, category: match.category, stage: match.stage === 'Placement' ? 'Placement' : 'KO',
+               groupName: nextGroupName,
+               team1: winnerTeam, team2: null, score: null, winnerId: null,
+               day: 2, time: TIME_SLOTS[4], court: Math.floor(Math.random() * 6) + 1,
+               nextMatchId: match.nextMatchId.startsWith('sf') ? `final_${match.category}` : null,
+               nextLoserMatchId: match.nextMatchId.startsWith('sf') ? `place_3_${match.category}` : null
+            };
+            updatedMatches.push(nextMatch);
+            changesMade = true;
+         } else if (nextMatch.team1?.id !== winnerTeam.id && nextMatch.team2?.id !== winnerTeam.id) {
+            if (!nextMatch.team1) nextMatch.team1 = winnerTeam;
+            else if (!nextMatch.team2) nextMatch.team2 = winnerTeam;
+            changesMade = true;
+         }
        }
 
-       let placementId = null; let pGroupName = '';
-       if (matchId.startsWith('qf')) { placementId = `place_5_${match.category}`; pGroupName = 'Placement Match'; }
-       if (matchId.startsWith('sf')) { placementId = `place_3_${match.category}`; pGroupName = '3rd Place Match'; }
-       
-       if (placementId && loserTeam) {
-         let pMatch = updatedMatches.find(m => m.id === placementId);
-         if (!pMatch) {
-            pMatch = {
-             id: placementId, category: match.category, stage: 'Placement', groupName: pGroupName,
-             team1: loserTeam, team2: null, score: null, winnerId: null,
-             day: 2, time: TIME_SLOTS[5], court: Math.floor(Math.random() * 3) + 4
-           };
-           updatedMatches.push(pMatch);
-           changesMade = true;
-         } else if (!pMatch.team2 && pMatch.team1.id !== loserTeam.id) {
-           pMatch.team2 = loserTeam;
-           changesMade = true;
+       // Route Loser to Placement
+       if (match.nextLoserMatchId && loserTeam) {
+         let nextLoserM = updatedMatches.find(m => m.id === match.nextLoserMatchId);
+         if (!nextLoserM) {
+            let nextGroupName = 'Placement Match';
+            if (match.nextLoserMatchId.startsWith('place_3')) nextGroupName = '3rd Place Match';
+            if (match.nextLoserMatchId.startsWith('place_7')) nextGroupName = '7th Place Match';
+            if (match.nextLoserMatchId.startsWith('psf')) nextGroupName = 'Placement SF (5-8)';
+
+            nextLoserM = {
+               id: match.nextLoserMatchId, category: match.category, stage: 'Placement',
+               groupName: nextGroupName,
+               team1: loserTeam, team2: null, score: null, winnerId: null,
+               day: 2, time: TIME_SLOTS[5], court: Math.floor(Math.random() * 6) + 1,
+               nextMatchId: match.nextLoserMatchId.startsWith('psf') ? `place_5_${match.category}` : null,
+               nextLoserMatchId: match.nextLoserMatchId.startsWith('psf') ? `place_7_${match.category}` : null
+            };
+            updatedMatches.push(nextLoserM);
+            changesMade = true;
+         } else if (nextLoserM.team1?.id !== loserTeam.id && nextLoserM.team2?.id !== loserTeam.id) {
+            if (!nextLoserM.team1) nextLoserM.team1 = loserTeam;
+            else if (!nextLoserM.team2) nextLoserM.team2 = loserTeam;
+            changesMade = true;
          }
        }
     };
 
-    matches.filter(m => m.stage === 'KO' && m.winnerId).forEach(m => {
-       const winner = m.winnerId === m.team1.id ? m.team1 : m.team2;
-       const loser = m.winnerId === m.team1.id ? m.team2 : m.team1;
-       pushToNextRound(m.id, winner, loser);
-    });
-
-    ['U50', 'O50'].forEach(cat => {
-      if(brackets[cat]) {
-        brackets[cat].qf.forEach(qf => {
-          if (qf.team1.isBye) pushToNextRound(qf.id, qf.team2, null);
-          if (qf.team2.isBye) pushToNextRound(qf.id, qf.team1, null);
-        });
-      }
+    // 2. Cascade all winners/losers through the tree
+    updatedMatches.forEach(m => {
+       if ((m.stage === 'KO' || m.stage === 'Placement') && m.winnerId) {
+           const winner = m.winnerId === m.team1?.id ? m.team1 : m.team2;
+           const loser = m.winnerId === m.team1?.id ? m.team2 : m.team1;
+           pushToNextRound(m.id, winner, loser);
+       }
     });
 
     if (changesMade) setMatches(updatedMatches);
@@ -380,12 +442,12 @@ export default function App() {
           break;
         case 'ko_sf_scores':
           fillMissingScores('KO', 'Semi-Final');
-          fillMissingScores('Placement', 'Placement Match');
+          fillMissingScores('Placement', 'Placement SF');
           setSimState('ko_final_scores');
           break;
         case 'ko_final_scores':
-          fillMissingScores('KO', 'Final');
-          fillMissingScores('Placement', '3rd Place Match');
+          fillMissingScores('KO', 'Grand Final');
+          fillMissingScores('Placement', 'Place Match');
           setSimState('idle'); // Simulation Complete
           break;
         default:
@@ -411,6 +473,7 @@ export default function App() {
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200">
           <div className="flex justify-center mb-6"><div className="bg-blue-100 p-4 rounded-full"><Lock className="h-10 w-10 text-blue-800" /></div></div>
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Access</h2>
+          <p className="text-center text-gray-500 text-sm mb-6">Password: wannweil</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Enter Password" required />
             {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
@@ -598,7 +661,7 @@ export default function App() {
 
                <div className="space-y-8">
                  {[1, 2].map(day => {
-                    const dayMatches = matches.filter(m => m.day === day).sort((a,b) => TIME_SLOTS.indexOf(a.time) - TIME_SLOTS.indexOf(b.time));
+                    const dayMatches = matches.filter(m => m.day === day && m.time !== 'BYE').sort((a,b) => TIME_SLOTS.indexOf(a.time) - TIME_SLOTS.indexOf(b.time));
                     if (dayMatches.length === 0) return null;
                     return (
                       <div key={day} className="mb-8">
@@ -642,6 +705,35 @@ export default function App() {
                  
                  const MatchBox = ({ match, title }) => {
                    if (!match) return <div className="w-64 h-24 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 text-sm m-2">TBD</div>;
+                   
+                   const isTeam1Bye = match.team1?.isBye;
+                   const isTeam2Bye = match.team2?.isBye;
+
+                   // If it's a dummy placement match where both teams are Byes
+                   if (isTeam1Bye && isTeam2Bye) {
+                      return (
+                        <div className="w-64 border border-gray-200 rounded-xl bg-gray-50 shadow-sm overflow-hidden m-2 opacity-60">
+                           <div className="bg-gray-100 text-xs text-center py-1 font-bold text-gray-500 border-b">{title || match.groupName}</div>
+                           <div className="p-4 text-center font-bold text-gray-400 italic">No Match (BYE)</div>
+                        </div>
+                      );
+                   }
+
+                   // Visual display for a team receiving a Bye to advance
+                   if (isTeam1Bye || isTeam2Bye) {
+                      const realTeam = isTeam1Bye ? match.team2 : match.team1;
+                      return (
+                        <div className="w-64 border border-blue-200 rounded-xl bg-blue-50 shadow-sm overflow-hidden m-2 break-inside-avoid">
+                           <div className="bg-blue-100 text-xs text-center py-1 font-bold text-blue-800 border-b">{title || match.groupName}</div>
+                           <div className="p-4 text-center">
+                              <span className="font-bold text-blue-900 block truncate">{realTeam?.name || 'TBD'}</span>
+                              <span className="text-xs font-bold text-blue-600 uppercase mt-1 block">Advances (BYE)</span>
+                           </div>
+                        </div>
+                      );
+                   }
+
+                   // Standard Match Box
                    return (
                      <div className="w-64 border border-gray-300 rounded-xl bg-white shadow-sm overflow-hidden m-2 print:border-gray-400 print:shadow-none break-inside-avoid">
                         <div className="bg-gray-100 text-xs text-center py-1 font-bold text-gray-600 border-b">{title || match.groupName}</div>
@@ -662,7 +754,7 @@ export default function App() {
                       <div className="flex items-center space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-4 h-[600px]">
                            {brackets[cat].qf.map((qf, i) => (
-                             <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Quarter-Final ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-gray-300"></div></div>
+                             <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={qf.title} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-gray-300"></div></div>
                            ))}
                         </div>
                         <div className="flex flex-col justify-around h-[600px]">
@@ -675,11 +767,30 @@ export default function App() {
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-bold text-gray-700 mt-12 mb-4 border-b pb-2">Placement Matches</h3>
-                      <div className="flex flex-wrap">
-                         {brackets[cat].placements.map((place, i) => (
-                           <MatchBox key={i} match={getMatchData(place.id)} title={place.title} />
-                         ))}
+                      <h3 className="text-xl font-bold text-gray-700 mt-12 mb-4 border-b pb-2">Positions 5 - 8 Bracket</h3>
+                      <div className="flex items-center space-x-12 min-w-max mb-8">
+                         <div className="flex flex-col justify-around space-y-4 h-[300px]">
+                            {brackets[cat].psf.map((psf, i) => (
+                               <div key={i} className="relative">
+                                  <MatchBox match={getMatchData(psf.id)} title={psf.title} />
+                                  <div className="absolute top-1/2 -right-6 w-6 border-b-2 border-gray-300"></div>
+                               </div>
+                            ))}
+                         </div>
+                         <div className="flex flex-col justify-center h-[300px]">
+                            <div className="relative">
+                               <div className="absolute top-[-75px] -left-6 bottom-[50%] border-l-2 border-gray-300 rounded-tl-lg"></div>
+                               <div className="absolute bottom-[-75px] -left-6 top-[50%] border-l-2 border-gray-300 rounded-bl-lg"></div>
+                               <div className="absolute top-1/2 -left-6 w-6 border-b-2 border-gray-300"></div>
+                               <MatchBox match={getMatchData(`place_5_${cat}`)} title="5th Place Match" />
+                            </div>
+                         </div>
+                      </div>
+                      
+                      <h3 className="text-xl font-bold text-gray-700 mt-8 mb-4 border-b pb-2">Final Placement Matches</h3>
+                      <div className="flex flex-wrap gap-4">
+                         <MatchBox match={getMatchData(`place_3_${cat}`)} title="3rd Place Match" />
+                         <MatchBox match={getMatchData(`place_7_${cat}`)} title="7th Place Match" />
                       </div>
                    </div>
                  )
