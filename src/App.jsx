@@ -473,6 +473,7 @@ export default function App() {
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200">
           <div className="flex justify-center mb-6"><div className="bg-blue-100 p-4 rounded-full"><Lock className="h-10 w-10 text-blue-800" /></div></div>
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Access</h2>
+          <p className="text-center text-gray-500 text-sm mb-6">Password: ???</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Enter Password" required />
             {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
