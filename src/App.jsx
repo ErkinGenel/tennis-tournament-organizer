@@ -692,7 +692,11 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            <button onClick={() => setAppMode(sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login')} className="flex items-center space-x-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl transition border border-slate-700 text-lg group">
+            <button onClick={() => {
+                sessionStorage.removeItem('tennis_auth');
+                setPasswordInput('');
+                setAppMode('login');
+              }} className="flex items-center space-x-2 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl transition border border-slate-700 text-lg group">
               <Lock size={20} className="group-hover:text-indigo-400 transition-colors" /> <span>Organizer Mode</span>
             </button>
             <div className="text-4xl font-bold text-slate-300 flex items-center bg-slate-800 px-6 py-3 rounded-xl shadow-inner border border-slate-700">
