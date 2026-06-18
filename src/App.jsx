@@ -2,8 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users, Calendar, Trophy, GitCommit, Printer, PlusCircle,
   Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward,
+<<<<<<< HEAD
   Trash2, Edit2, Download, Upload, Clock, Award, Tv, Monitor as MonitorIcon,
   Smartphone, LogOut, User, AlertTriangle
+=======
+  Trash2, Edit2, Download, Upload, Clock, Award, Tv, Monitor as MonitorIcon
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
 } from 'lucide-react';
 
 import { initializeApp } from 'firebase/app';
@@ -71,6 +75,7 @@ const generateRandomScore = () => {
   return { s1, s2, tb, winnerIdx };
 };
 
+<<<<<<< HEAD
 const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // --- Main Application Component ---
@@ -82,6 +87,13 @@ export default function App() {
   const [loggedInTeamId, setLoggedInTeamId] = useState(null);
   const [playerTab, setPlayerTab] = useState('matches'); // Mobile tab state
   const [user, setUser] = useState(null);
+=======
+// --- Main Application Component ---
+export default function App() {
+  const [appMode, setAppMode] = useState(sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   
   const [activeTab, setActiveTab] = useState('registration');
   const [teams, setTeams] = useState([]);
@@ -95,12 +107,16 @@ export default function App() {
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
   const [scoreModal, setScoreModal] = useState(null);
+<<<<<<< HEAD
   const [koPrompt, setKoPrompt] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+=======
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   
   // Simulation State
   const [simState, setSimState] = useState('idle');
   const [koQualifyCount, setKoQualifyCount] = useState(2); // Top 2 or Top 3
+<<<<<<< HEAD
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
   // --- FIREBASE CLOUD SYNC ENGINE ---
@@ -149,6 +165,49 @@ export default function App() {
   }, [user, appMode]);
 
   // --- TV Monitor Logic ---
+=======
+
+  // --- Monitor Sync & State Engine ---
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+
+  // 1. Organizer broadcasts data to the TV
+  useEffect(() => {
+    if (appMode === 'organizer') {
+      const stateToSync = { teams, groups, matches, brackets, day1Start, day2Start };
+      localStorage.setItem('tennis_tournament_sync', JSON.stringify(stateToSync));
+    }
+  }, [teams, groups, matches, brackets, day1Start, day2Start, appMode]);
+
+  // 2. TV Monitor Data Sync
+  useEffect(() => {
+    if (appMode === 'monitor') {
+      const loadSyncData = () => {
+        const stored = localStorage.getItem('tennis_tournament_sync');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.teams) setTeams(parsed.teams);
+          if (parsed.groups) setGroups(parsed.groups);
+          if (parsed.matches) setMatches(parsed.matches);
+          if (parsed.brackets) setBrackets(parsed.brackets);
+          if (parsed.day1Start) setDay1Start(parsed.day1Start);
+          if (parsed.day2Start) setDay2Start(parsed.day2Start);
+        }
+      };
+      loadSyncData();
+
+      const handleStorage = (e) => {
+        if (e.key === 'tennis_tournament_sync') loadSyncData();
+      };
+      window.addEventListener('storage', handleStorage);
+
+      return () => {
+        window.removeEventListener('storage', handleStorage);
+      };
+    }
+  }, [appMode]);
+
+  // 3. TV Monitor Clock
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   useEffect(() => {
     if (appMode === 'monitor') {
       const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
@@ -156,6 +215,10 @@ export default function App() {
     }
   }, [appMode]);
 
+<<<<<<< HEAD
+=======
+  // 4. TV Monitor Dynamic Slideshow
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   useEffect(() => {
     if (appMode === 'monitor') {
       let activeSlides = ['groups', 'schedule']; // Default rotation before KO stage
@@ -176,6 +239,10 @@ export default function App() {
       const rotateInt = setInterval(() => {
         setActiveTab(prev => {
            const currentIndex = activeSlides.indexOf(prev);
+<<<<<<< HEAD
+=======
+           // If current tab is not in the active slides (or we just switched phases), start at index 0
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
            const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % activeSlides.length;
            return activeSlides[nextIndex];
         });
@@ -193,6 +260,7 @@ export default function App() {
       setAppMode('organizer');
       setAuthError('');
     } else {
+<<<<<<< HEAD
       const foundTeam = teams.find(t => t.pin === passwordInput);
       if (foundTeam) {
         setAppMode('player');
@@ -201,6 +269,9 @@ export default function App() {
       } else {
         setAuthError('Incorrect Password or Team PIN.');
       }
+=======
+      setAuthError('Incorrect password.');
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     }
   };
 
@@ -217,8 +288,12 @@ export default function App() {
        p2Club: regForm.p2Club, 
        clubs: [regForm.p1Club, regForm.p2Club].filter(c => c),
        level: parseInt(regForm.level),
+<<<<<<< HEAD
        category: regForm.category,
        pin: editingTeam ? editingTeam.pin : generatePin()
+=======
+       category: regForm.category
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     };
 
     if (editingTeam) {
@@ -238,7 +313,11 @@ export default function App() {
     const names = team.name.split(' / ');
     setRegForm({
       p1Name: names[0] || '', p2Name: names[1] || '',
+<<<<<<< HEAD
       p1Club: team.p1Club || team.clubs[0] || '', p2Club: team.p2Club || team.clubs[1] || team.clubs[0] || '',
+=======
+      p1Club: team.clubs[0] || '', p2Club: team.clubs[1] || team.clubs[0] || '',
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       level: team.level.toString(), category: team.category
     });
     setEditingTeam(team);
@@ -246,11 +325,20 @@ export default function App() {
   };
 
   const handleDelete = (id) => {
+<<<<<<< HEAD
     setTeams(teams.filter(t => t.id !== id));
     setGroups({ U50: {}, O50: {} });
     setMatches([]);
     setBrackets({ U50: null, O50: null });
     setConfirmDelete(null);
+=======
+    if(window.confirm('Delete this team?')) {
+      setTeams(teams.filter(t => t.id !== id));
+      setGroups({ U50: {}, O50: {} });
+      setMatches([]);
+      setBrackets({ U50: null, O50: null });
+    }
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   };
 
   const loadMockData = () => {
@@ -262,8 +350,12 @@ export default function App() {
         mockTeams.push({ 
            id: generateId(), name: generateTeamName(), 
            p1Club: c1, p2Club: c2, clubs: [c1, c2],
+<<<<<<< HEAD
            level: getRandom(LEVELS), category,
            pin: generatePin()
+=======
+           level: getRandom(LEVELS), category 
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
         });
       }
     });
@@ -277,9 +369,16 @@ export default function App() {
     const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
+<<<<<<< HEAD
     const a = document.createElement('a');
     a.href = url;
     a.download = `tennis_tournament_live_${new Date().toISOString().split('T')[0]}.json`;
+=======
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tennis_tournament_${new Date().toISOString().split('T')[0]}.json`;
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -306,10 +405,15 @@ export default function App() {
            
            if (data.matches && data.matches.length > 0) setActiveTab('schedule');
         }
+<<<<<<< HEAD
         setAuthError('');
       } catch (err) {
         setAuthError('Error: Invalid JSON file format.');
         setTimeout(() => setAuthError(''), 4000);
+=======
+      } catch (err) {
+        alert('Invalid file format');
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       }
     };
     reader.readAsText(file);
@@ -378,6 +482,10 @@ export default function App() {
     setMatches(newMatches);
   };
 
+<<<<<<< HEAD
+=======
+  // Automated Scoring Logic
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
     setMatches(prev => prev.map(m => {
       const isStageMatch = stageFilter === '' || m.stage === stageFilter || (stageFilter === 'Placement' && m.stage === 'Placement');
@@ -452,6 +560,7 @@ export default function App() {
   }, [teams, groups, matches]);
 
   // --- K.O. Bracket Generation Logic ---
+<<<<<<< HEAD
   const handleKoGeneration = () => {
     let needsPrompt = false;
     ['U50', 'O50'].forEach(cat => {
@@ -468,6 +577,24 @@ export default function App() {
 
   const generateKO = (qualCount) => {
     setKoQualifyCount(qualCount);
+=======
+  const generateKO = (forceQualifyCount = null) => {
+    let qualCount = forceQualifyCount || koQualifyCount;
+
+    // Check if we need to prompt for Top 3
+    if (!forceQualifyCount && simState === 'idle') {
+      let needsPrompt = false;
+      ['U50', 'O50'].forEach(cat => {
+        const groupCount = Object.keys(groups[cat]).length;
+        if (groupCount > 0 && groupCount <= 2 && qualCount === 2) needsPrompt = true;
+      });
+      if (needsPrompt && window.confirm("You have 2 or fewer groups. Advancing only Top 2 will leave the bracket mostly empty. Do you want to advance the Top 3 teams from each group instead?")) {
+         qualCount = 3;
+         setKoQualifyCount(3);
+      }
+    }
+
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     const newBrackets = { U50: null, O50: null };
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
@@ -499,11 +626,16 @@ export default function App() {
 
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
 
+<<<<<<< HEAD
+=======
+      // Build Base Nodes
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       const qfNodes = [
         { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
         { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
         { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` },
         { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` }
+<<<<<<< HEAD
       ];
 
       const sfNodes = [
@@ -523,6 +655,28 @@ export default function App() {
         { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null }
       ];
 
+=======
+      ];
+
+      const sfNodes = [
+        { id: `sf1_${cat}`, title: 'Semi-Final 1', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` },
+        { id: `sf2_${cat}`, title: 'Semi-Final 2', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` }
+      ];
+
+      const pSfNodes = [
+        { id: `place_sf1_${cat}`, title: 'Pos 5-8 Semi-Final 1', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` },
+        { id: `place_sf2_${cat}`, title: 'Pos 5-8 Semi-Final 2', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` }
+      ];
+
+      const finalNodes = [
+        { id: `final_${cat}`, title: 'Grand Final', team1: null, team2: null },
+        { id: `place_3_${cat}`, title: '3rd Place Match', team1: null, team2: null },
+        { id: `place_5_${cat}`, title: '5th Place Match', team1: null, team2: null },
+        { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null }
+      ];
+
+      // Schedule QFs
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
            newMatches.push({
@@ -534,6 +688,10 @@ export default function App() {
         }
       });
 
+<<<<<<< HEAD
+=======
+      // Initialize SFs and Final Placement Matches (empty to be filled)
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       [...sfNodes, ...pSfNodes].forEach(node => {
          newMatches.push({
            id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', 
@@ -556,7 +714,10 @@ export default function App() {
 
     setBrackets(newBrackets);
     setMatches(newMatches);
+<<<<<<< HEAD
     setKoPrompt(false);
+=======
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   };
 
   useEffect(() => {
@@ -572,6 +733,10 @@ export default function App() {
        else if (targetMatch && !targetMatch.team2 && targetMatch.team1.id !== team.id) { targetMatch.team2 = team; changesMade = true; }
     };
 
+<<<<<<< HEAD
+=======
+    // Auto-advance winners/losers
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     matches.filter(m => (m.stage === 'KO' || m.stage === 'Placement') && m.winnerId).forEach(m => {
        const winner = m.winnerId === m.team1.id ? m.team1 : m.team2;
        const loser = m.winnerId === m.team1.id ? m.team2 : m.team1;
@@ -579,6 +744,10 @@ export default function App() {
        pushToNode(m.nextLoserId, loser);
     });
 
+<<<<<<< HEAD
+=======
+    // Auto-advance Byes
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     ['U50', 'O50'].forEach(cat => {
       if(brackets[cat]) {
         brackets[cat].qf.forEach(qf => {
@@ -601,6 +770,7 @@ export default function App() {
       const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team1 : m.team2) : null; };
       const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team2 : m.team1) : null; };
 
+<<<<<<< HEAD
       const top8 = [
         getWinner(`final_${cat}`), getLoser(`final_${cat}`),
         getWinner(`place_3_${cat}`), getLoser(`place_3_${cat}`),
@@ -608,14 +778,36 @@ export default function App() {
         getWinner(`place_7_${cat}`), getLoser(`place_7_${cat}`)
       ];
 
+=======
+      const r1 = getWinner(`final_${cat}`);
+      const r2 = getLoser(`final_${cat}`);
+      const r3 = getWinner(`place_3_${cat}`);
+      const r4 = getLoser(`place_3_${cat}`);
+      const r5 = getWinner(`place_5_${cat}`);
+      const r6 = getLoser(`place_5_${cat}`);
+      const r7 = getWinner(`place_7_${cat}`);
+      const r8 = getLoser(`place_7_${cat}`);
+
+      const top8 = [r1, r2, r3, r4, r5, r6, r7, r8];
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       top8.forEach((team, idx) => {
          if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team });
       });
 
+<<<<<<< HEAD
       const placedIds = ranks[cat].map(r => r.team.id);
       let remaining = [];
       Object.values(standings[cat]).forEach(groupSt => {
          groupSt.forEach(t => { if (!placedIds.includes(t.id)) remaining.push(t); });
+=======
+      // Append remaining group stage teams
+      const placedIds = ranks[cat].map(r => r.team.id);
+      let remaining = [];
+      Object.values(standings[cat]).forEach(groupSt => {
+         groupSt.forEach(t => {
+           if (!placedIds.includes(t.id)) remaining.push(t);
+         });
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       });
 
       remaining.sort((a, b) => {
@@ -625,7 +817,13 @@ export default function App() {
          return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
       });
 
+<<<<<<< HEAD
       remaining.forEach((team) => ranks[cat].push({ rank: ranks[cat].length + 1, team }));
+=======
+      remaining.forEach((team, idx) => {
+         ranks[cat].push({ rank: ranks[cat].length + 1, team });
+      });
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
     });
     return ranks;
   }, [matches, brackets, standings]);
@@ -662,6 +860,10 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [simState]);
+<<<<<<< HEAD
+=======
+
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
 
   const renderScore = (score) => {
     if (!score) return <span className="text-gray-400">vs</span>;
@@ -674,6 +876,7 @@ export default function App() {
   if (appMode === 'login') {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+<<<<<<< HEAD
         {/* Organizer / Player Login */}
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200 mb-6 relative overflow-hidden">
           {authError && <div className="absolute top-0 left-0 w-full bg-red-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
@@ -698,13 +901,29 @@ export default function App() {
                <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
             </label>
           </div>
+=======
+        {/* Organizer Login */}
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200 mb-6">
+          <div className="flex justify-center mb-6"><div className="bg-blue-100 p-4 rounded-full"><Lock className="h-10 w-10 text-blue-800" /></div></div>
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Access</h2>
+          <p className="text-center text-gray-500 text-sm mb-6">Password: wannweil</p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Enter Password" required />
+            {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
+            <button type="submit" className="w-full bg-blue-700 text-white p-3 rounded-lg font-bold hover:bg-blue-800 shadow-sm">Unlock Dashboard</button>
+          </form>
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
         </div>
 
         {/* TV Monitor Launch */}
         <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-700 text-center">
            <Tv className="h-10 w-10 text-indigo-400 mx-auto mb-4" />
            <h3 className="font-bold text-white text-xl mb-2">TV Monitor Mode</h3>
+<<<<<<< HEAD
            <p className="text-sm text-slate-400 mb-6">Launch a read-only, dark-mode dashboard that auto-syncs with Firebase.</p>
+=======
+           <p className="text-sm text-slate-400 mb-6">Launch a read-only, dark-mode dashboard that auto-syncs with the Organizer.</p>
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
            <button onClick={() => setAppMode('monitor')} className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-500 shadow-lg flex items-center justify-center">
              <MonitorIcon size={20} className="mr-2" /> Launch Monitor
            </button>
@@ -713,6 +932,7 @@ export default function App() {
     );
   }
 
+<<<<<<< HEAD
   // --- UI RENDER: MOBILE PLAYER PORTAL ---
   if (appMode === 'player') {
     const myTeam = teams.find(t => t.id === loggedInTeamId);
@@ -853,6 +1073,8 @@ export default function App() {
     );
   }
 
+=======
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   // --- UI RENDER: TV MONITOR MODE ---
   if (appMode === 'monitor') {
     const renderMonitorScore = (score) => {
@@ -864,6 +1086,10 @@ export default function App() {
 
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 font-sans p-8 flex flex-col">
+<<<<<<< HEAD
+=======
+        {/* TV Header */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
         <header className="flex justify-between items-center mb-10 border-b border-slate-700 pb-6">
           <div className="flex items-center space-x-5">
             <Tv className="h-12 w-12 text-indigo-400" />
@@ -886,7 +1112,14 @@ export default function App() {
           </div>
         </header>
 
+<<<<<<< HEAD
         <main className="flex-1 overflow-hidden">
+=======
+        {/* TV Content Area */}
+        <main className="flex-1 overflow-hidden">
+          
+          {/* Monitor: SCHEDULE */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
           {activeTab === 'schedule' && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {[1, 2].map(day => {
@@ -918,6 +1151,10 @@ export default function App() {
             </div>
           )}
 
+<<<<<<< HEAD
+=======
+          {/* Monitor: GROUPS */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
           {activeTab === 'groups' && (
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                {['U50', 'O50'].map(cat => {
@@ -950,6 +1187,10 @@ export default function App() {
              </div>
           )}
 
+<<<<<<< HEAD
+=======
+          {/* Monitor: RANKINGS */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
           {activeTab === 'rankings' && (
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                 {['U50', 'O50'].map(cat => {
@@ -975,6 +1216,10 @@ export default function App() {
              </div>
           )}
 
+<<<<<<< HEAD
+=======
+          {/* Monitor: BRACKET */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
           {activeTab === 'bracket' && (
              <div className="overflow-x-auto pb-12 flex flex-col space-y-16">
                {['U50', 'O50'].map(cat => {
@@ -1047,6 +1292,10 @@ export default function App() {
                })}
              </div>
           )}
+<<<<<<< HEAD
+=======
+
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
         </main>
       </div>
     );
@@ -1054,7 +1303,12 @@ export default function App() {
 
   // --- UI RENDER: ORGANIZER MODE ---
   return (
+<<<<<<< HEAD
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-12 relative">
+=======
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-12">
+      {/* Top Header */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       <header className="bg-blue-900 text-white shadow-md print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
@@ -1062,12 +1316,22 @@ export default function App() {
             <h1 className="text-2xl font-bold hidden md:block">Tennis Tournament Organizer</h1>
           </div>
           <div className="flex space-x-2 sm:space-x-3">
+<<<<<<< HEAD
             <label className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded-lg cursor-pointer transition text-sm sm:text-base">
                <Upload size={18} /> <span className="hidden sm:inline">Load</span>
                <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
             </label>
             <button onClick={handleExportTournament} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base">
                <Download size={18} /> <span className="hidden sm:inline">Save</span>
+=======
+            {/* IO Buttons */}
+            <label className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded-lg cursor-pointer transition text-sm sm:text-base">
+               <Upload size={18} /> <span className="hidden sm:inline">Load File</span>
+               <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
+            </label>
+            <button onClick={handleExportTournament} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base">
+               <Download size={18} /> <span className="hidden sm:inline">Save File</span>
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
             </button>
             <div className="w-px bg-blue-700 mx-1 sm:mx-2"></div>
             
@@ -1088,6 +1352,10 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
         
+<<<<<<< HEAD
+=======
+        {/* Navigation Tabs */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
         <div className="flex space-x-1 bg-gray-200 p-1 rounded-xl mb-8 print:hidden overflow-x-auto">
           {[
             { id: 'registration', icon: Users, label: 'Registration' },
@@ -1124,6 +1392,10 @@ export default function App() {
                 </button>
               </div>
 
+<<<<<<< HEAD
+=======
+              {/* Time Configuration */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <div className="flex items-center space-x-3">
                    <Clock className="text-blue-600" />
@@ -1138,6 +1410,10 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+<<<<<<< HEAD
+=======
+                {/* Form */}
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
                 <div className="col-span-1 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
                   <h3 className="font-bold text-lg mb-4 flex items-center">
                     {editingTeam ? <Edit2 size={18} className="mr-2 text-amber-500"/> : <PlusCircle size={18} className="mr-2 text-blue-600"/>} 
@@ -1190,10 +1466,17 @@ export default function App() {
                       <thead className="bg-gray-50 sticky top-0 shadow-sm z-10">
                         <tr>
                           <th className="p-3 border-b w-1/3">Team</th>
+<<<<<<< HEAD
                           <th className="p-3 border-b w-1/4">Clubs</th>
                           <th className="p-3 border-b w-20">Cat</th>
                           <th className="p-3 border-b w-16 text-center text-blue-600">PIN</th>
                           <th className="p-3 border-b w-24"></th>
+=======
+                          <th className="p-3 border-b w-1/3">Clubs</th>
+                          <th className="p-3 border-b w-20">Cat</th>
+                          <th className="p-3 border-b w-16">Lvl</th>
+                          <th className="p-3 border-b w-20"></th>
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
                         </tr>
                       </thead>
                       <tbody>
@@ -1203,12 +1486,19 @@ export default function App() {
                             <td className="p-3 font-medium text-gray-800 truncate">{t.name}</td>
                             <td className="p-3 text-xs text-gray-500 truncate">{t.clubs.join(' / ') || 'No Club'}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${t.category==='U50'?'bg-green-100 text-green-700':'bg-purple-100 text-purple-700'}`}>{t.category}</span></td>
+<<<<<<< HEAD
                             <td className="p-3 text-center font-mono font-bold text-blue-700">{t.pin}</td>
                             <td className="p-3 text-right space-x-2">
                                <button onClick={() => handleEdit(t)} className="text-gray-400 hover:text-amber-500 transition"><Edit2 size={16}/></button>
                                <button onClick={() => confirmDelete === t.id ? handleDelete(t.id) : setConfirmDelete(t.id)} className={`transition ${confirmDelete === t.id ? 'text-white bg-red-500 px-2 rounded font-bold' : 'text-gray-400 hover:text-red-500'}`}>
                                   {confirmDelete === t.id ? 'Sure?' : <Trash2 size={16}/>}
                                </button>
+=======
+                            <td className="p-3"><span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">Lvl {t.level}</span></td>
+                            <td className="p-3 text-right space-x-2">
+                               <button onClick={() => handleEdit(t)} className="text-gray-400 hover:text-amber-500 transition"><Edit2 size={16}/></button>
+                               <button onClick={() => handleDelete(t.id)} className="text-gray-400 hover:text-red-500 transition"><Trash2 size={16}/></button>
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
                             </td>
                           </tr>
                         ))}
@@ -1286,7 +1576,11 @@ export default function App() {
                    <button onClick={() => fillMissingScores('Group')} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition">
                      Auto-Fill Group Scores
                    </button>
+<<<<<<< HEAD
                    <button onClick={handleKoGeneration} disabled={matches.length === 0} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-green-700 transition flex items-center">
+=======
+                   <button onClick={() => generateKO(null)} disabled={matches.length === 0} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-green-700 transition flex items-center">
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
                       <Trophy size={18} className="mr-2"/> Gen K.O. Bracket (Day 2)
                    </button>
                  </div>
@@ -1413,6 +1707,57 @@ export default function App() {
                            <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="5th Place Match" />
                            <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="7th Place Match" />
                         </div>
+<<<<<<< HEAD
+=======
+                      </div>
+                      
+                      <div className="mt-4"><MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="3rd Place Match" /></div>
+
+                   </div>
+                 )
+               })}
+             </div>
+          )}
+
+          {/* TAB 5: RANKINGS */}
+          {activeTab === 'rankings' && (
+             <div className="space-y-12">
+               {['U50', 'O50'].map(cat => {
+                 if (!finalRankings[cat] || finalRankings[cat].length === 0) return null;
+                 return (
+                   <div key={cat} className="page-break-after">
+                      <h2 className="text-2xl font-bold text-blue-900 mb-6 border-b-2 border-blue-900 pb-2 flex items-center">
+                        <Award className="mr-3 text-amber-500" /> Final Rankings: {CATEGORIES[cat]}
+                      </h2>
+                      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <table className="w-full text-left text-sm table-fixed">
+                           <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+                             <tr>
+                               <th className="p-4 w-20 text-center border-r border-gray-200">Rank</th>
+                               <th className="p-4 w-1/3">Team</th>
+                               <th className="p-4">Clubs</th>
+                               <th className="p-4 w-32 text-center">Status</th>
+                             </tr>
+                           </thead>
+                           <tbody>
+                             {finalRankings[cat].map((item, idx) => (
+                               <tr key={item.team.id} className={`border-b last:border-0 hover:bg-gray-50 
+                                 ${idx === 0 ? 'bg-yellow-50' : idx === 1 ? 'bg-gray-50' : idx === 2 ? 'bg-orange-50' : ''}`}>
+                                 <td className="p-4 text-center font-bold text-lg border-r border-gray-200">
+                                   {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : item.rank}
+                                 </td>
+                                 <td className="p-4 font-bold text-gray-800 truncate">{item.team.name}</td>
+                                 <td className="p-4 text-gray-600 truncate">{item.team.clubs.join(' / ')}</td>
+                                 <td className="p-4 text-center">
+                                   {idx < 8 
+                                     ? <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold">K.O. Stage</span> 
+                                     : <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded text-xs font-bold">Group Stage</span>}
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
+                        </table>
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
                       </div>
                       
                       <div className="mt-4"><MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="3rd Place Match" /></div>
@@ -1505,6 +1850,7 @@ export default function App() {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* --- K.O. GENERATION PROMPT MODAL --- */}
       {koPrompt && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 print:hidden p-4">
@@ -1534,6 +1880,8 @@ export default function App() {
         </div>
       )}
 
+=======
+>>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
       {/* Print Styles */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
