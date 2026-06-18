@@ -1497,7 +1497,7 @@ export default function App() {
                handleSaveScore(scoreModal.id, [parseInt(fd.get('s1_t1')||0), parseInt(fd.get('s1_t2')||0)], [parseInt(fd.get('s2_t1')||0), parseInt(fd.get('s2_t2')||0)], [parseInt(fd.get('tb_t1')||0), parseInt(fd.get('tb_t2')||0)]);
             }} className="p-6">
               <div className="flex justify-between items-end mb-4 font-bold text-sm text-gray-500 border-b pb-2">
-                <div className="w-1/2">Teams</div><div className="w-12 text-center">Set 1</div><div className="w-12 text-center">Set 2</div><div className="w-12 text-center text-orange-500">TieBrk</div>
+                <div className="w-1/2">Teams </div><div className="w-12 text-center">Set 1</div><div className="w-12 text-center">Set 2</div><div className="w-12 text-center text-orange-500">TieBrk</div>
               </div>
               <div className="flex justify-between items-center mb-4">
                 <div className="w-1/2 font-semibold text-blue-900 truncate pr-2">{scoreModal.team1?.name}</div>
