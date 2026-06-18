@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users, Calendar, Trophy, GitCommit, Printer, PlusCircle,
   Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward,
-  Trash2, Edit2, Download, Upload, Clock, Award, Tv, Monitor as MonitorIcon
+  Trash2, Edit2, Download, Upload, Clock, Award, Tv, Monitor as MonitorIcon,
+  Smartphone, LogOut, User
 } from 'lucide-react';
 
 // --- Constants & Config ---
@@ -51,11 +52,15 @@ const generateRandomScore = () => {
   return { s1, s2, tb, winnerIdx };
 };
 
+const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
+
 // --- Main Application Component ---
 export default function App() {
   const [appMode, setAppMode] = useState(sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
+  const [loggedInTeamId, setLoggedInTeamId] = useState(null);
+  const [playerTab, setPlayerTab] = useState('matches'); // Mobile tab state
   
   const [activeTab, setActiveTab] = useState('registration');
   const [teams, setTeams] = useState([]);
@@ -160,7 +165,15 @@ export default function App() {
       setAppMode('organizer');
       setAuthError('');
     } else {
-      setAuthError('Incorrect password.');
+      // Check if it's a team PIN
+      const foundTeam = teams.find(t => t.pin === passwordInput);
+      if (foundTeam) {
+        setAppMode('player');
+        setLoggedInTeamId(foundTeam.id);
+        setAuthError('');
+      } else {
+        setAuthError('Incorrect Password or Team PIN.');
+      }
     }
   };
 
@@ -177,7 +190,8 @@ export default function App() {
        p2Club: regForm.p2Club, 
        clubs: [regForm.p1Club, regForm.p2Club].filter(c => c),
        level: parseInt(regForm.level),
-       category: regForm.category
+       category: regForm.category,
+       pin: editingTeam ? editingTeam.pin : generatePin()
     };
 
     if (editingTeam) {
@@ -222,7 +236,8 @@ export default function App() {
         mockTeams.push({ 
            id: generateId(), name: generateTeamName(), 
            p1Club: c1, p2Club: c2, clubs: [c1, c2],
-           level: getRandom(LEVELS), category 
+           level: getRandom(LEVELS), category,
+           pin: generatePin()
         });
       }
     });
@@ -646,16 +661,30 @@ export default function App() {
   if (appMode === 'login') {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-        {/* Organizer Login */}
+        {/* Organizer / Player Login */}
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200 mb-6">
-          <div className="flex justify-center mb-6"><div className="bg-blue-100 p-4 rounded-full"><Lock className="h-10 w-10 text-blue-800" /></div></div>
-          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Access</h2>
-          <p className="text-center text-gray-500 text-sm mb-6">Password: wannweil</p>
+          <div className="flex justify-center mb-6">
+            <div className="bg-blue-100 p-4 rounded-full flex space-x-2">
+              <Lock className="h-8 w-8 text-blue-800" />
+              <Smartphone className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Login</h2>
+          <p className="text-center text-gray-500 text-sm mb-6">Enter Organizer Password or 4-Digit Team PIN</p>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg" placeholder="Enter Password" required />
+            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg text-center tracking-widest font-bold" placeholder="Password or PIN" required />
             {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
-            <button type="submit" className="w-full bg-blue-700 text-white p-3 rounded-lg font-bold hover:bg-blue-800 shadow-sm">Unlock Dashboard</button>
+            <button type="submit" className="w-full bg-blue-700 text-white p-3 rounded-lg font-bold hover:bg-blue-800 shadow-sm">Login</button>
           </form>
+          
+          {/* File loader for offline local players */}
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-400 mb-2">Have a tournament file?</p>
+            <label className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded cursor-pointer transition">
+               Load Data File
+               <input type="file" accept=".json" className="hidden" onChange={(e) => {handleImportTournament(e); setAuthError('Data loaded! Enter PIN.');}} />
+            </label>
+          </div>
         </div>
 
         {/* TV Monitor Launch */}
@@ -666,6 +695,157 @@ export default function App() {
            <button onClick={() => setAppMode('monitor')} className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-500 shadow-lg flex items-center justify-center">
              <MonitorIcon size={20} className="mr-2" /> Launch Monitor
            </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- UI RENDER: MOBILE PLAYER PORTAL ---
+  if (appMode === 'player') {
+    const myTeam = teams.find(t => t.id === loggedInTeamId);
+    if (!myTeam) { setAppMode('login'); return null; }
+
+    // Find Team's Group
+    let myGroupTeams = [];
+    let myGroupName = 'TBD';
+    if (groups[myTeam.category]) {
+      Object.entries(groups[myTeam.category]).forEach(([name, gTeams]) => {
+        if (gTeams.find(t => t.id === myTeam.id)) {
+           myGroupTeams = standings[myTeam.category][name] || gTeams;
+           myGroupName = name;
+        }
+      });
+    }
+
+    // Find Team's Matches
+    const myMatches = matches.filter(m => m.team1?.id === myTeam.id || m.team2?.id === myTeam.id);
+    const scheduledMatches = myMatches.filter(m => m.time !== null && !m.team1?.isBye && !m.team2?.isBye).sort((a,b) => {
+      if(a.day !== b.day) return a.day - b.day;
+      return a.time.localeCompare(b.time);
+    });
+
+    return (
+      <div className="bg-gray-900 min-h-screen flex justify-center">
+        {/* Smartphone Container (9:16 aspect ratio limits) */}
+        <div className="w-full max-w-[400px] bg-gray-50 min-h-screen flex flex-col shadow-2xl relative">
+          
+          {/* Mobile Header */}
+          <header className="bg-blue-700 text-white pt-8 pb-6 px-5 rounded-b-3xl shadow-md z-10">
+            <div className="flex justify-between items-start mb-4">
+              <div className="bg-blue-800 p-2 rounded-full"><User size={24} className="text-blue-200" /></div>
+              <button onClick={() => {setLoggedInTeamId(null); setPasswordInput(''); setAppMode('login');}} className="text-blue-200 hover:text-white p-1">
+                <LogOut size={20} />
+              </button>
+            </div>
+            <h1 className="text-2xl font-bold leading-tight mb-1">{myTeam.name}</h1>
+            <div className="flex items-center space-x-2 text-blue-200 text-sm font-medium">
+               <span>{CATEGORIES[myTeam.category]}</span>
+               <span>•</span>
+               <span className="truncate">{myTeam.clubs.join(' / ')}</span>
+            </div>
+          </header>
+
+          {/* Mobile Content Area */}
+          <main className="flex-1 overflow-y-auto p-5 pb-24">
+            
+            {/* Matches Tab */}
+            {playerTab === 'matches' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center"><Calendar className="mr-2 text-blue-600" size={20}/> My Schedule</h2>
+                {scheduledMatches.length === 0 ? (
+                  <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500">No matches scheduled yet.</div>
+                ) : (
+                  scheduledMatches.map(m => {
+                    const isWinner = m.winnerId === myTeam.id;
+                    const isLoser = m.winnerId && m.winnerId !== myTeam.id;
+                    const opp = m.team1.id === myTeam.id ? m.team2 : m.team1;
+                    
+                    return (
+                      <div key={m.id} className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : isLoser ? 'border-l-red-500' : 'border-l-blue-500'}`}>
+                        <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">
+                          <span>Day {m.day} • {m.time} • Crt {m.court}</span>
+                          <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{m.groupName}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="text-xs text-gray-500 mb-1">Opponent</div>
+                            <div className="font-bold text-gray-800 text-sm">{opp.name}</div>
+                          </div>
+                          <div className="text-right pl-4">
+                            {m.score ? (
+                               <div className={`font-black text-lg ${isWinner ? 'text-green-600' : 'text-red-500'}`}>
+                                  {m.score.s1[0]}:{m.score.s1[1]} <br/> {m.score.s2[0]}:{m.score.s2[1]}
+                                  {m.score.tb && <span><br/>[{m.score.tb[0]}:{m.score.tb[1]}]</span>}
+                               </div>
+                            ) : (
+                               <span className="text-gray-300 font-bold text-sm">VS</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+
+            {/* Group Tab */}
+            {playerTab === 'group' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center"><GitCommit className="mr-2 text-blue-600" size={20}/> {myGroupName}</h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                   <table className="w-full text-sm text-left">
+                     <thead className="bg-gray-50 text-gray-500 text-xs">
+                       <tr><th className="p-3">Pos</th><th className="p-3">Team</th><th className="p-3 text-center">W-L</th></tr>
+                     </thead>
+                     <tbody>
+                       {myGroupTeams.map((t, idx) => (
+                         <tr key={t.id} className={`border-b border-gray-100 last:border-0 ${t.id === myTeam.id ? 'bg-blue-50/50' : ''}`}>
+                           <td className="p-3 font-bold text-gray-400">{idx+1}</td>
+                           <td className={`p-3 truncate max-w-[120px] ${t.id === myTeam.id ? 'font-bold text-blue-800' : 'text-gray-700'}`}>{t.name}</td>
+                           <td className="p-3 text-center font-bold">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* Ranking Tab */}
+            {playerTab === 'rankings' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center"><Award className="mr-2 text-amber-500" size={20}/> Leaderboard</h2>
+                {(!finalRankings[myTeam.category] || finalRankings[myTeam.category].length === 0) ? (
+                   <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500">Rankings will appear after K.O. stage begins.</div>
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    {finalRankings[myTeam.category].map((item, idx) => (
+                       <div key={item.team.id} className={`flex items-center p-3 border-b border-gray-100 last:border-0 ${item.team.id === myTeam.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}`}>
+                         <div className="w-8 text-center font-bold text-gray-400">{idx===0?'🏆':item.rank}</div>
+                         <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-blue-800' : 'text-gray-700'}`}>{item.team.name}</div>
+                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </main>
+
+          {/* Mobile Bottom Navigation */}
+          <nav className="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+             <button onClick={() => setPlayerTab('matches')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'matches' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`}>
+               <Calendar size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Matches</span>
+             </button>
+             <button onClick={() => setPlayerTab('group')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'group' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`}>
+               <GitCommit size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Group</span>
+             </button>
+             <button onClick={() => setPlayerTab('rankings')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'rankings' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`}>
+               <Award size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Rankings</span>
+             </button>
+          </nav>
+
         </div>
       </div>
     );
@@ -1023,20 +1203,22 @@ export default function App() {
                       <thead className="bg-gray-50 sticky top-0 shadow-sm z-10">
                         <tr>
                           <th className="p-3 border-b w-1/3">Team</th>
-                          <th className="p-3 border-b w-1/3">Clubs</th>
+                          <th className="p-3 border-b w-1/4">Clubs</th>
                           <th className="p-3 border-b w-20">Cat</th>
                           <th className="p-3 border-b w-16">Lvl</th>
+                          <th className="p-3 border-b w-16 text-center text-blue-600">PIN</th>
                           <th className="p-3 border-b w-20"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {teams.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
+                        {teams.length === 0 ? <tr><td colSpan="6" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
                          teams.map((t) => (
                           <tr key={t.id} className={`border-b last:border-0 hover:bg-blue-50 transition ${editingTeam?.id === t.id ? 'bg-amber-50' : ''}`}>
                             <td className="p-3 font-medium text-gray-800 truncate">{t.name}</td>
                             <td className="p-3 text-xs text-gray-500 truncate">{t.clubs.join(' / ') || 'No Club'}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${t.category==='U50'?'bg-green-100 text-green-700':'bg-purple-100 text-purple-700'}`}>{t.category}</span></td>
                             <td className="p-3"><span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">Lvl {t.level}</span></td>
+                            <td className="p-3 text-center font-mono font-bold text-blue-700">{t.pin}</td>
                             <td className="p-3 text-right space-x-2">
                                <button onClick={() => handleEdit(t)} className="text-gray-400 hover:text-amber-500 transition"><Edit2 size={16}/></button>
                                <button onClick={() => handleDelete(t.id)} className="text-gray-400 hover:text-red-500 transition"><Trash2 size={16}/></button>
@@ -1307,7 +1489,7 @@ export default function App() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 print:hidden p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="bg-blue-900 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold">Enter Match Score </h3>
+               <h3 className="font-bold">Enter Match Score</h3>
                <button onClick={() => setScoreModal(null)}><X size={20}/></button>
             </div>
             <form onSubmit={(e) => {
