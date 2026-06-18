@@ -684,7 +684,7 @@ export default function App() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Tournament Login</h2>
-          <p className="text-center text-gray-500 text-sm mb-6">Enter Organizer Password or 4-Digit Team PIN</p>
+          <p className="text-center text-gray-500 text-sm mb-6">Enter Organizer Password or 4-Digit Team PIN!</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg text-center tracking-widest font-bold" placeholder="Password or PIN" required />
             <button type="submit" className="w-full bg-blue-700 text-white p-3 rounded-lg font-bold hover:bg-blue-800 shadow-sm">Login</button>
