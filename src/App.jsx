@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Users, Calendar, Trophy, GitCommit, Printer, PlusCircle,
-  Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward
+  Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward,
+  Trash2, Edit2, Download, Upload
 } from 'lucide-react';
 
 // --- Constants & Config ---
@@ -49,7 +50,10 @@ export default function App() {
   const [brackets, setBrackets] = useState({ U50: null, O50: null });
   
   const [regForm, setRegForm] = useState({ name: '', club: '', level: '2', category: 'U50' });
+  const [editingId, setEditingId] = useState(null);
+  const fileInputRef = useRef(null);
   const [scoreModal, setScoreModal] = useState(null);
+  const [showKoOptions, setShowKoOptions] = useState(false);
   
   // Simulation State
   const [simState, setSimState] = useState('idle');
@@ -70,8 +74,87 @@ export default function App() {
   const handleRegister = (e) => {
     e.preventDefault();
     if (!regForm.name || !regForm.club) return;
-    setTeams([...teams, { id: generateId(), ...regForm, level: parseInt(regForm.level) }]);
+    
+    if (editingId) {
+      setTeams(teams.map(t => t.id === editingId ? { ...t, ...regForm, level: parseInt(regForm.level) } : t));
+      setEditingId(null);
+    } else {
+      setTeams([...teams, { id: generateId(), ...regForm, level: parseInt(regForm.level) }]);
+    }
+    
     setRegForm({ name: '', club: '', level: '2', category: 'U50' });
+    // Reset tournament state to prevent mismatches
+    setGroups({ U50: {}, O50: {} }); setMatches([]); setBrackets({ U50: null, O50: null });
+  };
+
+  const handleEditTeam = (team) => {
+    setRegForm({ name: team.name, club: team.club, level: team.level.toString(), category: team.category });
+    setEditingId(team.id);
+  };
+
+  const handleDeleteTeam = (id) => {
+    setTeams(teams.filter(t => t.id !== id));
+    if (editingId === id) {
+      setEditingId(null);
+      setRegForm({ name: '', club: '', level: '2', category: 'U50' });
+    }
+    // Reset tournament state to prevent mismatches
+    setGroups({ U50: {}, O50: {} }); setMatches([]); setBrackets({ U50: null, O50: null });
+  };
+
+  const handleExportTournament = () => {
+    const exportData = { teams, groups, matches, brackets };
+    // Use Blob instead of Data URI for safety with larger tournament files
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", url);
+    downloadAnchorNode.setAttribute("download", "tennis_tournament.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportTournament = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        if (Array.isArray(importedData)) {
+          // Legacy support: if the file only contains the teams array
+          setTeams(importedData);
+          setGroups({ U50: {}, O50: {} }); setMatches([]); setBrackets({ U50: null, O50: null });
+          setActiveTab('registration');
+        } else if (importedData && importedData.teams) {
+          // New support: full tournament state
+          setTeams(importedData.teams || []);
+          setGroups(importedData.groups || { U50: {}, O50: {} });
+          setMatches(importedData.matches || []);
+          setBrackets(importedData.brackets || { U50: null, O50: null });
+          
+          // Auto-navigate to show the latest loaded data visually
+          if (importedData.brackets && (importedData.brackets.U50 || importedData.brackets.O50)) {
+            setActiveTab('bracket');
+          } else if (importedData.matches && importedData.matches.length > 0) {
+            setActiveTab('schedule');
+          } else if (Object.keys(importedData.groups?.U50 || {}).length > 0) {
+            setActiveTab('groups');
+          } else {
+            setActiveTab('registration');
+          }
+        }
+        setEditingId(null);
+        setRegForm({ name: '', club: '', level: '2', category: 'U50' });
+      } catch (error) {
+        console.error("Invalid file format", error);
+        alert("Error loading file. Please ensure it is a valid tournament file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null; // reset input
   };
 
   const loadMockData = () => {
@@ -247,31 +330,41 @@ export default function App() {
     return calculatedStandings;
   }, [teams, groups, matches]);
 
-  // --- K.O. Generation Logic ---
-  const generateKO = () => {
-    const newBrackets = { U50: null, O50: null };
-    let newMatches = [...matches.filter(m => m.stage === 'Group')];
-    let timeSlotIndex = 0; let courtIndex = 1;
+  const handleGenerateKOClick = () => {
+    let maxGroups = 0;
+    ['U50', 'O50'].forEach(cat => {
+      const c = Object.keys(groups[cat] || {}).length;
+      if (c > maxGroups) maxGroups = c;
+    });
 
-    const getNextTime = () => {
-      const time = TIME_SLOTS[timeSlotIndex];
-      const court = courtIndex;
-      courtIndex++;
-      if (courtIndex > COURTS) { courtIndex = 1; timeSlotIndex++; }
-      return { day: 2, time, court };
-    };
+    // If we only have 1 or 2 groups, advancing Top 2 yields <= 4 teams total.
+    // This results in completely empty Quarter-Finals. We should prompt for Top 3.
+    if (maxGroups > 0 && maxGroups <= 2) {
+      setShowKoOptions(true);
+    } else {
+      generateKO(2); // Standard Top 2 for larger brackets
+    }
+  };
+
+  // --- K.O. Generation Logic ---
+  const generateKO = (advanceCount = 2) => {
+    const newBrackets = { U50: null, O50: null };
+    const allKoMatches = [];
 
     ['U50', 'O50'].forEach(cat => {
       let qualifiers = [];
       Object.values(standings[cat]).forEach(groupStandings => {
         if (groupStandings[0]) qualifiers.push({ ...groupStandings[0], seedType: '1st' });
         if (groupStandings[1]) qualifiers.push({ ...groupStandings[1], seedType: '2nd' });
+        if (advanceCount >= 3 && groupStandings[2]) qualifiers.push({ ...groupStandings[2], seedType: '3rd' });
+        if (advanceCount >= 4 && groupStandings[3]) qualifiers.push({ ...groupStandings[3], seedType: '4th' });
       });
       if (qualifiers.length === 0) return;
 
       // Sort qualifiers to determine seeds
       qualifiers.sort((a, b) => {
-        if (a.seedType !== b.seedType) return a.seedType === '1st' ? -1 : 1;
+        const seedRank = { '1st': 1, '2nd': 2, '3rd': 3, '4th': 4 };
+        if (seedRank[a.seedType] !== seedRank[b.seedType]) return seedRank[a.seedType] - seedRank[b.seedType];
         if (b.won !== a.won) return b.won - a.won;
         return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
       });
@@ -279,52 +372,135 @@ export default function App() {
       // Fill empty spots with Byes to reach 8-team bracket
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
 
-      // Define Quarter-Final matches and their routing paths
-      const qfNodes = [
-        { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `psf1_${cat}` },
-        { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `psf1_${cat}` },
-        { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `psf2_${cat}` },
-        { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `psf2_${cat}` }
-      ];
-
-      qfNodes.forEach(node => {
-        const isByeMatch = node.team1.isBye || node.team2.isBye;
-        const schedule = isByeMatch ? { day: 2, time: 'BYE', court: '-' } : getNextTime();
-
-        newMatches.push({
-          id: node.id, category: cat, stage: 'KO', groupName: 'Quarter-Final',
-          team1: node.team1, team2: node.team2, score: null, winnerId: null, 
-          nextMatchId: node.next, nextLoserMatchId: node.nextLoser,
-          ...schedule
-        });
-      });
-
-      timeSlotIndex++; courtIndex = 1;
-
-      newBrackets[cat] = { 
-        qf: qfNodes, 
-        sf: [{ id: `sf1_${cat}`, title: 'Semi-Final 1' }, { id: `sf2_${cat}`, title: 'Semi-Final 2' }], 
-        final: { id: `final_${cat}`, title: 'Grand Final' }, 
-        psf: [{ id: `psf1_${cat}`, title: 'Placement SF 1 (5-8)' }, { id: `psf2_${cat}`, title: 'Placement SF 2 (5-8)' }],
-        placements: [{ id: `place_5_${cat}`, title: '5th Place Match' }, { id: `place_7_${cat}`, title: '7th Place Match' }, { id: `place_3_${cat}`, title: '3rd Place Match' }] 
+      // 1. Define all K.O. Matches for an 8-Team Bracket upfront
+      const cm = {
+        qf1: { id: `qf1_${cat}`, category: cat, stage: 'KO', groupName: 'Quarter-Final 1', team1: qualifiers[0], team2: qualifiers[7], nextMatchId: `sf1_${cat}`, nextLoserMatchId: `psf1_${cat}` },
+        qf2: { id: `qf2_${cat}`, category: cat, stage: 'KO', groupName: 'Quarter-Final 2', team1: qualifiers[3], team2: qualifiers[4], nextMatchId: `sf1_${cat}`, nextLoserMatchId: `psf1_${cat}` },
+        qf3: { id: `qf3_${cat}`, category: cat, stage: 'KO', groupName: 'Quarter-Final 3', team1: qualifiers[2], team2: qualifiers[5], nextMatchId: `sf2_${cat}`, nextLoserMatchId: `psf2_${cat}` },
+        qf4: { id: `qf4_${cat}`, category: cat, stage: 'KO', groupName: 'Quarter-Final 4', team1: qualifiers[1], team2: qualifiers[6], nextMatchId: `sf2_${cat}`, nextLoserMatchId: `psf2_${cat}` },
+        sf1: { id: `sf1_${cat}`, title: 'Semi-Final 1', category: cat, stage: 'KO', groupName: 'Semi-Final 1', team1: null, team2: null, nextMatchId: `final_${cat}`, nextLoserMatchId: `place_3_${cat}` },
+        sf2: { id: `sf2_${cat}`, title: 'Semi-Final 2', category: cat, stage: 'KO', groupName: 'Semi-Final 2', team1: null, team2: null, nextMatchId: `final_${cat}`, nextLoserMatchId: `place_3_${cat}` },
+        psf1: { id: `psf1_${cat}`, title: 'Placement SF 1 (5-8)', category: cat, stage: 'Placement', groupName: 'Placement SF 1 (5-8)', team1: null, team2: null, nextMatchId: `place_5_${cat}`, nextLoserMatchId: `place_7_${cat}` },
+        psf2: { id: `psf2_${cat}`, title: 'Placement SF 2 (5-8)', category: cat, stage: 'Placement', groupName: 'Placement SF 2 (5-8)', team1: null, team2: null, nextMatchId: `place_5_${cat}`, nextLoserMatchId: `place_7_${cat}` },
+        final: { id: `final_${cat}`, title: 'Grand Final', category: cat, stage: 'KO', groupName: 'Grand Final', team1: null, team2: null, nextMatchId: null, nextLoserMatchId: null },
+        place_3: { id: `place_3_${cat}`, title: '3rd Place Match', category: cat, stage: 'Placement', groupName: '3rd Place Match', team1: null, team2: null, nextMatchId: null, nextLoserMatchId: null },
+        place_5: { id: `place_5_${cat}`, title: '5th Place Match', category: cat, stage: 'Placement', groupName: '5th Place Match', team1: null, team2: null, nextMatchId: null, nextLoserMatchId: null },
+        place_7: { id: `place_7_${cat}`, title: '7th Place Match', category: cat, stage: 'Placement', groupName: '7th Place Match', team1: null, team2: null, nextMatchId: null, nextLoserMatchId: null },
       };
+
+      // 2. Internal routing helper to mathematically cascade BYEs to the bottom
+      const pushTeam = (m, team, isWinner) => {
+        const targetId = isWinner ? m.nextMatchId : m.nextLoserMatchId;
+        if (!targetId) return;
+        const targetKey = Object.keys(cm).find(k => cm[k].id === targetId);
+        if (!targetKey) return;
+        const targetM = cm[targetKey];
+        if (!targetM.team1) targetM.team1 = team;
+        else targetM.team2 = team;
+      };
+
+      const resolveByes = (keys) => {
+        keys.forEach(k => {
+          const m = cm[k];
+          if (m.team1 && m.team2) {
+            if (m.team1.isBye && m.team2.isBye) {
+              m.winnerId = m.team1.id;
+              pushTeam(m, m.team1, true);
+              pushTeam(m, m.team2, false);
+            } else if (m.team1.isBye || m.team2.isBye) {
+              const winner = m.team1.isBye ? m.team2 : m.team1;
+              const loser = m.team1.isBye ? m.team1 : m.team2;
+              m.winnerId = winner.id;
+              pushTeam(m, winner, true);
+              pushTeam(m, loser, false);
+            }
+          }
+        });
+      };
+
+      // Cascade Byes downwards round-by-round before scheduling anything
+      resolveByes(['qf1', 'qf2', 'qf3', 'qf4']);
+      resolveByes(['sf1', 'sf2', 'psf1', 'psf2']);
+      resolveByes(['final', 'place_3', 'place_5', 'place_7']);
+
+      // 3. Setup UI pointers
+      newBrackets[cat] = {
+        qf: [cm.qf1, cm.qf2, cm.qf3, cm.qf4],
+        sf: [cm.sf1, cm.sf2],
+        final: cm.final,
+        psf: [cm.psf1, cm.psf2],
+        placements: [cm.place_3, cm.place_5, cm.place_7]
+      };
+
+      Object.values(cm).forEach(m => {
+        allKoMatches.push({ ...m, score: null, winnerId: m.winnerId || null, day: 2, time: 'TBD', court: '-' });
+      });
+    });
+
+    // 4. Smart Scheduling for Day 2 (Starts at 09:30 and guarantees no collisions)
+    let scheduleState = {}; 
+    let day = 2; let slotIdx = 0;
+    
+    // Process round by round to keep times logical
+    const rounds = [
+      allKoMatches.filter(m => m.id.startsWith('qf')),
+      allKoMatches.filter(m => m.id.startsWith('sf') || m.id.startsWith('psf')),
+      allKoMatches.filter(m => m.id.startsWith('final') || m.id.startsWith('place'))
+    ];
+    
+    rounds.forEach(roundMatches => {
+      // Only schedule valid matches (skip BYE vs BYE or Team vs BYE)
+      const realMatches = roundMatches.filter(m => !m.winnerId);
+      
+      realMatches.forEach(match => {
+        let assigned = false;
+        while (!assigned) {
+          let time = TIME_SLOTS[slotIdx];
+          let slotKey = `${day}_${time}`;
+          if (!scheduleState[slotKey]) scheduleState[slotKey] = { courtsUsed: 0 };
+          
+          if (scheduleState[slotKey].courtsUsed < COURTS) {
+            match.time = time;
+            match.court = scheduleState[slotKey].courtsUsed + 1;
+            scheduleState[slotKey].courtsUsed++;
+            assigned = true;
+          } else {
+            slotIdx++;
+            if (slotIdx >= TIME_SLOTS.length) { slotIdx = 0; day++; }
+          }
+        }
+      });
+      
+      // Advance to the next time slot after a round is fully scheduled (so teams can rest)
+      if (realMatches.length > 0) {
+        slotIdx++;
+        if (slotIdx >= TIME_SLOTS.length) { slotIdx = 0; day++; }
+      }
+    });
+
+    // Mark all pre-resolved BYE matches clearly in the logic
+    allKoMatches.forEach(m => {
+      if (m.winnerId) { m.time = 'BYE'; m.court = '-'; }
     });
 
     setBrackets(newBrackets);
-    setMatches(newMatches);
+    setMatches([...matches.filter(m => m.stage === 'Group'), ...allKoMatches]);
   };
 
-  // Auto-progress winners in KO bracket
+  // Auto-progress winners in KO bracket when you enter real scores
   useEffect(() => {
     if (!brackets.U50 && !brackets.O50) return;
 
     let updatedMatches = [...matches];
     let changesMade = false;
 
-    // 1. Auto-resolve Byes instantly
+    // 1. Auto-resolve dynamic Byes if they bubble up
     updatedMatches.forEach(m => {
        if (!m.winnerId && m.team1 && m.team2) {
-           if (m.team1.isBye || m.team2.isBye) {
+           if (m.team1.isBye && m.team2.isBye) {
+               m.winnerId = m.team1.id;
+               changesMade = true;
+           } else if (m.team1.isBye || m.team2.isBye) {
                m.winnerId = m.team1.isBye ? m.team2.id : m.team1.id;
                changesMade = true;
            }
@@ -338,48 +514,17 @@ export default function App() {
        // Route Winner upwards
        if (match.nextMatchId && winnerTeam) {
          let nextMatch = updatedMatches.find(m => m.id === match.nextMatchId);
-         if (!nextMatch) {
-            let nextGroupName = 'Semi-Final';
-            if (match.nextMatchId.startsWith('final')) nextGroupName = 'Grand Final';
-            if (match.nextMatchId.startsWith('place_5')) nextGroupName = '5th Place Match';
-
-            nextMatch = {
-               id: match.nextMatchId, category: match.category, stage: match.stage === 'Placement' ? 'Placement' : 'KO',
-               groupName: nextGroupName,
-               team1: winnerTeam, team2: null, score: null, winnerId: null,
-               day: 2, time: TIME_SLOTS[4], court: Math.floor(Math.random() * 6) + 1,
-               nextMatchId: match.nextMatchId.startsWith('sf') ? `final_${match.category}` : null,
-               nextLoserMatchId: match.nextMatchId.startsWith('sf') ? `place_3_${match.category}` : null
-            };
-            updatedMatches.push(nextMatch);
-            changesMade = true;
-         } else if (nextMatch.team1?.id !== winnerTeam.id && nextMatch.team2?.id !== winnerTeam.id) {
+         if (nextMatch && nextMatch.team1?.id !== winnerTeam.id && nextMatch.team2?.id !== winnerTeam.id) {
             if (!nextMatch.team1) nextMatch.team1 = winnerTeam;
             else if (!nextMatch.team2) nextMatch.team2 = winnerTeam;
             changesMade = true;
          }
        }
 
-       // Route Loser to Placement
+       // Route Loser downwards
        if (match.nextLoserMatchId && loserTeam) {
          let nextLoserM = updatedMatches.find(m => m.id === match.nextLoserMatchId);
-         if (!nextLoserM) {
-            let nextGroupName = 'Placement Match';
-            if (match.nextLoserMatchId.startsWith('place_3')) nextGroupName = '3rd Place Match';
-            if (match.nextLoserMatchId.startsWith('place_7')) nextGroupName = '7th Place Match';
-            if (match.nextLoserMatchId.startsWith('psf')) nextGroupName = 'Placement SF (5-8)';
-
-            nextLoserM = {
-               id: match.nextLoserMatchId, category: match.category, stage: 'Placement',
-               groupName: nextGroupName,
-               team1: loserTeam, team2: null, score: null, winnerId: null,
-               day: 2, time: TIME_SLOTS[5], court: Math.floor(Math.random() * 6) + 1,
-               nextMatchId: match.nextLoserMatchId.startsWith('psf') ? `place_5_${match.category}` : null,
-               nextLoserMatchId: match.nextLoserMatchId.startsWith('psf') ? `place_7_${match.category}` : null
-            };
-            updatedMatches.push(nextLoserM);
-            changesMade = true;
-         } else if (nextLoserM.team1?.id !== loserTeam.id && nextLoserM.team2?.id !== loserTeam.id) {
+         if (nextLoserM && nextLoserM.team1?.id !== loserTeam.id && nextLoserM.team2?.id !== loserTeam.id) {
             if (!nextLoserM.team1) nextLoserM.team1 = loserTeam;
             else if (!nextLoserM.team2) nextLoserM.team2 = loserTeam;
             changesMade = true;
@@ -387,7 +532,7 @@ export default function App() {
        }
     };
 
-    // 2. Cascade all winners/losers through the tree
+    // 2. Cascade all human-entered winners/losers through the tree
     updatedMatches.forEach(m => {
        if ((m.stage === 'KO' || m.stage === 'Placement') && m.winnerId) {
            const winner = m.winnerId === m.team1?.id ? m.team1 : m.team2;
@@ -432,7 +577,8 @@ export default function App() {
           setSimState('ko');
           break;
         case 'ko':
-          generateKO();
+          const maxG = Math.max(Object.keys(groups.U50).length, Object.keys(groups.O50).length);
+          generateKO(maxG <= 2 ? 3 : 2); // Auto-choose top 3 if small bracket to keep simulation moving
           setActiveTab('bracket');
           setSimState('ko_qf_scores');
           break;
@@ -493,16 +639,26 @@ export default function App() {
             <Trophy className="h-8 w-8 text-yellow-400" />
             <h1 className="text-2xl font-bold hidden sm:block">Tennis Tournament Organizer</h1>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex space-x-2 items-center">
+            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportTournament} />
+            <button onClick={() => fileInputRef.current?.click()} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 py-2 rounded-lg transition text-sm font-medium" title="Load Save File">
+              <Upload size={16} /> <span className="hidden lg:inline">Load File</span>
+            </button>
+            <button onClick={handleExportTournament} disabled={teams.length === 0} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 py-2 rounded-lg transition text-sm font-medium disabled:opacity-50" title="Download Save File">
+              <Download size={16} /> <span className="hidden lg:inline">Save File</span>
+            </button>
+            
+            <div className="w-px h-6 bg-blue-700 mx-1 hidden sm:block"></div>
+
             <button 
               onClick={handleSimulateTournament} 
               disabled={simState !== 'idle'}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-bold transition shadow-sm ${simState !== 'idle' ? 'bg-purple-800 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white animate-pulse'}`}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-bold transition shadow-sm ${simState !== 'idle' ? 'bg-purple-800 text-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-500 text-white animate-pulse'}`}
             >
-              {simState !== 'idle' ? <><Loader2 size={18} className="animate-spin" /> <span>Simulating...</span></> : <><FastForward size={18} /> <span>Simulate Full Tournament</span></>}
+              {simState !== 'idle' ? <><Loader2 size={16} className="animate-spin" /> <span className="hidden md:inline">Simulating...</span></> : <><FastForward size={16} /> <span className="hidden md:inline">Auto-Simulate</span></>}
             </button>
-            <button onClick={() => window.print()} className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded-lg transition">
-              <Printer size={18} /> <span>Print A3</span>
+            <button onClick={() => window.print()} className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 px-3 py-2 rounded-lg transition text-sm font-bold">
+              <Printer size={16} /> <span className="hidden md:inline">Print A3</span>
             </button>
           </div>
         </div>
@@ -537,20 +693,24 @@ export default function App() {
           {/* TAB 1: REGISTRATION */}
           {activeTab === 'registration' && (
             <div className="space-y-8 print:hidden">
-              <div className="flex justify-between items-center bg-blue-50 p-6 rounded-xl border border-blue-100">
+              <div className="flex justify-between items-center bg-blue-50 p-6 rounded-xl border border-blue-100 flex-wrap gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-blue-900">Tournament Setup</h2>
-                  <p className="text-blue-700 text-sm mt-1">Register teams manually or load mock data.1</p>
+                  <p className="text-blue-700 text-sm mt-1">Register teams manually or load mock data.</p>
                 </div>
-                <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-blue-700 border border-blue-200 px-5 py-2.5 rounded-lg shadow-sm hover:bg-blue-50 font-medium">
-                  <Play size={18} /> <span>Load Mock Teams</span>
-                </button>
+                <div className="flex space-x-3 flex-wrap gap-y-2">
+                  <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-blue-700 border border-blue-200 px-5 py-2 rounded-lg shadow-sm hover:bg-blue-50 font-medium">
+                    <Play size={18} /> <span>Load Mock Teams</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* Form */}
-                <div className="col-span-1 bg-gray-50 p-6 rounded-xl border border-gray-200">
-                  <h3 className="font-bold text-lg mb-4 flex items-center"><PlusCircle size={18} className="mr-2"/> New Team</h3>
+                <div className="col-span-1 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                  <h3 className="font-bold text-lg mb-4 flex items-center">
+                    {editingId ? <><Edit2 size={18} className="mr-2 text-orange-600"/> Edit Team</> : <><PlusCircle size={18} className="mr-2 text-blue-600"/> New Team</>}
+                  </h3>
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div><label className="block text-sm font-medium mb-1">Team Name</label>
                       <input value={regForm.name} onChange={e=>setRegForm({...regForm, name: e.target.value})} className="w-full p-2 border rounded-md" placeholder="e.g. Müller / Schmidt" required /></div>
@@ -566,25 +726,38 @@ export default function App() {
                           <option value="U50">U50</option><option value="O50">O50</option>
                         </select></div>
                     </div>
-                    <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 font-medium mt-2">Register</button>
+                    <div className="flex space-x-2 mt-2">
+                      <button type="submit" className={`flex-1 text-white py-2 rounded-md font-medium ${editingId ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                        {editingId ? 'Update' : 'Register'}
+                      </button>
+                      {editingId && (
+                        <button type="button" onClick={() => { setEditingId(null); setRegForm({ name: '', club: '', level: '2', category: 'U50' }); }} className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-md hover:bg-gray-400 font-medium">
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </form>
                 </div>
                 
                 {/* List */}
                 <div className="col-span-2">
                   <h3 className="font-bold text-lg mb-4">Registered Teams ({teams.length})</h3>
-                  <div className="overflow-auto max-h-[400px] border border-gray-200 rounded-xl">
+                  <div className="overflow-auto max-h-[500px] border border-gray-200 rounded-xl">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-gray-50 sticky top-0 shadow-sm">
-                        <tr><th className="p-3 border-b">Team</th><th className="p-3 border-b">Club</th><th className="p-3 border-b">Category</th><th className="p-3 border-b">Level</th></tr>
+                        <tr><th className="p-3 border-b">Team</th><th className="p-3 border-b">Club</th><th className="p-3 border-b">Category</th><th className="p-3 border-b">Level</th><th className="p-3 border-b text-center">Actions</th></tr>
                       </thead>
                       <tbody>
-                        {teams.length === 0 ? <tr><td colSpan="4" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
+                        {teams.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
                          teams.map((t, i) => (
                           <tr key={t.id} className="border-b last:border-0 hover:bg-gray-50">
                             <td className="p-3 font-medium">{t.name}</td><td className="p-3">{t.club}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${t.category==='U50'?'bg-green-100 text-green-700':'bg-purple-100 text-purple-700'}`}>{CATEGORIES[t.category]}</span></td>
                             <td className="p-3"><span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">Lvl {t.level}</span></td>
+                            <td className="p-3 text-center">
+                              <button onClick={() => handleEditTeam(t)} className="text-gray-500 hover:text-blue-600 mx-1 transition" title="Edit"><Edit2 size={16} /></button>
+                              <button onClick={() => handleDeleteTeam(t.id)} className="text-gray-500 hover:text-red-600 mx-1 transition" title="Delete"><Trash2 size={16} /></button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -653,7 +826,7 @@ export default function App() {
                    <button onClick={() => fillMissingScores('Group')} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition">
                      Auto-Fill Group Scores
                    </button>
-                   <button onClick={generateKO} disabled={matches.length === 0} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-green-700 transition flex items-center">
+                   <button onClick={handleGenerateKOClick} disabled={matches.length === 0} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-green-700 transition flex items-center">
                       <Trophy size={18} className="mr-2"/> Gen K.O. Bracket (Day 2)
                    </button>
                  </div>
@@ -832,6 +1005,32 @@ export default function App() {
                  <CheckCircle size={18} className="mr-2" /> Save Result
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- K.O. OPTIONS MODAL --- */}
+      {showKoOptions && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="bg-blue-900 p-4 flex justify-between items-center text-white">
+               <h3 className="font-bold">Configure K.O. Bracket</h3>
+               <button onClick={() => setShowKoOptions(false)}><X size={20}/></button>
+            </div>
+            <div className="p-6 text-center">
+              <p className="text-gray-700 mb-6 text-sm">
+                With your current groups, qualifying only the <b>Top 2</b> teams will result in a mostly empty Quarter-Final round. <br/><br/>
+                Would you like to advance the <b>Top 3</b> teams from each group instead to fill out the bracket and schedule more placement matches?
+              </p>
+              <div className="flex space-x-3">
+                <button onClick={() => { setShowKoOptions(false); generateKO(3); }} className="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 shadow-sm transition">
+                   Advance Top 3
+                </button>
+                <button onClick={() => { setShowKoOptions(false); generateKO(2); }} className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-bold hover:bg-gray-300 transition">
+                   Keep Top 2
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
