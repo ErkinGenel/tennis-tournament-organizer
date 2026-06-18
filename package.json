@@ -5,21 +5,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-<<<<<<< HEAD
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
-=======
 	  "dev": "vite",
 	  "build": "vite build",
 	  "lint": "eslint .",
 	  "preview": "vite preview",
 	  "predeploy": "npm run build",
 	  "deploy": "gh-pages -d dist"
->>>>>>> d1b63ba14b7f7a9ca09fc1f7ca8a0ad3a7bd68c5
   },
   "dependencies": {
     "firebase": "^12.15.0",
