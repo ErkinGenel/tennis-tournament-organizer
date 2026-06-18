@@ -3,8 +3,27 @@ import {
   Users, Calendar, Trophy, GitCommit, Printer, PlusCircle,
   Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward,
   Trash2, Edit2, Download, Upload, Clock, Award, Tv, Monitor as MonitorIcon,
-  Smartphone, LogOut, User
+  Smartphone, LogOut, User, AlertTriangle
 } from 'lucide-react';
+
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
+
+// --- FIREBASE CONFIGURATION ---
+// Directly using your provided Firebase credentials
+const firebaseConfig = {
+  apiKey: "AIzaSyAfyaZQZ0Cic3FdV_IuhgDfz1p6vJVm9jw",
+  authDomain: "tennis-organizer-d9ee2.firebaseapp.com",
+  projectId: "tennis-organizer-d9ee2",
+  storageBucket: "tennis-organizer-d9ee2.firebasestorage.app",
+  messagingSenderId: "154827866148",
+  appId: "1:154827866148:web:606ca072fd424e6c5618b1"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // --- Constants & Config ---
 const COURTS = 6;
@@ -56,11 +75,13 @@ const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // --- Main Application Component ---
 export default function App() {
+  // App Modes: 'login', 'organizer', 'monitor', 'player'
   const [appMode, setAppMode] = useState(sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [loggedInTeamId, setLoggedInTeamId] = useState(null);
   const [playerTab, setPlayerTab] = useState('matches'); // Mobile tab state
+  const [user, setUser] = useState(null);
   
   const [activeTab, setActiveTab] = useState('registration');
   const [teams, setTeams] = useState([]);
@@ -74,51 +95,60 @@ export default function App() {
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
   const [scoreModal, setScoreModal] = useState(null);
+  const [koPrompt, setKoPrompt] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   
   // Simulation State
   const [simState, setSimState] = useState('idle');
   const [koQualifyCount, setKoQualifyCount] = useState(2); // Top 2 or Top 3
-
-  // --- Monitor Sync & State Engine ---
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
-  // 1. Organizer broadcasts data to the TV
+  // --- FIREBASE CLOUD SYNC ENGINE ---
+  
+  // 1. Authenticate silently for database access
   useEffect(() => {
-    if (appMode === 'organizer') {
-      const stateToSync = { teams, groups, matches, brackets, day1Start, day2Start };
-      localStorage.setItem('tennis_tournament_sync', JSON.stringify(stateToSync));
-    }
-  }, [teams, groups, matches, brackets, day1Start, day2Start, appMode]);
+    signInAnonymously(auth).catch(err => console.error("Firebase Auth Error:", err));
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
 
-  // 2. TV Monitor Data Sync
+  // 2. Organizer saves data TO Firebase automatically
   useEffect(() => {
-    if (appMode === 'monitor') {
-      const loadSyncData = () => {
-        const stored = localStorage.getItem('tennis_tournament_sync');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.teams) setTeams(parsed.teams);
-          if (parsed.groups) setGroups(parsed.groups);
-          if (parsed.matches) setMatches(parsed.matches);
-          if (parsed.brackets) setBrackets(parsed.brackets);
-          if (parsed.day1Start) setDay1Start(parsed.day1Start);
-          if (parsed.day2Start) setDay2Start(parsed.day2Start);
+    const syncToCloud = async () => {
+      if (appMode === 'organizer' && user) {
+        try {
+          await setDoc(doc(db, 'tournaments', 'liveState'), {
+            teams, groups, matches, brackets, day1Start, day2Start, lastUpdated: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("Failed to push updates:", error);
         }
-      };
-      loadSyncData();
+      }
+    };
+    const timeoutId = setTimeout(syncToCloud, 800); // 800ms debounce
+    return () => clearTimeout(timeoutId);
+  }, [teams, groups, matches, brackets, day1Start, day2Start, appMode, user]);
 
-      const handleStorage = (e) => {
-        if (e.key === 'tennis_tournament_sync') loadSyncData();
-      };
-      window.addEventListener('storage', handleStorage);
+  // 3. Monitors & Players receive data FROM Firebase automatically
+  useEffect(() => {
+    if (!user || appMode === 'organizer') return;
 
-      return () => {
-        window.removeEventListener('storage', handleStorage);
-      };
-    }
-  }, [appMode]);
+    const unsubscribe = onSnapshot(doc(db, 'tournaments', 'liveState'), (docSnap) => {
+      if (docSnap.exists()) {
+        const liveData = docSnap.data();
+        if (liveData.teams) setTeams(liveData.teams);
+        if (liveData.groups) setGroups(liveData.groups);
+        if (liveData.matches) setMatches(liveData.matches);
+        if (liveData.brackets) setBrackets(liveData.brackets);
+        if (liveData.day1Start) setDay1Start(liveData.day1Start);
+        if (liveData.day2Start) setDay2Start(liveData.day2Start);
+      }
+    });
 
-  // 3. TV Monitor Clock
+    return () => unsubscribe();
+  }, [user, appMode]);
+
+  // --- TV Monitor Logic ---
   useEffect(() => {
     if (appMode === 'monitor') {
       const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
@@ -126,7 +156,6 @@ export default function App() {
     }
   }, [appMode]);
 
-  // 4. TV Monitor Dynamic Slideshow
   useEffect(() => {
     if (appMode === 'monitor') {
       let activeSlides = ['groups', 'schedule']; // Default rotation before KO stage
@@ -147,7 +176,6 @@ export default function App() {
       const rotateInt = setInterval(() => {
         setActiveTab(prev => {
            const currentIndex = activeSlides.indexOf(prev);
-           // If current tab is not in the active slides (or we just switched phases), start at index 0
            const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % activeSlides.length;
            return activeSlides[nextIndex];
         });
@@ -165,7 +193,6 @@ export default function App() {
       setAppMode('organizer');
       setAuthError('');
     } else {
-      // Check if it's a team PIN
       const foundTeam = teams.find(t => t.pin === passwordInput);
       if (foundTeam) {
         setAppMode('player');
@@ -211,7 +238,7 @@ export default function App() {
     const names = team.name.split(' / ');
     setRegForm({
       p1Name: names[0] || '', p2Name: names[1] || '',
-      p1Club: team.clubs[0] || '', p2Club: team.clubs[1] || team.clubs[0] || '',
+      p1Club: team.p1Club || team.clubs[0] || '', p2Club: team.p2Club || team.clubs[1] || team.clubs[0] || '',
       level: team.level.toString(), category: team.category
     });
     setEditingTeam(team);
@@ -219,12 +246,11 @@ export default function App() {
   };
 
   const handleDelete = (id) => {
-    if(window.confirm('Delete this team?')) {
-      setTeams(teams.filter(t => t.id !== id));
-      setGroups({ U50: {}, O50: {} });
-      setMatches([]);
-      setBrackets({ U50: null, O50: null });
-    }
+    setTeams(teams.filter(t => t.id !== id));
+    setGroups({ U50: {}, O50: {} });
+    setMatches([]);
+    setBrackets({ U50: null, O50: null });
+    setConfirmDelete(null);
   };
 
   const loadMockData = () => {
@@ -251,10 +277,9 @@ export default function App() {
     const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tennis_tournament_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `tennis_tournament_live_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -281,8 +306,10 @@ export default function App() {
            
            if (data.matches && data.matches.length > 0) setActiveTab('schedule');
         }
+        setAuthError('');
       } catch (err) {
-        alert('Invalid file format');
+        setAuthError('Error: Invalid JSON file format.');
+        setTimeout(() => setAuthError(''), 4000);
       }
     };
     reader.readAsText(file);
@@ -351,7 +378,6 @@ export default function App() {
     setMatches(newMatches);
   };
 
-  // Automated Scoring Logic
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
     setMatches(prev => prev.map(m => {
       const isStageMatch = stageFilter === '' || m.stage === stageFilter || (stageFilter === 'Placement' && m.stage === 'Placement');
@@ -426,22 +452,22 @@ export default function App() {
   }, [teams, groups, matches]);
 
   // --- K.O. Bracket Generation Logic ---
-  const generateKO = (forceQualifyCount = null) => {
-    let qualCount = forceQualifyCount || koQualifyCount;
+  const handleKoGeneration = () => {
+    let needsPrompt = false;
+    ['U50', 'O50'].forEach(cat => {
+      const groupCount = Object.keys(groups[cat]).length;
+      if (groupCount > 0 && groupCount <= 2 && koQualifyCount === 2) needsPrompt = true;
+    });
 
-    // Check if we need to prompt for Top 3
-    if (!forceQualifyCount && simState === 'idle') {
-      let needsPrompt = false;
-      ['U50', 'O50'].forEach(cat => {
-        const groupCount = Object.keys(groups[cat]).length;
-        if (groupCount > 0 && groupCount <= 2 && qualCount === 2) needsPrompt = true;
-      });
-      if (needsPrompt && window.confirm("You have 2 or fewer groups. Advancing only Top 2 will leave the bracket mostly empty. Do you want to advance the Top 3 teams from each group instead?")) {
-         qualCount = 3;
-         setKoQualifyCount(3);
-      }
+    if (needsPrompt && simState === 'idle') {
+      setKoPrompt(true);
+    } else {
+      generateKO(koQualifyCount);
     }
+  };
 
+  const generateKO = (qualCount) => {
+    setKoQualifyCount(qualCount);
     const newBrackets = { U50: null, O50: null };
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
@@ -473,7 +499,6 @@ export default function App() {
 
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
 
-      // Build Base Nodes
       const qfNodes = [
         { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
         { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
@@ -498,7 +523,6 @@ export default function App() {
         { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null }
       ];
 
-      // Schedule QFs
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
            newMatches.push({
@@ -510,7 +534,6 @@ export default function App() {
         }
       });
 
-      // Initialize SFs and Final Placement Matches (empty to be filled)
       [...sfNodes, ...pSfNodes].forEach(node => {
          newMatches.push({
            id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', 
@@ -533,6 +556,7 @@ export default function App() {
 
     setBrackets(newBrackets);
     setMatches(newMatches);
+    setKoPrompt(false);
   };
 
   useEffect(() => {
@@ -548,7 +572,6 @@ export default function App() {
        else if (targetMatch && !targetMatch.team2 && targetMatch.team1.id !== team.id) { targetMatch.team2 = team; changesMade = true; }
     };
 
-    // Auto-advance winners/losers
     matches.filter(m => (m.stage === 'KO' || m.stage === 'Placement') && m.winnerId).forEach(m => {
        const winner = m.winnerId === m.team1.id ? m.team1 : m.team2;
        const loser = m.winnerId === m.team1.id ? m.team2 : m.team1;
@@ -556,7 +579,6 @@ export default function App() {
        pushToNode(m.nextLoserId, loser);
     });
 
-    // Auto-advance Byes
     ['U50', 'O50'].forEach(cat => {
       if(brackets[cat]) {
         brackets[cat].qf.forEach(qf => {
@@ -579,27 +601,21 @@ export default function App() {
       const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team1 : m.team2) : null; };
       const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team2 : m.team1) : null; };
 
-      const r1 = getWinner(`final_${cat}`);
-      const r2 = getLoser(`final_${cat}`);
-      const r3 = getWinner(`place_3_${cat}`);
-      const r4 = getLoser(`place_3_${cat}`);
-      const r5 = getWinner(`place_5_${cat}`);
-      const r6 = getLoser(`place_5_${cat}`);
-      const r7 = getWinner(`place_7_${cat}`);
-      const r8 = getLoser(`place_7_${cat}`);
+      const top8 = [
+        getWinner(`final_${cat}`), getLoser(`final_${cat}`),
+        getWinner(`place_3_${cat}`), getLoser(`place_3_${cat}`),
+        getWinner(`place_5_${cat}`), getLoser(`place_5_${cat}`),
+        getWinner(`place_7_${cat}`), getLoser(`place_7_${cat}`)
+      ];
 
-      const top8 = [r1, r2, r3, r4, r5, r6, r7, r8];
       top8.forEach((team, idx) => {
          if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team });
       });
 
-      // Append remaining group stage teams
       const placedIds = ranks[cat].map(r => r.team.id);
       let remaining = [];
       Object.values(standings[cat]).forEach(groupSt => {
-         groupSt.forEach(t => {
-           if (!placedIds.includes(t.id)) remaining.push(t);
-         });
+         groupSt.forEach(t => { if (!placedIds.includes(t.id)) remaining.push(t); });
       });
 
       remaining.sort((a, b) => {
@@ -609,9 +625,7 @@ export default function App() {
          return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
       });
 
-      remaining.forEach((team, idx) => {
-         ranks[cat].push({ rank: ranks[cat].length + 1, team });
-      });
+      remaining.forEach((team) => ranks[cat].push({ rank: ranks[cat].length + 1, team }));
     });
     return ranks;
   }, [matches, brackets, standings]);
@@ -649,7 +663,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [simState]);
 
-
   const renderScore = (score) => {
     if (!score) return <span className="text-gray-400">vs</span>;
     let text = `${score.s1[0]}:${score.s1[1]} | ${score.s2[0]}:${score.s2[1]}`;
@@ -662,8 +675,9 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
         {/* Organizer / Player Login */}
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200 mb-6">
-          <div className="flex justify-center mb-6">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full border border-gray-200 mb-6 relative overflow-hidden">
+          {authError && <div className="absolute top-0 left-0 w-full bg-red-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
+          <div className="flex justify-center mb-6 mt-4">
             <div className="bg-blue-100 p-4 rounded-full flex space-x-2">
               <Lock className="h-8 w-8 text-blue-800" />
               <Smartphone className="h-8 w-8 text-blue-600" />
@@ -673,7 +687,6 @@ export default function App() {
           <p className="text-center text-gray-500 text-sm mb-6">Enter Organizer Password or 4-Digit Team PIN</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg text-center tracking-widest font-bold" placeholder="Password or PIN" required />
-            {authError && <p className="text-red-500 text-sm text-center font-medium">{authError}</p>}
             <button type="submit" className="w-full bg-blue-700 text-white p-3 rounded-lg font-bold hover:bg-blue-800 shadow-sm">Login</button>
           </form>
           
@@ -682,7 +695,7 @@ export default function App() {
             <p className="text-xs text-gray-400 mb-2">Have a tournament file?</p>
             <label className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded cursor-pointer transition">
                Load Data File
-               <input type="file" accept=".json" className="hidden" onChange={(e) => {handleImportTournament(e); setAuthError('Data loaded! Enter PIN.');}} />
+               <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
             </label>
           </div>
         </div>
@@ -691,7 +704,7 @@ export default function App() {
         <div className="bg-slate-900 p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-700 text-center">
            <Tv className="h-10 w-10 text-indigo-400 mx-auto mb-4" />
            <h3 className="font-bold text-white text-xl mb-2">TV Monitor Mode</h3>
-           <p className="text-sm text-slate-400 mb-6">Launch a read-only, dark-mode dashboard that auto-syncs with the Organizer.</p>
+           <p className="text-sm text-slate-400 mb-6">Launch a read-only, dark-mode dashboard that auto-syncs with Firebase.</p>
            <button onClick={() => setAppMode('monitor')} className="w-full bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-500 shadow-lg flex items-center justify-center">
              <MonitorIcon size={20} className="mr-2" /> Launch Monitor
            </button>
@@ -705,7 +718,6 @@ export default function App() {
     const myTeam = teams.find(t => t.id === loggedInTeamId);
     if (!myTeam) { setAppMode('login'); return null; }
 
-    // Find Team's Group
     let myGroupTeams = [];
     let myGroupName = 'TBD';
     if (groups[myTeam.category]) {
@@ -717,7 +729,6 @@ export default function App() {
       });
     }
 
-    // Find Team's Matches
     const myMatches = matches.filter(m => m.team1?.id === myTeam.id || m.team2?.id === myTeam.id);
     const scheduledMatches = myMatches.filter(m => m.time !== null && !m.team1?.isBye && !m.team2?.isBye).sort((a,b) => {
       if(a.day !== b.day) return a.day - b.day;
@@ -726,10 +737,8 @@ export default function App() {
 
     return (
       <div className="bg-gray-900 min-h-screen flex justify-center">
-        {/* Smartphone Container (9:16 aspect ratio limits) */}
         <div className="w-full max-w-[400px] bg-gray-50 min-h-screen flex flex-col shadow-2xl relative">
           
-          {/* Mobile Header */}
           <header className="bg-blue-700 text-white pt-8 pb-6 px-5 rounded-b-3xl shadow-md z-10">
             <div className="flex justify-between items-start mb-4">
               <div className="bg-blue-800 p-2 rounded-full"><User size={24} className="text-blue-200" /></div>
@@ -745,10 +754,7 @@ export default function App() {
             </div>
           </header>
 
-          {/* Mobile Content Area */}
           <main className="flex-1 overflow-y-auto p-5 pb-24">
-            
-            {/* Matches Tab */}
             {playerTab === 'matches' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <h2 className="text-lg font-bold text-gray-800 flex items-center"><Calendar className="mr-2 text-blue-600" size={20}/> My Schedule</h2>
@@ -789,7 +795,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Group Tab */}
             {playerTab === 'group' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <h2 className="text-lg font-bold text-gray-800 flex items-center"><GitCommit className="mr-2 text-blue-600" size={20}/> {myGroupName}</h2>
@@ -812,7 +817,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Ranking Tab */}
             {playerTab === 'rankings' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <h2 className="text-lg font-bold text-gray-800 flex items-center"><Award className="mr-2 text-amber-500" size={20}/> Leaderboard</h2>
@@ -830,11 +834,9 @@ export default function App() {
                 )}
               </div>
             )}
-
           </main>
 
-          {/* Mobile Bottom Navigation */}
-          <nav className="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+          <nav className="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
              <button onClick={() => setPlayerTab('matches')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'matches' ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`}>
                <Calendar size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Matches</span>
              </button>
@@ -862,7 +864,6 @@ export default function App() {
 
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 font-sans p-8 flex flex-col">
-        {/* TV Header */}
         <header className="flex justify-between items-center mb-10 border-b border-slate-700 pb-6">
           <div className="flex items-center space-x-5">
             <Tv className="h-12 w-12 text-indigo-400" />
@@ -885,10 +886,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* TV Content Area */}
         <main className="flex-1 overflow-hidden">
-          
-          {/* Monitor: SCHEDULE */}
           {activeTab === 'schedule' && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {[1, 2].map(day => {
@@ -920,7 +918,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Monitor: GROUPS */}
           {activeTab === 'groups' && (
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                {['U50', 'O50'].map(cat => {
@@ -953,7 +950,6 @@ export default function App() {
              </div>
           )}
 
-          {/* Monitor: RANKINGS */}
           {activeTab === 'rankings' && (
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                 {['U50', 'O50'].map(cat => {
@@ -979,7 +975,6 @@ export default function App() {
              </div>
           )}
 
-          {/* Monitor: BRACKET */}
           {activeTab === 'bracket' && (
              <div className="overflow-x-auto pb-12 flex flex-col space-y-16">
                {['U50', 'O50'].map(cat => {
@@ -1052,7 +1047,6 @@ export default function App() {
                })}
              </div>
           )}
-
         </main>
       </div>
     );
@@ -1060,8 +1054,7 @@ export default function App() {
 
   // --- UI RENDER: ORGANIZER MODE ---
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-12">
-      {/* Top Header */}
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans pb-12 relative">
       <header className="bg-blue-900 text-white shadow-md print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
@@ -1069,13 +1062,12 @@ export default function App() {
             <h1 className="text-2xl font-bold hidden md:block">Tennis Tournament Organizer</h1>
           </div>
           <div className="flex space-x-2 sm:space-x-3">
-            {/* IO Buttons */}
             <label className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded-lg cursor-pointer transition text-sm sm:text-base">
-               <Upload size={18} /> <span className="hidden sm:inline">Load File</span>
+               <Upload size={18} /> <span className="hidden sm:inline">Load</span>
                <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
             </label>
             <button onClick={handleExportTournament} className="flex items-center space-x-2 bg-blue-800 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base">
-               <Download size={18} /> <span className="hidden sm:inline">Save File</span>
+               <Download size={18} /> <span className="hidden sm:inline">Save</span>
             </button>
             <div className="w-px bg-blue-700 mx-1 sm:mx-2"></div>
             
@@ -1094,10 +1086,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
         
-        {/* Navigation Tabs */}
         <div className="flex space-x-1 bg-gray-200 p-1 rounded-xl mb-8 print:hidden overflow-x-auto">
           {[
             { id: 'registration', icon: Users, label: 'Registration' },
@@ -1134,7 +1124,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Time Configuration */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <div className="flex items-center space-x-3">
                    <Clock className="text-blue-600" />
@@ -1149,7 +1138,6 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Form */}
                 <div className="col-span-1 bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
                   <h3 className="font-bold text-lg mb-4 flex items-center">
                     {editingTeam ? <Edit2 size={18} className="mr-2 text-amber-500"/> : <PlusCircle size={18} className="mr-2 text-blue-600"/>} 
@@ -1193,7 +1181,6 @@ export default function App() {
                   </form>
                 </div>
                 
-                {/* List */}
                 <div className="col-span-2">
                   <div className="flex justify-between items-center mb-4">
                      <h3 className="font-bold text-lg">Registered Teams ({teams.length})</h3>
@@ -1205,23 +1192,23 @@ export default function App() {
                           <th className="p-3 border-b w-1/3">Team</th>
                           <th className="p-3 border-b w-1/4">Clubs</th>
                           <th className="p-3 border-b w-20">Cat</th>
-                          <th className="p-3 border-b w-16">Lvl</th>
                           <th className="p-3 border-b w-16 text-center text-blue-600">PIN</th>
-                          <th className="p-3 border-b w-20"></th>
+                          <th className="p-3 border-b w-24"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {teams.length === 0 ? <tr><td colSpan="6" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
+                        {teams.length === 0 ? <tr><td colSpan="5" className="p-6 text-center text-gray-500">No teams registered yet.</td></tr> : 
                          teams.map((t) => (
                           <tr key={t.id} className={`border-b last:border-0 hover:bg-blue-50 transition ${editingTeam?.id === t.id ? 'bg-amber-50' : ''}`}>
                             <td className="p-3 font-medium text-gray-800 truncate">{t.name}</td>
                             <td className="p-3 text-xs text-gray-500 truncate">{t.clubs.join(' / ') || 'No Club'}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold ${t.category==='U50'?'bg-green-100 text-green-700':'bg-purple-100 text-purple-700'}`}>{t.category}</span></td>
-                            <td className="p-3"><span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">Lvl {t.level}</span></td>
                             <td className="p-3 text-center font-mono font-bold text-blue-700">{t.pin}</td>
                             <td className="p-3 text-right space-x-2">
                                <button onClick={() => handleEdit(t)} className="text-gray-400 hover:text-amber-500 transition"><Edit2 size={16}/></button>
-                               <button onClick={() => handleDelete(t.id)} className="text-gray-400 hover:text-red-500 transition"><Trash2 size={16}/></button>
+                               <button onClick={() => confirmDelete === t.id ? handleDelete(t.id) : setConfirmDelete(t.id)} className={`transition ${confirmDelete === t.id ? 'text-white bg-red-500 px-2 rounded font-bold' : 'text-gray-400 hover:text-red-500'}`}>
+                                  {confirmDelete === t.id ? 'Sure?' : <Trash2 size={16}/>}
+                               </button>
                             </td>
                           </tr>
                         ))}
@@ -1299,7 +1286,7 @@ export default function App() {
                    <button onClick={() => fillMissingScores('Group')} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition">
                      Auto-Fill Group Scores
                    </button>
-                   <button onClick={() => generateKO(null)} disabled={matches.length === 0} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-green-700 transition flex items-center">
+                   <button onClick={handleKoGeneration} disabled={matches.length === 0} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium shadow-sm hover:bg-green-700 transition flex items-center">
                       <Trophy size={18} className="mr-2"/> Gen K.O. Bracket (Day 2)
                    </button>
                  </div>
@@ -1480,14 +1467,13 @@ export default function App() {
                })}
              </div>
           )}
-
         </div>
       </main>
 
       {/* --- SCORE ENTRY MODAL --- */}
       {scoreModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 print:hidden p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
             <div className="bg-blue-900 p-4 flex justify-between items-center text-white">
                <h3 className="font-bold">Enter Match Score</h3>
                <button onClick={() => setScoreModal(null)}><X size={20}/></button>
@@ -1515,6 +1501,35 @@ export default function App() {
                  <CheckCircle size={18} className="mr-2" /> Save Result
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- K.O. GENERATION PROMPT MODAL --- */}
+      {koPrompt && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
+            <div className="bg-amber-500 p-4 flex justify-between items-center text-white">
+               <h3 className="font-bold flex items-center"><AlertTriangle size={20} className="mr-2"/> Small Group Warning</h3>
+               <button onClick={() => setKoPrompt(false)}><X size={20}/></button>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-6 font-medium">
+                You have 2 or fewer groups. If you only advance the <strong>Top 2</strong> teams from each group, 
+                your Quarter-Finals and 5th-8th placement matches will be mostly empty (BYEs).
+              </p>
+              <p className="text-gray-700 mb-8 font-medium">
+                Would you like to automatically advance the <strong>Top 3</strong> teams from each group instead to fill out the bracket?
+              </p>
+              <div className="flex space-x-4">
+                <button onClick={() => generateKO(2)} className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-bold hover:bg-gray-300">
+                   No, stick to Top 2
+                </button>
+                <button onClick={() => generateKO(3)} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">
+                   Yes, advance Top 3
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
