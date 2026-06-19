@@ -14,8 +14,8 @@ import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 // (If you save the images to your PC, put them in the "public" folder and type "/logo.png")
 // ==========================================
 const BRAND = {
-  logo: "https://api.dicebear.com/7.x/initials/svg?seed=TCW&backgroundColor=ffffff&textColor=b91c1c", 
-  banner: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?auto=format&fit=crop&w=2000&q=80", 
+  logo: "https://tcwannweil.com/wp-content/uploads/Logo-50-Jahre.png", 
+  banner: "https://tcwannweil.com/wp-content/uploads/image1000099.jpg?auto=format&fit=crop&w=2000&q=80", 
   name: "TC Wannweil"
 };
 // ==========================================
