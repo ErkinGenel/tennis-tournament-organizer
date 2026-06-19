@@ -849,7 +849,7 @@ export default function App() {
           </div>
           <div className="relative z-10 flex w-full justify-between items-center p-6">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl border-4 border-red-600">
+                <div className="h-20 w-20 rounded-full flex items-center justify-center p-1 shadow-2xl border-4">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <div>
@@ -1035,7 +1035,7 @@ export default function App() {
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-lg border-2 border-red-600">
+            <div className="h-14 w-14 rounded-full flex items-center justify-center p-0.5 shadow-lg border-2">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
             </div>
             <div>
