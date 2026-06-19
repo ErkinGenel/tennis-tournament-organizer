@@ -443,20 +443,18 @@ export default function App() {
       });
     });
     return calculatedStandings;
-  }, [teams, groups, matches]);
-
-  const handleKoGeneration = () => {
+  }, [teams, groups, matches]);const handleKoGeneration = () => {
     let needsPrompt = false;
     ['U50', 'O50'].forEach(cat => {
       const groupCount = Object.keys(groups[cat]).length;
-      if (groupCount > 0 && groupCount <= 2 && koQualifyCount === 2) needsPrompt = true;
+      if (groupCount > 0 && groupCount * koQualifyCount < 8) needsPrompt = true;
     });
 
     if (needsPrompt && simState === 'idle') setKoPrompt(true);
-    else generateKO(koQualifyCount);
+    else generateKO(koQualifyCount, false);
   };
 
-  const generateKO = (qualCount) => {
+  const generateKO = (qualCount, useWildcards = false) => {
     setKoQualifyCount(qualCount);
     const newBrackets = { U50: null, O50: null };
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
@@ -472,10 +470,30 @@ export default function App() {
 
     ['U50', 'O50'].forEach(cat => {
       let qualifiers = [];
+      let remainingTeams = []; // Store non-qualifiers for potential wildcards
+
       Object.values(standings[cat]).forEach(groupStandings => {
-        for(let i=0; i<qualCount; i++) if (groupStandings[i]) qualifiers.push({ ...groupStandings[i], seedType: `${i+1}st` });
+        groupStandings.forEach((team, i) => {
+           if (i < qualCount) qualifiers.push({ ...team, seedType: `${i+1}st` });
+           else remainingTeams.push(team);
+        });
       });
       if (qualifiers.length === 0) return;
+
+      // --- Wildcard Logic ---
+      if (useWildcards && qualifiers.length < 8) {
+         remainingTeams.sort((a, b) => {
+           if (b.won !== a.won) return b.won - a.won;
+           const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
+           if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
+           return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
+         });
+         
+         const needed = 8 - qualifiers.length;
+         const wildcards = remainingTeams.slice(0, needed).map(t => ({ ...t, seedType: `Wildcard` }));
+         qualifiers = [...qualifiers, ...wildcards];
+      }
+      // ----------------------
 
       qualifiers.sort((a, b) => {
         if (a.seedType !== b.seedType) return a.seedType.localeCompare(b.seedType);
@@ -483,6 +501,7 @@ export default function App() {
         return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
       });
 
+      qualifiers = qualifiers.slice(0, 8); // Ensure exactly 8 max
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
 
       const qfNodes = [
@@ -612,13 +631,9 @@ export default function App() {
     const timer = setTimeout(() => {
       switch (simState) {
         case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
-        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
-        case 'schedule': generateSchedule(); setActiveTab('schedule'); setSimState('group_scores'); break;
-        case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
+        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
         case 'ko': 
-          let autoQualCount = 2;
-          ['U50', 'O50'].forEach(cat => { if (Object.keys(groups[cat]).length > 0 && Object.keys(groups[cat]).length <= 2) autoQualCount = 3; });
-          generateKO(autoQualCount); 
+          generateKO(2, true); // Auto-fill empty slots with wildcards in sim mode
           setActiveTab('bracket'); 
           setSimState('ko_qf_scores'); 
           break;
@@ -1450,29 +1465,27 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* --- K.O. GENERATION PROMPT MODAL --- */}
+{/* --- K.O. GENERATION PROMPT MODAL --- */}
       {koPrompt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
             <div className="bg-amber-500 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold flex items-center"><AlertTriangle size={20} className="mr-2"/> Small Group Warning</h3>
+               <h3 className="font-bold flex items-center"><AlertTriangle size={20} className="mr-2"/> Bracket Setup Required</h3>
                <button onClick={() => setKoPrompt(false)} className="hover:text-amber-100 transition"><X size={20}/></button>
             </div>
             <div className="p-6">
               <p className="text-slate-700 mb-6 font-medium">
-                You have 2 or fewer groups. If you only advance the <strong className="text-slate-900">Top 2</strong> teams from each group, 
-                your Quarter-Finals and 5th-8th placement matches will be mostly empty (BYEs).
+                You don't have enough groups to perfectly fill an 8-team Quarter-Final using only the Top {koQualifyCount} teams. How would you like to fill the empty slots?
               </p>
-              <p className="text-slate-700 mb-8 font-medium">
-                Would you like to automatically advance the <strong className="text-slate-900">Top 3</strong> teams from each group instead to fill out the bracket?
-              </p>
-              <div className="flex space-x-4">
-                <button onClick={() => generateKO(2)} className="flex-1 bg-slate-200 text-slate-800 py-3 rounded-lg font-bold hover:bg-slate-300 transition">
-                   No, stick to Top 2
+              <div className="flex flex-col space-y-3">
+                <button onClick={() => generateKO(2, false)} className="bg-slate-100 text-slate-800 py-3 px-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex justify-between items-center">
+                   <span>1. Leave slots empty</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Uses BYEs</span>
                 </button>
-                <button onClick={() => generateKO(3)} className="flex-1 bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 shadow-md transition">
-                   Yes, advance Top 3
+                <button onClick={() => generateKO(2, true)} className="bg-red-50 text-red-800 border border-red-200 py-3 px-4 rounded-lg font-bold hover:bg-red-100 transition text-left flex justify-between items-center shadow-sm">
+                   <span>2. Take the best remaining teams</span> <span className="text-xs bg-red-700 text-white px-2 py-1 rounded">Recommended Wildcards</span>
+                </button>
+                <button onClick={() => generateKO(3, false)} className="bg-slate-100 text-slate-800 py-3 px-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex justify-between items-center">
+                   <span>3. Advance Top 3 from all groups</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Strict cutoff</span>
                 </button>
               </div>
             </div>
