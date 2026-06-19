@@ -721,7 +721,7 @@ export default function App() {
             </div>
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-lg border-2 border-red-600">
+                <div className="h-14 w-14 rounded-full flex items-center justify-center p-0.5 shadow-lg border-2">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <button onClick={handleLogout} className="text-red-300 hover:text-white p-2 bg-black/20 rounded-full backdrop-blur-sm">
