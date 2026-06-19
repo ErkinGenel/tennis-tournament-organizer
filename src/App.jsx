@@ -662,7 +662,7 @@ export default function App() {
         </div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-24 w-24 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl border-4 border-red-600 mb-6">
+          <div className="h-24 w-24 rounded-full flex items-center justify-center p-1 shadow-2xl border-4 mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
           </div>
           <div className="bg-white p-8 rounded-2xl shadow-2xl w-full border border-gray-200 mb-6 relative overflow-hidden">
