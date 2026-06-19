@@ -1,5 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Trophy, Users, Calendar, Trash2, Edit, Save, Upload, Monitor, LayoutDashboard, Clock, Smartphone, Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward, Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield } from 'lucide-react';
+import { 
+  Trophy, Users, Calendar, Trash2, Edit, Save, Upload, Monitor, LayoutDashboard, 
+  Clock, Smartphone, Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward, 
+  Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield, PlusCircle, Printer 
+} from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
@@ -668,7 +672,7 @@ export default function App() {
              <h3 className="font-bold text-white text-xl mb-2">TV Monitor Display</h3>
              <p className="text-sm text-slate-300 mb-6 font-medium">Launch the live tournament dashboard designed for large screens.</p>
              <button onClick={() => setAppMode('monitor')} className="w-full bg-slate-700 text-white p-3 rounded-lg font-bold hover:bg-slate-600 shadow-lg flex items-center justify-center border border-slate-600 transition">
-               <MonitorIcon size={20} className="mr-2" /> Launch Monitor
+               <Monitor size={20} className="mr-2" /> Launch Monitor
              </button>
           </div>
         </div>
