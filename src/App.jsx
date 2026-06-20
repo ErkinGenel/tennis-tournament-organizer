@@ -30,6 +30,7 @@ const fallbackConfig = {
   appId: "1:154827866148:web:606ca072fd424e6c5618b1"
 };
 
+
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : fallbackConfig;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -322,6 +323,10 @@ export default function App() {
     const newGroups = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
       const catTeams = teams.filter(t => t.category === cat).sort((a, b) => b.level - a.level);
+      
+      // FIX: If a category has no teams, skip it entirely and do not create groups.
+      if (catTeams.length === 0) return;
+
       const numGroups = Math.ceil(catTeams.length / 4) || 1;
       const groupArrays = Array.from({ length: numGroups }, () => []);
       let dir = 1; let gIndex = 0;
@@ -350,6 +355,7 @@ export default function App() {
     const timeSlots = generateTimeSlots(day1Start, 8);
     
     ['U50', 'O50'].forEach(cat => {
+      if (!groups[cat]) return; // Skip if no groups exist for this category
       Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
         for (let i = 0; i < groupTeams.length; i++) {
           for (let j = i + 1; j < groupTeams.length; j++) {
@@ -433,6 +439,7 @@ export default function App() {
 
     const calculatedStandings = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
+      if (!groups[cat]) return; // Skip if no groups exist
       Object.entries(groups[cat]).forEach(([gName, gTeams]) => {
         calculatedStandings[cat][gName] = gTeams.map(t => stats[t.id]).sort((a, b) => {
           if (b.won !== a.won) return b.won - a.won;
@@ -443,9 +450,12 @@ export default function App() {
       });
     });
     return calculatedStandings;
-  }, [teams, groups, matches]);const handleKoGeneration = () => {
+  }, [teams, groups, matches]);
+
+  const handleKoGeneration = () => {
     let needsPrompt = false;
     ['U50', 'O50'].forEach(cat => {
+      if (!groups[cat]) return;
       const groupCount = Object.keys(groups[cat]).length;
       if (groupCount > 0 && groupCount * koQualifyCount < 8) needsPrompt = true;
     });
@@ -469,8 +479,10 @@ export default function App() {
     };
 
     ['U50', 'O50'].forEach(cat => {
+      if (!standings[cat] || Object.keys(standings[cat]).length === 0) return; // Skip empty categories
+
       let qualifiers = [];
-      let remainingTeams = []; // Store non-qualifiers for potential wildcards
+      let remainingTeams = []; 
 
       Object.values(standings[cat]).forEach(groupStandings => {
         groupStandings.forEach((team, i) => {
@@ -604,9 +616,11 @@ export default function App() {
 
       const placedIds = ranks[cat].map(r => r.team.id);
       let remaining = [];
-      Object.values(standings[cat]).forEach(groupSt => {
-         groupSt.forEach(t => { if (!placedIds.includes(t.id)) remaining.push(t); });
-      });
+      if (standings[cat]) {
+        Object.values(standings[cat]).forEach(groupSt => {
+           groupSt.forEach(t => { if (!placedIds.includes(t.id)) remaining.push(t); });
+        });
+      }
 
       remaining.sort((a, b) => {
          if (b.won !== a.won) return b.won - a.won;
@@ -631,7 +645,9 @@ export default function App() {
     const timer = setTimeout(() => {
       switch (simState) {
         case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
-        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
+        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
+        case 'schedule': generateSchedule(); setActiveTab('schedule'); setSimState('group_scores'); break;
+        case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
         case 'ko': 
           generateKO(2, true); // Auto-fill empty slots with wildcards in sim mode
           setActiveTab('bracket'); 
@@ -662,7 +678,7 @@ export default function App() {
         </div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-24 w-24 rounded-full flex items-center justify-center p-1 shadow-2xl border-4 mb-6">
+          <div className="h-24 w-24 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl border-4 border-red-600 mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
           </div>
           <div className="bg-white p-8 rounded-2xl shadow-2xl w-full border border-gray-200 mb-6 relative overflow-hidden">
@@ -721,7 +737,7 @@ export default function App() {
             </div>
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 rounded-full flex items-center justify-center p-0.5 shadow-lg border-2">
+                <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-lg border-2 border-red-600">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <button onClick={handleLogout} className="text-red-300 hover:text-white p-2 bg-black/20 rounded-full backdrop-blur-sm">
@@ -849,7 +865,7 @@ export default function App() {
           </div>
           <div className="relative z-10 flex w-full justify-between items-center p-6">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 rounded-full flex items-center justify-center p-1 shadow-2xl border-4">
+                <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl border-4 border-red-600">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <div>
@@ -903,7 +919,7 @@ export default function App() {
           {activeTab === 'groups' && (
              <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
                {['U50', 'O50'].map(cat => {
-                 if (Object.keys(groups[cat]).length === 0) return null;
+                 if (!groups[cat] || Object.keys(groups[cat]).length === 0) return null;
                  return (
                    <div key={cat} className="space-y-6">
                      <h2 className="text-3xl font-bold text-red-400 border-b border-slate-700 pb-3">{CATEGORIES[cat]}</h2>
@@ -1035,7 +1051,7 @@ export default function App() {
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-14 w-14 rounded-full flex items-center justify-center p-0.5 shadow-lg border-2">
+            <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-lg border-2 border-red-600">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
             </div>
             <div>
@@ -1206,14 +1222,14 @@ export default function App() {
                    <button onClick={generateGroups} disabled={teams.length < 4} className="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold disabled:opacity-50 transition border border-slate-300">
                      1. Re-Generate Groups
                    </button>
-                   <button onClick={generateSchedule} disabled={Object.keys(groups.U50).length === 0} className="bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 transition">
+                   <button onClick={generateSchedule} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 transition">
                      2. Generate Schedule
                    </button>
                 </div>
               </div>
 
               {['U50', 'O50'].map(cat => (
-                 Object.keys(groups[cat]).length > 0 && (
+                 groups[cat] && Object.keys(groups[cat]).length > 0 && (
                    <div key={cat} className="mb-10 page-break-after">
                      <h2 className="text-2xl font-extrabold text-slate-800 mb-6 border-b-2 border-slate-100 pb-2 flex items-center">
                        {CATEGORIES[cat]} <span className="ml-3 text-sm bg-slate-100 px-3 py-1 rounded-full text-slate-600">{Object.keys(groups[cat]).length} Groups</span>
@@ -1465,7 +1481,8 @@ export default function App() {
           </div>
         </div>
       )}
-{/* --- K.O. GENERATION PROMPT MODAL --- */}
+
+      {/* --- K.O. GENERATION PROMPT MODAL --- */}
       {koPrompt && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
