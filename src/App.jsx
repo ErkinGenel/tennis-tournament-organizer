@@ -95,7 +95,8 @@ export default function App() {
   const [brackets, setBrackets] = useState({ U50: null, O50: null });
   
   const [day1Start, setDay1Start] = useState('09:30');
-  const [day2Start, setDay2Start] = useState('09:30');
+  const [day2Start, setDay2Start] = useState('14:30');
+  const [tournamentDays, setTournamentDays] = useState(2);
 
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
@@ -134,6 +135,7 @@ export default function App() {
         if (liveData.brackets) setBrackets(liveData.brackets);
         if (liveData.day1Start) setDay1Start(liveData.day1Start);
         if (liveData.day2Start) setDay2Start(liveData.day2Start);
+        if (liveData.tournamentDays) setTournamentDays(liveData.tournamentDays);
       }
     });
     return () => unsubscribe();
@@ -144,13 +146,13 @@ export default function App() {
       if (appMode === 'organizer' && user) {
         try {
           const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
-          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, day1Start, day2Start, lastUpdated: new Date().toISOString() });
+          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, lastUpdated: new Date().toISOString() });
         } catch (error) { console.error("Failed to push updates to live server:", error); }
       }
     };
     const timeoutId = setTimeout(syncToCloud, 800);
     return () => clearTimeout(timeoutId);
-  }, [teams, groups, matches, brackets, day1Start, day2Start, appMode, user, appId]);
+  }, [teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, appMode, user, appId]);
 
   // --- TV Monitor Logic ---
   useEffect(() => {
@@ -278,7 +280,7 @@ export default function App() {
   };
 
   const handleExportTournament = () => {
-    const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start });
+    const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start, tournamentDays });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -305,6 +307,7 @@ export default function App() {
            if (data.brackets) setBrackets(data.brackets);
            if (data.day1Start) setDay1Start(data.day1Start);
            if (data.day2Start) setDay2Start(data.day2Start);
+           if (data.tournamentDays) setTournamentDays(data.tournamentDays);
            if (data.matches && data.matches.length > 0) setActiveTab('schedule');
         }
         setAuthError('');
@@ -523,11 +526,12 @@ export default function App() {
     const newBrackets = { U50: null, O50: null };
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
+    const targetDay = tournamentDays;
     const day2Slots = generateTimeSlots(day2Start, 3);
     const timeQF = day2Slots[0]; const timeSF = day2Slots[1]; const timeFinal = day2Slots[2];
 
     const getAvailableCourt = (time) => {
-      const courtsInUse = newMatches.filter(m => m.day === 2 && m.time === time).map(m => m.court);
+      const courtsInUse = newMatches.filter(m => m.day === targetDay && m.time === time).map(m => m.court);
       for (let i = 1; i <= COURTS; i++) if (!courtsInUse.includes(i)) return i;
       return Math.floor(Math.random() * COURTS) + 1;
     };
@@ -594,16 +598,16 @@ export default function App() {
 
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
-           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Quarter-Final', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: 2, time: timeQF, court: getAvailableCourt(timeQF) });
+           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Quarter-Final', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
         }
       });
 
       [...sfNodes, ...pSfNodes].forEach(node => {
-         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: 2, time: timeSF, court: getAvailableCourt(timeSF) });
+         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeSF, court: getAvailableCourt(timeSF) });
       });
 
       finalNodes.forEach(node => {
-         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: 2, time: timeFinal, court: getAvailableCourt(timeFinal) });
+         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay, time: timeFinal, court: getAvailableCourt(timeFinal) });
       });
 
       newBrackets[cat] = { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes };
@@ -953,7 +957,7 @@ export default function App() {
                 return (
                   <div key={day} className="bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col h-full">
                     <div className="bg-red-800 text-white p-5 text-2xl font-bold uppercase tracking-wider">
-                      Day {day} Schedule
+                      {tournamentDays === 1 ? 'Tournament Schedule' : `Day ${day} Schedule`}
                     </div>
                     <div className="p-1">
                       <table className="w-full text-xl">
@@ -1181,16 +1185,28 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="flex items-center space-x-3">
-                   <Clock className="text-slate-600" />
-                   <div className="font-bold text-slate-700">Day 1 Start Time:</div>
-                   <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500" />
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-slate-200">
+                   <div className="flex items-center space-x-3 col-span-1 md:col-span-3">
+                     <Calendar className="text-slate-600" />
+                     <div className="font-bold text-slate-700">Tournament Duration:</div>
+                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border rounded-md font-bold text-slate-800 focus:ring-red-500 focus:border-red-500 bg-white shadow-sm">
+                       <option value={1}>1-Day Event (All matches on Day 1)</option>
+                       <option value={2}>2-Day Event (K.O. matches on Day 2)</option>
+                     </select>
+                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                   <Clock className="text-slate-600" />
-                   <div className="font-bold text-slate-700">Day 2 (K.O.) Start Time:</div>
-                   <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-3">
+                     <Clock className="text-slate-600" />
+                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'Group Stage Start:' : 'Day 1 Start Time:'}</div>
+                     <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                  </div>
+                  <div className="flex items-center space-x-3">
+                     <Clock className="text-slate-600" />
+                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'K.O. Stage Start:' : 'Day 2 (K.O.) Start Time:'}</div>
+                     <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                  </div>
                 </div>
               </div>
 
@@ -1368,8 +1384,10 @@ export default function App() {
                     return (
                       <div key={day} className="mb-8">
                         <h3 className="text-lg font-bold bg-slate-800 text-white p-4 rounded-t-2xl flex justify-between items-center shadow-sm">
-                          <span>Day {day} {day===1 ? '(Group Stage)' : '(Finals & Placements)'}</span>
-                          <span className="text-sm font-medium text-slate-300 bg-slate-700 px-3 py-1 rounded-full">Start: {day===1 ? day1Start : day2Start}</span>
+                          <span>{tournamentDays === 1 ? 'All Matches (1-Day Event)' : `Day ${day} ${day===1 ? '(Group Stage)' : '(Finals & Placements)'}`}</span>
+                          <span className="text-sm font-medium text-slate-300 bg-slate-700 px-3 py-1 rounded-full">
+                            {tournamentDays === 1 ? `Groups: ${day1Start} | K.O.: ${day2Start}` : `Start: ${day===1 ? day1Start : day2Start}`}
+                          </span>
                         </h3>
                         <div className="border-x border-b border-slate-200 rounded-b-2xl overflow-hidden bg-white shadow-sm">
                           <table className="w-full text-sm table-fixed">
