@@ -81,6 +81,7 @@ const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // --- Main Application Component ---
 export default function App() {
+  // --- 1. BASIC STATE ---
   const [appMode, setAppMode] = useState('login');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
@@ -111,11 +112,92 @@ export default function App() {
   const [koQualifyCount, setKoQualifyCount] = useState(2);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('de-DE'));
 
-  // --- NEW MONITOR STATE ---
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
 
-  // --- FIREBASE LOGIC ---
+  // --- 2. DERIVED STATE (MUST BE DEFINED BEFORE EFFECTS) ---
+  const standings = useMemo(() => {
+    const stats = {};
+    teams.forEach(t => { stats[t.id] = { ...t, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }; });
+
+    matches.filter(m => m.stage === 'Group' && m.score).forEach(m => {
+      const { s1, s2, tb } = m.score;
+      const t1 = stats[m.team1.id]; const t2 = stats[m.team2.id];
+      if(!t1 || !t2) return;
+
+      t1.played++; t2.played++;
+      if (m.winnerId === t1.id) { t1.won++; t2.lost++; }
+      else if (m.winnerId === t2.id) { t2.won++; t1.lost++; }
+
+      const addStats = (teamStats, oppStats, scoreArr) => {
+        if (!scoreArr || scoreArr.length !== 2) return;
+        teamStats.gamesWon += scoreArr[0] || 0; teamStats.gamesLost += scoreArr[1] || 0;
+        oppStats.gamesWon += scoreArr[1] || 0; oppStats.gamesLost += scoreArr[0] || 0;
+        if ((scoreArr[0] || 0) > (scoreArr[1] || 0)) { teamStats.setsWon++; oppStats.setsLost++; }
+        else if ((scoreArr[1] || 0) > (scoreArr[0] || 0)) { oppStats.setsWon++; teamStats.setsLost++; }
+      };
+
+      addStats(t1, t2, s1); addStats(t1, t2, s2);
+      if (tb && (tb[0] > 0 || tb[1] > 0)) addStats(t1, t2, tb);
+    });
+
+    const calculatedStandings = { U50: {}, O50: {} };
+    ['U50', 'O50'].forEach(cat => {
+      if (!groups[cat]) return; 
+      Object.entries(groups[cat]).forEach(([gName, gTeams]) => {
+        calculatedStandings[cat][gName] = gTeams.map(t => stats[t.id]).sort((a, b) => {
+          if (b.won !== a.won) return b.won - a.won;
+          const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
+          if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
+          return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
+        });
+      });
+    });
+    return calculatedStandings;
+  }, [teams, groups, matches]);
+
+  const finalRankings = useMemo(() => {
+    const ranks = { U50: [], O50: [] };
+    if (!brackets.U50 && !brackets.O50) return ranks;
+
+    ['U50', 'O50'].forEach(cat => {
+      const b = brackets[cat];
+      if (!b) return;
+      const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team1 : m.team2) : null; };
+      const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team2 : m.team1) : null; };
+
+      const top8 = [
+        getWinner(`final_${cat}`), getLoser(`final_${cat}`),
+        getWinner(`place_3_${cat}`), getLoser(`place_3_${cat}`),
+        getWinner(`place_5_${cat}`), getLoser(`place_5_${cat}`),
+        getWinner(`place_7_${cat}`), getLoser(`place_7_${cat}`)
+      ];
+
+      top8.forEach((team, idx) => {
+         if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team });
+      });
+
+      const placedIds = ranks[cat].map(r => r.team.id);
+      let remaining = [];
+      if (standings[cat]) {
+        Object.values(standings[cat]).forEach(groupSt => {
+           groupSt.forEach(t => { if (!placedIds.includes(t.id)) remaining.push(t); });
+        });
+      }
+
+      remaining.sort((a, b) => {
+         if (b.won !== a.won) return b.won - a.won;
+         const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
+         if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
+         return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
+      });
+
+      remaining.forEach((team) => ranks[cat].push({ rank: ranks[cat].length + 1, team }));
+    });
+    return ranks;
+  }, [matches, brackets, standings]);
+
+  // --- 3. FIREBASE & APP LOGIC EFFECTS ---
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -160,7 +242,7 @@ export default function App() {
     return () => clearTimeout(timeoutId);
   }, [teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals, appMode, user, appId]);
 
-  // --- TV Monitor Logic ---
+  // --- 4. TV MONITOR LOGIC ---
   useEffect(() => {
     if (appMode === 'monitor') {
       const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('de-DE')), 1000);
@@ -253,7 +335,7 @@ export default function App() {
     }
   }, [appMode, monitorSlides]);
 
-  // --- Authentication ---
+  // --- 5. FUNCTIONS & HANDLERS ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (passwordInput === 'wannweil') {
@@ -278,7 +360,6 @@ export default function App() {
     setAppMode('login');
   };
 
-  // --- Registration & Mock Data ---
   const handleRegister = (e) => {
     e.preventDefault();
     if (!regForm.p1Name || !regForm.p2Name) return;
@@ -390,7 +471,6 @@ export default function App() {
     e.target.value = null;
   };
 
-  // --- Core Tournament Logic ---
   const generateGroups = () => {
     const newGroups = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
@@ -507,7 +587,6 @@ export default function App() {
       });
     }
 
-    // Auto-adjust K.O. Start Time for 1-Day Events (ensuring K.O. is strictly scheduled after groups)
     if (tournamentDays === 1) {
       if (mode === 'traditional') {
         const usedTimes = newMatches.map(m => m.time).filter(t => t);
@@ -526,7 +605,7 @@ export default function App() {
           }
         });
         const maxMatches = (maxTeams * (maxTeams - 1)) / 2;
-        const totalMinutes = maxMatches * 90; // Calculate ~90 mins per match
+        const totalMinutes = maxMatches * 90;
         let [hours, minutes] = day1Start.split(':').map(Number);
         hours += Math.floor(totalMinutes / 60);
         minutes += totalMinutes % 60;
@@ -567,46 +646,6 @@ export default function App() {
     }));
     setScoreModal(null);
   };
-
-  const standings = useMemo(() => {
-    const stats = {};
-    teams.forEach(t => { stats[t.id] = { ...t, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }; });
-
-    matches.filter(m => m.stage === 'Group' && m.score).forEach(m => {
-      const { s1, s2, tb } = m.score;
-      const t1 = stats[m.team1.id]; const t2 = stats[m.team2.id];
-      if(!t1 || !t2) return;
-
-      t1.played++; t2.played++;
-      if (m.winnerId === t1.id) { t1.won++; t2.lost++; }
-      else if (m.winnerId === t2.id) { t2.won++; t1.lost++; }
-
-      const addStats = (teamStats, oppStats, scoreArr) => {
-        if (!scoreArr || scoreArr.length !== 2) return;
-        teamStats.gamesWon += scoreArr[0] || 0; teamStats.gamesLost += scoreArr[1] || 0;
-        oppStats.gamesWon += scoreArr[1] || 0; oppStats.gamesLost += scoreArr[0] || 0;
-        if ((scoreArr[0] || 0) > (scoreArr[1] || 0)) { teamStats.setsWon++; oppStats.setsLost++; }
-        else if ((scoreArr[1] || 0) > (scoreArr[0] || 0)) { oppStats.setsWon++; teamStats.setsLost++; }
-      };
-
-      addStats(t1, t2, s1); addStats(t1, t2, s2);
-      if (tb && (tb[0] > 0 || tb[1] > 0)) addStats(t1, t2, tb);
-    });
-
-    const calculatedStandings = { U50: {}, O50: {} };
-    ['U50', 'O50'].forEach(cat => {
-      if (!groups[cat]) return; 
-      Object.entries(groups[cat]).forEach(([gName, gTeams]) => {
-        calculatedStandings[cat][gName] = gTeams.map(t => stats[t.id]).sort((a, b) => {
-          if (b.won !== a.won) return b.won - a.won;
-          const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
-          if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
-          return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
-        });
-      });
-    });
-    return calculatedStandings;
-  }, [teams, groups, matches]);
 
   const handleKoGeneration = () => {
     let needsPrompt = false;
@@ -752,47 +791,6 @@ export default function App() {
     if (changesMade) setMatches(updatedMatches);
   }, [matches, brackets]);
 
-  const finalRankings = useMemo(() => {
-    const ranks = { U50: [], O50: [] };
-    if (!brackets.U50 && !brackets.O50) return ranks;
-
-    ['U50', 'O50'].forEach(cat => {
-      const b = brackets[cat];
-      if (!b) return;
-      const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team1 : m.team2) : null; };
-      const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team2 : m.team1) : null; };
-
-      const top8 = [
-        getWinner(`final_${cat}`), getLoser(`final_${cat}`),
-        getWinner(`place_3_${cat}`), getLoser(`place_3_${cat}`),
-        getWinner(`place_5_${cat}`), getLoser(`place_5_${cat}`),
-        getWinner(`place_7_${cat}`), getLoser(`place_7_${cat}`)
-      ];
-
-      top8.forEach((team, idx) => {
-         if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team });
-      });
-
-      const placedIds = ranks[cat].map(r => r.team.id);
-      let remaining = [];
-      if (standings[cat]) {
-        Object.values(standings[cat]).forEach(groupSt => {
-           groupSt.forEach(t => { if (!placedIds.includes(t.id)) remaining.push(t); });
-        });
-      }
-
-      remaining.sort((a, b) => {
-         if (b.won !== a.won) return b.won - a.won;
-         const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
-         if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
-         return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
-      });
-
-      remaining.forEach((team) => ranks[cat].push({ rank: ranks[cat].length + 1, team }));
-    });
-    return ranks;
-  }, [matches, brackets, standings]);
-
   const handleSimulateTournament = () => {
     if (simState !== 'idle') return;
     setSimState('init');
@@ -828,7 +826,6 @@ export default function App() {
     return <span className="font-semibold text-slate-800">{text}</span>;
   };
 
-  // Helper variables to prevent K.O. generation before group stages are completed
   const groupMatches = matches.filter(m => m.stage === 'Group');
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
