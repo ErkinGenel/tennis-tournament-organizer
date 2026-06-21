@@ -103,6 +103,8 @@ export default function App() {
   const [editingTeam, setEditingTeam] = useState(null);
   const [scoreModal, setScoreModal] = useState(null);
   const [koPrompt, setKoPrompt] = useState(false);
+  const [schedulePrompt, setSchedulePrompt] = useState(false);
+  const [printView, setPrintView] = useState('normal');
   const [confirmDelete, setConfirmDelete] = useState(null);
   
   const [simState, setSimState] = useState('idle');
@@ -324,7 +326,6 @@ export default function App() {
     ['U50', 'O50'].forEach(cat => {
       const catTeams = teams.filter(t => t.category === cat).sort((a, b) => b.level - a.level);
       
-      // FIX: If a category has no teams, skip it entirely and do not create groups.
       if (catTeams.length === 0) return;
 
       const numGroups = Math.ceil(catTeams.length / 4) || 1;
@@ -350,43 +351,63 @@ export default function App() {
     setMatches([]);
   };
 
-  const generateSchedule = () => {
+  const generateSchedule = (mode = 'traditional') => {
     let newMatches = [];
-    const timeSlots = generateTimeSlots(day1Start, 8);
     
-    ['U50', 'O50'].forEach(cat => {
-      if (!groups[cat]) return; // Skip if no groups exist for this category
-      Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
-        for (let i = 0; i < groupTeams.length; i++) {
-          for (let j = i + 1; j < groupTeams.length; j++) {
-            newMatches.push({ id: generateId(), day: 1, time: null, court: null, category: cat, stage: 'Group', groupName, team1: groupTeams[i], team2: groupTeams[j], score: null, winnerId: null });
+    if (mode === 'traditional') {
+      const timeSlots = generateTimeSlots(day1Start, 8);
+      ['U50', 'O50'].forEach(cat => {
+        if (!groups[cat]) return;
+        Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
+          for (let i = 0; i < groupTeams.length; i++) {
+            for (let j = i + 1; j < groupTeams.length; j++) {
+              newMatches.push({ id: generateId(), day: 1, time: null, court: null, category: cat, stage: 'Group', groupName, team1: groupTeams[i], team2: groupTeams[j], score: null, winnerId: null });
+            }
+          }
+        });
+      });
+
+      const scheduleState = {};
+      timeSlots.forEach(time => scheduleState[time] = { courtsUsed: 0, playingTeams: new Set() });
+
+      newMatches.forEach(match => {
+        for (const time of timeSlots) {
+          const slot = scheduleState[time];
+          if (slot.courtsUsed < COURTS && !slot.playingTeams.has(match.team1.id) && !slot.playingTeams.has(match.team2.id)) {
+             match.time = time;
+             match.court = slot.courtsUsed + 1;
+             slot.courtsUsed++;
+             slot.playingTeams.add(match.team1.id);
+             slot.playingTeams.add(match.team2.id);
+             break;
           }
         }
       });
-    });
+    } else if (mode === 'courtPerGroup') {
+      let gIdx = 0;
+      ['U50', 'O50'].forEach(cat => {
+        if (!groups[cat]) return;
+        Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
+          const courtNum = (gIdx % COURTS) + 1;
+          for (let i = 0; i < groupTeams.length; i++) {
+            for (let j = i + 1; j < groupTeams.length; j++) {
+              newMatches.push({ id: generateId(), day: 1, time: 'Flexible', court: courtNum, category: cat, stage: 'Group', groupName, team1: groupTeams[i], team2: groupTeams[j], score: null, winnerId: null });
+            }
+          }
+          gIdx++;
+        });
+      });
+    }
 
-    const scheduleState = {};
-    timeSlots.forEach(time => scheduleState[time] = { courtsUsed: 0, playingTeams: new Set() });
-
-    newMatches.forEach(match => {
-      for (const time of timeSlots) {
-        const slot = scheduleState[time];
-        if (slot.courtsUsed < COURTS && !slot.playingTeams.has(match.team1.id) && !slot.playingTeams.has(match.team2.id)) {
-           match.time = time;
-           match.court = slot.courtsUsed + 1;
-           slot.courtsUsed++;
-           slot.playingTeams.add(match.team1.id);
-           slot.playingTeams.add(match.team2.id);
-           break;
-        }
-      }
-    });
-
-    setMatches(newMatches);
+    // Preserve existing Day 2/KO matches if they exist
+    const koMatches = matches.filter(m => m.stage !== 'Group');
+    setMatches([...newMatches, ...koMatches]);
+    setSchedulePrompt(false);
+    if (simState === 'idle') setActiveTab('schedule');
   };
 
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
-    setMatches(prev => prev.map(m => {
+	  setMatches(prev => prev.map(m => {
       const isStageMatch = stageFilter === '' || m.stage === stageFilter || (stageFilter === 'Placement' && m.stage === 'Placement');
       const isGroupMatch = groupFilter === '' || m.groupName.includes(groupFilter);
 
@@ -646,12 +667,12 @@ export default function App() {
       switch (simState) {
         case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
         case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
-        case 'schedule': generateSchedule(); setActiveTab('schedule'); setSimState('group_scores'); break;
+        case 'schedule': generateSchedule('traditional'); setActiveTab('schedule'); setSimState('group_scores'); break;
         case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
         case 'ko': 
-          generateKO(2, true); // Auto-fill empty slots with wildcards in sim mode
-          setActiveTab('bracket'); 
-          setSimState('ko_qf_scores'); 
+          generateKO(2, true);
+          setActiveTab('bracket');
+		  setSimState('ko_qf_scores'); 
           break;
         case 'ko_qf_scores': fillMissingScores('KO', 'Quarter-Final'); setSimState('ko_sf_scores'); break;
         case 'ko_sf_scores': fillMissingScores('KO', 'Semi-Final'); fillMissingScores('Placement', 'Pos 5-8 Semi-Final'); setSimState('ko_final_scores'); break;
@@ -1042,12 +1063,12 @@ export default function App() {
 
   // --- UI RENDER: ORGANIZER MODE ---
   return (
-    <div className="min-h-screen bg-gray-50 text-slate-800 font-sans pb-12 relative">
+    <div className={`min-h-screen bg-gray-50 text-slate-800 font-sans pb-12 relative ${printView === 'sheets' ? 'bg-white' : ''}`}>
       
-      <header className="relative bg-slate-900 text-white shadow-xl print:hidden overflow-hidden">
+      <header className={`relative bg-slate-900 text-white shadow-xl overflow-hidden ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="absolute inset-0 z-0">
           <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
+		  <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -1084,7 +1105,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${printView === 'sheets' ? 'hidden' : 'print:p-0 print:max-w-none'}`}>
         
         <div className="flex space-x-1 bg-white border border-gray-200 p-1 rounded-xl mb-8 print:hidden overflow-x-auto shadow-sm">
           {[
@@ -1222,7 +1243,7 @@ export default function App() {
                    <button onClick={generateGroups} disabled={teams.length < 4} className="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold disabled:opacity-50 transition border border-slate-300">
                      1. Re-Generate Groups
                    </button>
-                   <button onClick={generateSchedule} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 transition">
+                   <button onClick={() => setSchedulePrompt(true)} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 transition">
                      2. Generate Schedule
                    </button>
                 </div>
@@ -1276,6 +1297,11 @@ export default function App() {
                <div className="flex justify-between items-center mb-6 print:hidden">
                  <h2 className="text-xl font-extrabold text-slate-800">Match Schedule</h2>
                  <div className="flex space-x-3">
+                   {matches.some(m => m.day === 1 && m.time === 'Flexible') && (
+                     <button onClick={() => { setPrintView('sheets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 150); }} className="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-700 transition shadow-sm flex items-center">
+                       <Printer size={18} className="mr-2"/> Print Group Sheets
+                     </button>
+                   )}
                    <button onClick={() => fillMissingScores('Group')} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200 transition border border-slate-300">
                      Auto-Fill Group Scores
                    </button>
@@ -1287,7 +1313,15 @@ export default function App() {
 
                <div className="space-y-8">
                  {[1, 2].map(day => {
-                    const dayMatches = matches.filter(m => m.day === day && m.time !== null).sort((a,b) => a.time.localeCompare(b.time));
+                    const dayMatches = matches.filter(m => m.day === day && m.time !== null).sort((a,b) => {
+                       if (a.time === 'Flexible' && b.time === 'Flexible') {
+                          if (a.court !== b.court) return (a.court || 0) - (b.court || 0);
+                          return a.groupName.localeCompare(b.groupName);
+                       }
+                       if (a.time === 'Flexible') return -1;
+                       if (b.time === 'Flexible') return 1;
+                       return a.time.localeCompare(b.time);
+                    });
                     const unscheduled = matches.filter(m => m.day === day && m.time === null);
                     if (dayMatches.length === 0 && unscheduled.length === 0) return null;
                     
@@ -1317,10 +1351,10 @@ export default function App() {
                                 return (
                                 <tr key={m.id} className={`border-b border-slate-100 last:border-0 transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-slate-50'}`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : 'text-slate-800'}`}>{m.time || 'Unscheduled'}</td>
+                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexible' ? 'text-indigo-600' : 'text-slate-800')}`}>{m.time || 'Unscheduled'}</td>
                                   <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Crt {m.court}</span> : '-'}</td>
                                   <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{m.groupName}</span></td>
-                                  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
+								  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
                                     {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Advances (BYE)</span> : (m.team1?.name || 'TBD')}
                                   </td>
                                   <td className="p-3 text-center bg-slate-50/50 border-x border-slate-100">
@@ -1447,10 +1481,64 @@ export default function App() {
         </div>
       </main>
 
+      {/* --- PRINTABLE GROUP SHEETS --- */}
+      {printView === 'sheets' && (
+        <div className="hidden print:block w-full bg-white text-black p-8">
+          {['U50', 'O50'].map(cat => {
+            if (!groups[cat] || Object.keys(groups[cat]).length === 0) return null;
+            return Object.entries(groups[cat]).map(([groupName, groupTeams]) => {
+              const gMatches = matches.filter(m => m.category === cat && m.groupName === groupName && m.stage === 'Group');
+              if (gMatches.length === 0) return null;
+              const courtNum = gMatches[0].court;
+              return (
+                <div key={`${cat}-${groupName}`} className="page-break-after pb-10">
+                   {/* Sheet Header */}
+                   <div className="flex justify-between items-end border-b-4 border-slate-800 pb-4 mb-6">
+                      <div>
+                         <h1 className="text-4xl font-black uppercase text-slate-900">{BRAND.name}</h1>
+                         <div className="text-xl font-bold text-slate-500 mt-1">Official Group Match Sheet</div>
+                      </div>
+                      <div className="text-right">
+                         <h2 className="text-3xl font-extrabold text-slate-900">{CATEGORIES[cat]}</h2>
+                         <h3 className="text-2xl font-bold text-red-700 mt-1">{groupName} • Assigned Court {courtNum}</h3>
+                      </div>
+                   </div>
+                   
+                   {/* Empty Score Table */}
+                   <table className="w-full text-left border-collapse border-2 border-slate-800 mb-6">
+                      <thead className="bg-slate-100">
+                        <tr>
+                          <th className="border-2 border-slate-800 p-4 text-lg w-1/3">Team 1</th>
+                          <th className="border-2 border-slate-800 p-4 text-lg w-1/3">Team 2</th>
+                          <th className="border-2 border-slate-800 p-4 text-center">Set 1</th>
+                          <th className="border-2 border-slate-800 p-4 text-center">Set 2</th>
+                          <th className="border-2 border-slate-800 p-4 text-center">Tiebreak</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gMatches.map(m => (
+                          <tr key={m.id}>
+                             <td className="border-2 border-slate-800 p-5 font-bold text-xl">{m.team1.name}</td>
+                             <td className="border-2 border-slate-800 p-5 font-bold text-xl">{m.team2.name}</td>
+                             <td className="border-2 border-slate-800 p-5"></td>
+                             <td className="border-2 border-slate-800 p-5"></td>
+                             <td className="border-2 border-slate-800 p-5"></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                   </table>
+                   <div className="text-slate-600 italic font-medium text-lg text-center mt-8">Please fill out scores clearly and return this sheet to the tournament desk when all matches are completed.</div>
+                </div>
+              )
+            })
+          })}
+        </div>
+      )}
+
       {/* --- SCORE ENTRY MODAL --- */}
       {scoreModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+		<div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
             <div className="bg-red-700 p-4 flex justify-between items-center text-white">
                <h3 className="font-bold">Enter Match Score</h3>
                <button onClick={() => setScoreModal(null)} className="hover:text-red-200 transition"><X size={20}/></button>
@@ -1478,6 +1566,33 @@ export default function App() {
                  <CheckCircle size={18} className="mr-2" /> Save Result
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- SCHEDULE GENERATION PROMPT MODAL --- */}
+      {schedulePrompt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
+            <div className="bg-red-700 p-4 flex justify-between items-center text-white">
+               <h3 className="font-bold flex items-center"><Calendar size={20} className="mr-2"/> Day 1 Scheduling Method</h3>
+               <button onClick={() => setSchedulePrompt(false)} className="hover:text-red-200 transition"><X size={20}/></button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-700 mb-6 font-medium">
+                How would you like to schedule the Group Stage matches?
+              </p>
+              <div className="flex flex-col space-y-3">
+                <button onClick={() => generateSchedule('traditional')} className="bg-slate-100 text-slate-800 p-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex flex-col border border-slate-200">
+                   <span className="text-lg mb-1">1. Traditional Time Slots</span> 
+                   <span className="text-sm font-medium text-slate-500">Assigns a specific start time and court to every single match.</span>
+                </button>
+                <button onClick={() => generateSchedule('courtPerGroup')} className="bg-red-50 text-red-800 border border-red-200 p-4 rounded-lg font-bold hover:bg-red-100 transition text-left flex flex-col shadow-sm">
+                   <span className="text-lg mb-1">2. Assign Courts to Groups (Flexible)</span> 
+                   <span className="text-sm font-medium text-red-600/80">Each group gets 1 assigned court for the whole day. Times are flexible. Generates printable scorecards.</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
