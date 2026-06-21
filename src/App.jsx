@@ -97,6 +97,7 @@ export default function App() {
   const [day1Start, setDay1Start] = useState('09:30');
   const [day2Start, setDay2Start] = useState('14:30');
   const [tournamentDays, setTournamentDays] = useState(2);
+  const [isolateGrandFinals, setIsolateGrandFinals] = useState(true);
 
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
@@ -136,6 +137,7 @@ export default function App() {
         if (liveData.day1Start) setDay1Start(liveData.day1Start);
         if (liveData.day2Start) setDay2Start(liveData.day2Start);
         if (liveData.tournamentDays) setTournamentDays(liveData.tournamentDays);
+        if (liveData.isolateGrandFinals !== undefined) setIsolateGrandFinals(liveData.isolateGrandFinals);
       }
     });
     return () => unsubscribe();
@@ -146,13 +148,13 @@ export default function App() {
       if (appMode === 'organizer' && user) {
         try {
           const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
-          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, lastUpdated: new Date().toISOString() });
+          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals, lastUpdated: new Date().toISOString() });
         } catch (error) { console.error("Failed to push updates to live server:", error); }
       }
     };
     const timeoutId = setTimeout(syncToCloud, 800);
     return () => clearTimeout(timeoutId);
-  }, [teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, appMode, user, appId]);
+  }, [teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals, appMode, user, appId]);
 
   // --- TV Monitor Logic ---
   useEffect(() => {
@@ -280,7 +282,7 @@ export default function App() {
   };
 
   const handleExportTournament = () => {
-    const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start, tournamentDays });
+    const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -308,6 +310,7 @@ export default function App() {
            if (data.day1Start) setDay1Start(data.day1Start);
            if (data.day2Start) setDay2Start(data.day2Start);
            if (data.tournamentDays) setTournamentDays(data.tournamentDays);
+           if (data.isolateGrandFinals !== undefined) setIsolateGrandFinals(data.isolateGrandFinals);
            if (data.matches && data.matches.length > 0) setActiveTab('schedule');
         }
         setAuthError('');
@@ -527,8 +530,12 @@ export default function App() {
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
     const targetDay = tournamentDays;
-    const day2Slots = generateTimeSlots(day2Start, 3);
-    const timeQF = day2Slots[0]; const timeSF = day2Slots[1]; const timeFinal = day2Slots[2];
+    const numSlots = isolateGrandFinals ? 4 : 3;
+    const day2Slots = generateTimeSlots(day2Start, numSlots);
+    const timeQF = day2Slots[0]; 
+    const timeSF = day2Slots[1]; 
+    const timePlacements = day2Slots[2];
+    const timeGrandFinal = isolateGrandFinals ? day2Slots[3] : day2Slots[2];
 
     const getAvailableCourt = (time) => {
       const courtsInUse = newMatches.filter(m => m.day === targetDay && m.time === time).map(m => m.court);
@@ -590,10 +597,10 @@ export default function App() {
       ];
 
       const finalNodes = [
-        { id: `final_${cat}`, title: 'Grand Final', team1: null, team2: null },
-        { id: `place_3_${cat}`, title: '3rd Place Match', team1: null, team2: null },
-        { id: `place_5_${cat}`, title: '5th Place Match', team1: null, team2: null },
-        { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null }
+        { id: `final_${cat}`, title: 'Grand Final', team1: null, team2: null, time: timeGrandFinal },
+        { id: `place_3_${cat}`, title: '3rd Place Match', team1: null, team2: null, time: timePlacements },
+        { id: `place_5_${cat}`, title: '5th Place Match', team1: null, team2: null, time: timePlacements },
+        { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null, time: timePlacements }
       ];
 
       qfNodes.forEach(node => {
@@ -607,7 +614,7 @@ export default function App() {
       });
 
       finalNodes.forEach(node => {
-         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay, time: timeFinal, court: getAvailableCourt(timeFinal) });
+         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay, time: node.time, court: getAvailableCourt(node.time) });
       });
 
       newBrackets[cat] = { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes };
@@ -1209,6 +1216,10 @@ export default function App() {
                        <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
                     </div>
                   )}
+                </div>
+                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center space-x-3">
+                  <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500" />
+                  <label htmlFor="isolateFinals" className="font-bold text-slate-700">Isolate Grand Finals (Schedule after all other matches to focus audience)</label>
                 </div>
               </div>
 
