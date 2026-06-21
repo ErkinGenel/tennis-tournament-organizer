@@ -436,16 +436,6 @@ export default function App() {
       });
     }
 
-    // Auto-adjust K.O. Start Time for 1-Day Events (if traditional scheduling was used)
-    if (tournamentDays === 1 && mode === 'traditional') {
-      const usedTimes = newMatches.map(m => m.time).filter(t => t);
-      if (usedTimes.length > 0) {
-         const latestTime = usedTimes.sort().reverse()[0];
-         const nextSlot = generateTimeSlots(latestTime, 2)[1];
-         setDay2Start(nextSlot); // Automatically set K.O. to start after groups
-      }
-    }
-
     const koMatches = matches.filter(m => m.stage !== 'Group');
     setMatches([...newMatches, ...koMatches]);
     setSchedulePrompt(false);
@@ -537,12 +527,8 @@ export default function App() {
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
     const targetDay = tournamentDays;
-    // Generate 4 slots to isolate Grand Finals as the ultimate last match
-    const day2Slots = generateTimeSlots(day2Start, 4);
-    const timeQF = day2Slots[0]; 
-    const timeSF = day2Slots[1]; 
-    const timePlacements = day2Slots[2]; 
-    const timeGrandFinal = day2Slots[3];
+    const day2Slots = generateTimeSlots(day2Start, 3);
+    const timeQF = day2Slots[0]; const timeSF = day2Slots[1]; const timeFinal = day2Slots[2];
 
     const getAvailableCourt = (time) => {
       const courtsInUse = newMatches.filter(m => m.day === targetDay && m.time === time).map(m => m.court);
@@ -604,10 +590,10 @@ export default function App() {
       ];
 
       const finalNodes = [
-        { id: `final_${cat}`, title: 'Grand Final', team1: null, team2: null, time: timeGrandFinal },
-        { id: `place_3_${cat}`, title: '3rd Place Match', team1: null, team2: null, time: timePlacements },
-        { id: `place_5_${cat}`, title: '5th Place Match', team1: null, team2: null, time: timePlacements },
-        { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null, time: timePlacements }
+        { id: `final_${cat}`, title: 'Grand Final', team1: null, team2: null },
+        { id: `place_3_${cat}`, title: '3rd Place Match', team1: null, team2: null },
+        { id: `place_5_${cat}`, title: '5th Place Match', team1: null, team2: null },
+        { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null }
       ];
 
       qfNodes.forEach(node => {
@@ -621,7 +607,7 @@ export default function App() {
       });
 
       finalNodes.forEach(node => {
-         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay, time: node.time, court: getAvailableCourt(node.time) });
+         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay, time: timeFinal, court: getAvailableCourt(timeFinal) });
       });
 
       newBrackets[cat] = { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes };
@@ -1213,14 +1199,16 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-3">
                      <Clock className="text-slate-600" />
-                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'Group Stage Start:' : 'Day 1 Start Time:'}</div>
+                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'Tournament Start Time:' : 'Day 1 Start Time:'}</div>
                      <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
                   </div>
-                  <div className="flex items-center space-x-3">
-                     <Clock className="text-slate-600" />
-                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'K.O. Stage Start:' : 'Day 2 (K.O.) Start Time:'}</div>
-                     <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
-                  </div>
+                  {tournamentDays === 2 && (
+                    <div className="flex items-center space-x-3">
+                       <Clock className="text-slate-600" />
+                       <div className="font-bold text-slate-700">Day 2 (K.O.) Start Time:</div>
+                       <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1375,7 +1363,7 @@ export default function App() {
                      Auto-Fill Group Scores
                    </button>
                    <button onClick={handleKoGeneration} disabled={matches.length === 0} className="bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold shadow-sm hover:bg-emerald-700 transition flex items-center">
-                      <Trophy size={18} className="mr-2"/> Gen K.O. Bracket (Day 2)
+                      <Trophy size={18} className="mr-2"/> Gen K.O. Bracket {tournamentDays === 2 ? '(Day 2)' : ''}
                    </button>
                  </div>
                </div>
