@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   Trophy, Users, Calendar, Trash2, Edit, Save, Upload, Monitor, LayoutDashboard, 
   Clock, Smartphone, Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward, 
-  Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield, PlusCircle, Printer 
+  Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield, PlusCircle, Printer, GitCommit
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -18,7 +18,6 @@ const BRAND = {
   banner: "https://tcwannweil.com/wp-content/uploads/image1000099.jpg?auto=format&fit=crop&w=2000&q=80", 
   name: "TC Wannweil"
 };
-// ==========================================
 
 // --- FIREBASE CONFIGURATION ---
 const fallbackConfig = {
@@ -30,26 +29,23 @@ const fallbackConfig = {
   appId: "1:154827866148:web:606ca072fd424e6c5618b1"
 };
 
-
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : fallbackConfig;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'tennis-organizer-live';
 
-// --- Constants & Config ---
+// --- Core Constants ---
 const COURTS = 6;
 const CATEGORIES = { U50: 'Herren unter 50', O50: 'Herren über 50' };
 const LEVELS = [3, 2, 1]; 
-
 const MOCK_CLUBS = ['TC Wannweil', 'TC Reutlingen', 'TC Tübingen', 'TC Metzingen', 'TC Pfullingen', 'TV Kirchentellinsfurt'];
-const MOCK_FIRST_NAMES = ['Lukas', 'Maximilian', 'Jonas', 'Paul', 'Leon', 'Finn', 'Elias', 'Ben', 'Luis', 'Felix', 'Markus', 'Thomas'];
+const MOCK_FIRST_NAMES = ['Lukas', 'Maximilian', 'Jonas', 'Paul', 'Leon', 'Finn', 'Elias', 'Ben', 'Luis', 'Felix', 'Markus', 'Thomas', 'Michael', 'Andreas', 'Stefan', 'Christian', 'Martin', 'Daniel'];
 const MOCK_LAST_NAMES = ['Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker', 'Hoffmann', 'Schäfer'];
 
 // --- Helper Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 const generateTimeSlots = (startTimeStr, numSlots = 8) => {
   const slots = [];
@@ -70,8 +66,7 @@ const generateRandomScore = () => {
   const s1 = Math.random() > 0.5 ? getRandom(setScores) : [...getRandom(setScores)].reverse();
   const s2 = Math.random() > 0.5 ? getRandom(setScores) : [...getRandom(setScores)].reverse();
   
-  let tb = null;
-  let winnerIdx; 
+  let tb = null; let winnerIdx; 
   if (s1[0]>s1[1] && s2[0]>s2[1]) winnerIdx = 1;
   else if (s1[1]>s1[0] && s2[1]>s2[0]) winnerIdx = 2;
   else {
@@ -82,13 +77,16 @@ const generateRandomScore = () => {
   return { s1, s2, tb, winnerIdx };
 };
 
+const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
+
+// --- Main Application Component ---
 export default function App() {
-  const [appMode, setAppMode] = useState(sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login');
+  const [appMode, setAppMode] = useState('login');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
+  const [user, setUser] = useState(null);
   const [loggedInTeamId, setLoggedInTeamId] = useState(null);
   const [playerTab, setPlayerTab] = useState('matches');
-  const [user, setUser] = useState(null);
   
   const [activeTab, setActiveTab] = useState('registration');
   const [teams, setTeams] = useState([]);
@@ -111,7 +109,7 @@ export default function App() {
   const [koQualifyCount, setKoQualifyCount] = useState(2);
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
-  // --- FIREBASE CLOUD SYNC ENGINE ---
+  // --- FIREBASE LOGIC ---
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -180,7 +178,6 @@ export default function App() {
            return activeSlides[nextIndex];
         });
       }, 15000);
-
       return () => clearInterval(rotateInt);
     }
   }, [appMode, matches, brackets]);
@@ -389,17 +386,53 @@ export default function App() {
         if (!groups[cat]) return;
         Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
           const courtNum = (gIdx % COURTS) + 1;
+          
+          let pairs = [];
           for (let i = 0; i < groupTeams.length; i++) {
             for (let j = i + 1; j < groupTeams.length; j++) {
-              newMatches.push({ id: generateId(), day: 1, time: 'Flexible', court: courtNum, category: cat, stage: 'Group', groupName, team1: groupTeams[i], team2: groupTeams[j], score: null, winnerId: null });
+              pairs.push({ t1: groupTeams[i], t2: groupTeams[j] });
             }
           }
+          
+          // Greedy algorithm: Pick the match that maximizes the rest time for both teams involved
+          let orderedPairs = [];
+          let lastPlayed = {};
+          
+          while(pairs.length > 0) {
+            let bestIdx = 0;
+            let bestScore = -1;
+            
+            for(let i=0; i<pairs.length; i++) {
+               let dist1 = lastPlayed[pairs[i].t1.id] !== undefined ? orderedPairs.length - lastPlayed[pairs[i].t1.id] : 999;
+               let dist2 = lastPlayed[pairs[i].t2.id] !== undefined ? orderedPairs.length - lastPlayed[pairs[i].t2.id] : 999;
+               let score = Math.min(dist1, dist2);
+               
+               if(score > bestScore) {
+                  bestScore = score;
+                  bestIdx = i;
+               }
+            }
+            
+            let selected = pairs.splice(bestIdx, 1)[0];
+            orderedPairs.push(selected);
+            lastPlayed[selected.t1.id] = orderedPairs.length - 1;
+            lastPlayed[selected.t2.id] = orderedPairs.length - 1;
+          }
+
+          orderedPairs.forEach((p, idx) => {
+            newMatches.push({ 
+              id: generateId(), day: 1, time: 'Flexible', court: courtNum, 
+              category: cat, stage: 'Group', groupName, 
+              team1: p.t1, team2: p.t2, score: null, winnerId: null,
+              matchOrder: idx + 1
+            });
+          });
+          
           gIdx++;
         });
       });
     }
 
-    // Preserve existing Day 2/KO matches if they exist
     const koMatches = matches.filter(m => m.stage !== 'Group');
     setMatches([...newMatches, ...koMatches]);
     setSchedulePrompt(false);
@@ -407,7 +440,7 @@ export default function App() {
   };
 
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
-	  setMatches(prev => prev.map(m => {
+    setMatches(prev => prev.map(m => {
       const isStageMatch = stageFilter === '' || m.stage === stageFilter || (stageFilter === 'Placement' && m.stage === 'Placement');
       const isGroupMatch = groupFilter === '' || m.groupName.includes(groupFilter);
 
@@ -460,7 +493,7 @@ export default function App() {
 
     const calculatedStandings = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
-      if (!groups[cat]) return; // Skip if no groups exist
+      if (!groups[cat]) return; 
       Object.entries(groups[cat]).forEach(([gName, gTeams]) => {
         calculatedStandings[cat][gName] = gTeams.map(t => stats[t.id]).sort((a, b) => {
           if (b.won !== a.won) return b.won - a.won;
@@ -500,7 +533,7 @@ export default function App() {
     };
 
     ['U50', 'O50'].forEach(cat => {
-      if (!standings[cat] || Object.keys(standings[cat]).length === 0) return; // Skip empty categories
+      if (!standings[cat] || Object.keys(standings[cat]).length === 0) return;
 
       let qualifiers = [];
       let remainingTeams = []; 
@@ -513,7 +546,6 @@ export default function App() {
       });
       if (qualifiers.length === 0) return;
 
-      // --- Wildcard Logic ---
       if (useWildcards && qualifiers.length < 8) {
          remainingTeams.sort((a, b) => {
            if (b.won !== a.won) return b.won - a.won;
@@ -526,7 +558,6 @@ export default function App() {
          const wildcards = remainingTeams.slice(0, needed).map(t => ({ ...t, seedType: `Wildcard` }));
          qualifiers = [...qualifiers, ...wildcards];
       }
-      // ----------------------
 
       qualifiers.sort((a, b) => {
         if (a.seedType !== b.seedType) return a.seedType.localeCompare(b.seedType);
@@ -534,7 +565,7 @@ export default function App() {
         return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
       });
 
-      qualifiers = qualifiers.slice(0, 8); // Ensure exactly 8 max
+      qualifiers = qualifiers.slice(0, 8);
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
 
       const qfNodes = [
@@ -670,9 +701,9 @@ export default function App() {
         case 'schedule': generateSchedule('traditional'); setActiveTab('schedule'); setSimState('group_scores'); break;
         case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
         case 'ko': 
-          generateKO(2, true);
-          setActiveTab('bracket');
-		  setSimState('ko_qf_scores'); 
+          generateKO(2, true); 
+          setActiveTab('bracket'); 
+          setSimState('ko_qf_scores'); 
           break;
         case 'ko_qf_scores': fillMissingScores('KO', 'Quarter-Final'); setSimState('ko_sf_scores'); break;
         case 'ko_sf_scores': fillMissingScores('KO', 'Semi-Final'); fillMissingScores('Placement', 'Pos 5-8 Semi-Final'); setSimState('ko_final_scores'); break;
@@ -909,7 +940,15 @@ export default function App() {
           {activeTab === 'schedule' && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {[1, 2].map(day => {
-                const dayM = matches.filter(m => m.day === day && m.time !== 'BYE').sort((a,b) => a.time.localeCompare(b.time));
+                const dayM = matches.filter(m => m.day === day && m.time !== 'BYE').sort((a,b) => {
+                   if (a.time === 'Flexible' && b.time === 'Flexible') {
+                      if (a.court !== b.court) return (a.court || 0) - (b.court || 0);
+                      return a.groupName.localeCompare(b.groupName);
+                   }
+                   if (a.time === 'Flexible') return -1;
+                   if (b.time === 'Flexible') return 1;
+                   return a.time.localeCompare(b.time);
+                });
                 if (!dayM.length) return null;
                 return (
                   <div key={day} className="bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col h-full">
@@ -921,7 +960,7 @@ export default function App() {
                         <tbody>
                           {dayM.map((m, i) => (
                             <tr key={m.id} className={`border-b border-slate-700 last:border-0 ${i % 2 === 0 ? 'bg-slate-800' : 'bg-slate-800/50'}`}>
-                              <td className="p-4 font-bold text-slate-300 w-24">{m.time}</td>
+                              <td className={`p-4 font-bold w-24 ${m.time === 'Flexible' ? 'text-indigo-400 text-sm tracking-widest' : 'text-slate-300'}`}>{m.time}</td>
                               <td className="p-4 text-red-400 font-semibold w-24">Crt {m.court}</td>
                               <td className={`p-4 text-right truncate max-w-[200px] ${m.winnerId === m.team1?.id ? 'text-white font-bold' : 'text-slate-400'}`}>{m.team1?.name || 'TBD'}</td>
                               <td className="p-4 text-center tracking-widest w-48 bg-slate-900/50">{renderMonitorScore(m.score)}</td>
@@ -1068,7 +1107,7 @@ export default function App() {
       <header className={`relative bg-slate-900 text-white shadow-xl overflow-hidden ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="absolute inset-0 z-0">
           <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-30" />
-		  <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
         </div>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -1316,7 +1355,8 @@ export default function App() {
                     const dayMatches = matches.filter(m => m.day === day && m.time !== null).sort((a,b) => {
                        if (a.time === 'Flexible' && b.time === 'Flexible') {
                           if (a.court !== b.court) return (a.court || 0) - (b.court || 0);
-                          return a.groupName.localeCompare(b.groupName);
+                          if (a.groupName !== b.groupName) return a.groupName.localeCompare(b.groupName);
+                          return (a.matchOrder || 0) - (b.matchOrder || 0);
                        }
                        if (a.time === 'Flexible') return -1;
                        if (b.time === 'Flexible') return 1;
@@ -1345,16 +1385,19 @@ export default function App() {
                             </thead>
                             <tbody>
                               {[...dayMatches, ...unscheduled].map((m) => {
-                                const isT1Winner = m.winnerId === m.team1?.id; const isT2Winner = m.winnerId === m.team2?.id;
-                                const isMissingTeams = !m.team1 || !m.team2; const isBye = m.team1?.isBye || m.team2?.isBye;
+                                const isT1Winner = m.winnerId === m.team1?.id;
+                                const isT2Winner = m.winnerId === m.team2?.id;
+                                const isMissingTeams = !m.team1 || !m.team2;
+                                const isBye = m.team1?.isBye || m.team2?.isBye;
                                 const isUnscheduled = m.time === null;
+                                
                                 return (
                                 <tr key={m.id} className={`border-b border-slate-100 last:border-0 transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-slate-50'}`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexible' ? 'text-indigo-600' : 'text-slate-800')}`}>{m.time || 'Unscheduled'}</td>
+                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexible' ? 'text-indigo-600 text-xs tracking-widest' : 'text-slate-800')}`}>{m.time || 'Unscheduled'}</td>
                                   <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Crt {m.court}</span> : '-'}</td>
                                   <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{m.groupName}</span></td>
-								  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
+                                  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
                                     {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Advances (BYE)</span> : (m.team1?.name || 'TBD')}
                                   </td>
                                   <td className="p-3 text-center bg-slate-50/50 border-x border-slate-100">
@@ -1487,7 +1530,7 @@ export default function App() {
           {['U50', 'O50'].map(cat => {
             if (!groups[cat] || Object.keys(groups[cat]).length === 0) return null;
             return Object.entries(groups[cat]).map(([groupName, groupTeams]) => {
-              const gMatches = matches.filter(m => m.category === cat && m.groupName === groupName && m.stage === 'Group');
+              const gMatches = matches.filter(m => m.category === cat && m.groupName === groupName && m.stage === 'Group').sort((a,b) => (a.matchOrder || 0) - (b.matchOrder || 0));
               if (gMatches.length === 0) return null;
               const courtNum = gMatches[0].court;
               return (
@@ -1538,7 +1581,7 @@ export default function App() {
       {/* --- SCORE ENTRY MODAL --- */}
       {scoreModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
-		<div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
             <div className="bg-red-700 p-4 flex justify-between items-center text-white">
                <h3 className="font-bold">Enter Match Score</h3>
                <button onClick={() => setScoreModal(null)} className="hover:text-red-200 transition"><X size={20}/></button>
