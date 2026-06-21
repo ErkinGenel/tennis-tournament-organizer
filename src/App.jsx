@@ -439,6 +439,34 @@ export default function App() {
       });
     }
 
+    // Auto-adjust K.O. Start Time for 1-Day Events (ensuring K.O. is strictly scheduled after groups)
+    if (tournamentDays === 1) {
+      if (mode === 'traditional') {
+        const usedTimes = newMatches.map(m => m.time).filter(t => t);
+        if (usedTimes.length > 0) {
+           const latestTime = usedTimes.sort().reverse()[0];
+           const nextSlot = generateTimeSlots(latestTime, 2)[1];
+           setDay2Start(nextSlot);
+        }
+      } else if (mode === 'courtPerGroup') {
+        let maxTeams = 0;
+        ['U50', 'O50'].forEach(cat => {
+          if (groups[cat]) {
+            Object.values(groups[cat]).forEach(gTeams => {
+              if (gTeams.length > maxTeams) maxTeams = gTeams.length;
+            });
+          }
+        });
+        const maxMatches = (maxTeams * (maxTeams - 1)) / 2;
+        const totalMinutes = maxMatches * 90; // Calculate ~90 mins per match
+        let [hours, minutes] = day1Start.split(':').map(Number);
+        hours += Math.floor(totalMinutes / 60);
+        minutes += totalMinutes % 60;
+        if (minutes >= 60) { hours += Math.floor(minutes / 60); minutes %= 60; }
+        setDay2Start(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
+      }
+    }
+
     const koMatches = matches.filter(m => m.stage !== 'Group');
     setMatches([...newMatches, ...koMatches]);
     setSchedulePrompt(false);
@@ -731,6 +759,11 @@ export default function App() {
     if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += ` | [${score.tb[0]}:${score.tb[1]}]`;
     return <span className="font-semibold text-slate-800">{text}</span>;
   };
+
+  // Helper variables to prevent K.O. generation before group stages are completed
+  const groupMatches = matches.filter(m => m.stage === 'Group');
+  const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
+  const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
 
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
@@ -1373,8 +1406,9 @@ export default function App() {
                    <button onClick={() => fillMissingScores('Group')} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200 transition border border-slate-300">
                      Auto-Fill Group Scores
                    </button>
-                   <button onClick={handleKoGeneration} disabled={matches.length === 0} className="bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold shadow-sm hover:bg-emerald-700 transition flex items-center">
-                      <Trophy size={18} className="mr-2"/> Gen K.O. Bracket {tournamentDays === 2 ? '(Day 2)' : ''}
+                   <button onClick={handleKoGeneration} disabled={!canGenerateKO} className={`px-5 py-2 rounded-lg font-bold shadow-sm transition flex items-center ${canGenerateKO ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-600/50 text-white/70 cursor-not-allowed'}`}>
+                      <Trophy size={18} className="mr-2"/> 
+                      {!canGenerateKO && groupMatches.length > 0 ? `Play ${unplayedGroupCount} Group Matches First` : `Gen K.O. Bracket ${tournamentDays === 2 ? '(Day 2)' : ''}`}
                    </button>
                  </div>
                </div>
