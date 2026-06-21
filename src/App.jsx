@@ -1112,49 +1112,60 @@ export default function App() {
                  <div className="flex justify-between items-stretch h-[65vh] px-12 relative">
                      {/* QF */}
                      <div className="flex flex-col justify-around w-[22rem] z-10">
-                        {brackets[slide.cat].qf.map((qf, i) => (
-                            <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden">
-                              <div className="bg-slate-700 text-xs text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">Viertelfinale {i+1}</div>
-                              <div className={`p-3 flex justify-between border-b border-slate-600 text-lg ${qf.winnerId === qf.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                <span className="truncate pr-2">{qf.team1?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (qf.team1?.name || 'Offen')}</span>
-                                <span className="text-emerald-400 font-bold">{qf.score?.s1[0]} {qf.score?.s2[0]}</span>
-                              </div>
-                              <div className={`p-3 flex justify-between text-lg ${qf.winnerId === qf.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                <span className="truncate pr-2">{qf.team2?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (qf.team2?.name || 'Offen')}</span>
-                                <span className="text-emerald-400 font-bold">{qf.score?.s1[1]} {qf.score?.s2[1]}</span>
-                              </div>
-                            </div>
-                        ))}
+                        {brackets[slide.cat].qf.map((qfRef, i) => {
+                            const qf = matches.find(m => m.id === qfRef.id) || qfRef;
+                            return (
+                                <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden">
+                                  <div className="bg-slate-700 text-xs text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">Viertelfinale {i+1}</div>
+                                  <div className={`p-3 flex justify-between border-b border-slate-600 text-lg ${qf.winnerId === qf.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{qf.team1?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (qf.team1?.name || 'Offen')}</span>
+                                    <span className="text-emerald-400 font-bold">{qf.score?.s1[0]} {qf.score?.s2[0]}</span>
+                                  </div>
+                                  <div className={`p-3 flex justify-between text-lg ${qf.winnerId === qf.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{qf.team2?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (qf.team2?.name || 'Offen')}</span>
+                                    <span className="text-emerald-400 font-bold">{qf.score?.s1[1]} {qf.score?.s2[1]}</span>
+                                  </div>
+                                </div>
+                            );
+                        })}
                      </div>
                      {/* SF */}
                      <div className="flex flex-col justify-around w-[22rem] z-10">
-                        {brackets[slide.cat].sf.map((sf, i) => (
-                            <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden scale-105">
-                              <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">{sf.title}</div>
-                              <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${sf.winnerId === sf.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                <span className="truncate pr-2">{sf.team1?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (sf.team1?.name || 'Offen')}</span>
-                                <span className="text-emerald-400 font-bold tracking-widest">{sf.score?.s1[0]} {sf.score?.s2[0]}</span>
-                              </div>
-                              <div className={`p-4 flex justify-between text-xl ${sf.winnerId === sf.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                <span className="truncate pr-2">{sf.team2?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (sf.team2?.name || 'Offen')}</span>
-                                <span className="text-emerald-400 font-bold tracking-widest">{sf.score?.s1[1]} {sf.score?.s2[1]}</span>
-                              </div>
-                            </div>
-                        ))}
+                        {brackets[slide.cat].sf.map((sfRef, i) => {
+                            const sf = matches.find(m => m.id === sfRef.id) || sfRef;
+                            return (
+                                <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden scale-105">
+                                  <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">{sf.title}</div>
+                                  <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${sf.winnerId === sf.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{sf.team1?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (sf.team1?.name || 'Offen')}</span>
+                                    <span className="text-emerald-400 font-bold tracking-widest">{sf.score?.s1[0]} {sf.score?.s2[0]}</span>
+                                  </div>
+                                  <div className={`p-4 flex justify-between text-xl ${sf.winnerId === sf.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{sf.team2?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (sf.team2?.name || 'Offen')}</span>
+                                    <span className="text-emerald-400 font-bold tracking-widest">{sf.score?.s1[1]} {sf.score?.s2[1]}</span>
+                                  </div>
+                                </div>
+                            );
+                        })}
                      </div>
                      {/* FINAL */}
                      <div className="flex flex-col justify-center w-[25rem] z-10">
-                        <div className="bg-slate-800 border-2 border-yellow-500/50 rounded-xl shadow-2xl overflow-hidden scale-110">
-                          <div className="bg-gradient-to-r from-yellow-600 to-amber-600 text-white text-lg text-center py-3 font-black uppercase tracking-widest border-b border-yellow-700">FINALE</div>
-                          <div className={`p-5 flex justify-between border-b border-slate-600 text-2xl ${brackets[slide.cat].finals[0].winnerId === brackets[slide.cat].finals[0].team1?.id ? 'bg-red-900/80 text-white font-bold' : 'text-slate-200'}`}>
-                            <span className="truncate pr-2">{brackets[slide.cat].finals[0].team1?.name || 'Offen'}</span>
-                            <span className="text-emerald-400 font-black">{brackets[slide.cat].finals[0].score?.s1[0]} {brackets[slide.cat].finals[0].score?.s2[0]}</span>
-                          </div>
-                          <div className={`p-5 flex justify-between text-2xl ${brackets[slide.cat].finals[0].winnerId === brackets[slide.cat].finals[0].team2?.id ? 'bg-red-900/80 text-white font-bold' : 'text-slate-200'}`}>
-                            <span className="truncate pr-2">{brackets[slide.cat].finals[0].team2?.name || 'Offen'}</span>
-                            <span className="text-emerald-400 font-black">{brackets[slide.cat].finals[0].score?.s1[1]} {brackets[slide.cat].finals[0].score?.s2[1]}</span>
-                          </div>
-                        </div>
+                        {(() => {
+                           const finalMatch = matches.find(m => m.id === brackets[slide.cat].finals[0].id) || brackets[slide.cat].finals[0];
+                           return (
+                               <div className="bg-slate-800 border-2 border-yellow-500/50 rounded-xl shadow-2xl overflow-hidden scale-110">
+                                 <div className="bg-gradient-to-r from-yellow-600 to-amber-600 text-white text-lg text-center py-3 font-black uppercase tracking-widest border-b border-yellow-700">FINALE</div>
+                                 <div className={`p-5 flex justify-between border-b border-slate-600 text-2xl ${finalMatch.winnerId === finalMatch.team1?.id ? 'bg-red-900/80 text-white font-bold' : 'text-slate-200'}`}>
+                                   <span className="truncate pr-2">{finalMatch.team1?.name || 'Offen'}</span>
+                                   <span className="text-emerald-400 font-black">{finalMatch.score?.s1[0]} {finalMatch.score?.s2[0]}</span>
+                                 </div>
+                                 <div className={`p-5 flex justify-between text-2xl ${finalMatch.winnerId === finalMatch.team2?.id ? 'bg-red-900/80 text-white font-bold' : 'text-slate-200'}`}>
+                                   <span className="truncate pr-2">{finalMatch.team2?.name || 'Offen'}</span>
+                                   <span className="text-emerald-400 font-black">{finalMatch.score?.s1[1]} {finalMatch.score?.s2[1]}</span>
+                                 </div>
+                               </div>
+                           );
+                        })()}
                      </div>
                  </div>
              </div>
@@ -1164,43 +1175,54 @@ export default function App() {
              <div className="h-full flex justify-center items-center pb-12">
                  <div className="flex space-x-24 w-full max-w-5xl">
                      <div className="flex flex-col justify-around h-[60vh] flex-1 space-y-12">
-                        {brackets[slide.cat].pSf.map((pSf, i) => (
-                            <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden">
-                              <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">{pSf.title}</div>
-                              <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${pSf.winnerId === pSf.team1?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                                <span className="truncate pr-2">{pSf.team1?.name || 'Offen'}</span>
-                                <span className="text-indigo-300 font-bold">{pSf.score?.s1[0]} {pSf.score?.s2[0]}</span>
-                              </div>
-                              <div className={`p-4 flex justify-between text-xl ${pSf.winnerId === pSf.team2?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                                <span className="truncate pr-2">{pSf.team2?.name || 'Offen'}</span>
-                                <span className="text-indigo-300 font-bold">{pSf.score?.s1[1]} {pSf.score?.s2[1]}</span>
-                              </div>
-                            </div>
-                        ))}
+                        {brackets[slide.cat].pSf.map((pSfRef, i) => {
+                            const pSf = matches.find(m => m.id === pSfRef.id) || pSfRef;
+                            return (
+                                <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden">
+                                  <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">{pSf.title}</div>
+                                  <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${pSf.winnerId === pSf.team1?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{pSf.team1?.name || 'Offen'}</span>
+                                    <span className="text-indigo-300 font-bold">{pSf.score?.s1[0]} {pSf.score?.s2[0]}</span>
+                                  </div>
+                                  <div className={`p-4 flex justify-between text-xl ${pSf.winnerId === pSf.team2?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{pSf.team2?.name || 'Offen'}</span>
+                                    <span className="text-indigo-300 font-bold">{pSf.score?.s1[1]} {pSf.score?.s2[1]}</span>
+                                  </div>
+                                </div>
+                            );
+                        })}
                      </div>
                      <div className="flex flex-col justify-between h-[60vh] flex-1">
-                        <div className="bg-slate-800 border-2 border-emerald-600/50 rounded-xl shadow-xl overflow-hidden scale-105">
-                          <div className="bg-emerald-700 text-white text-md text-center py-3 font-bold uppercase tracking-widest border-b border-emerald-800">Spiel um Platz 3</div>
-                          <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${brackets[slide.cat].finals[1].winnerId === brackets[slide.cat].finals[1].team1?.id ? 'bg-emerald-900/60 text-white font-bold' : 'text-slate-200'}`}>
-                            <span className="truncate pr-2">{brackets[slide.cat].finals[1].team1?.name || 'Offen'}</span>
-                            <span className="text-emerald-400 font-bold">{brackets[slide.cat].finals[1].score?.s1[0]} {brackets[slide.cat].finals[1].score?.s2[0]}</span>
-                          </div>
-                          <div className={`p-4 flex justify-between text-xl ${brackets[slide.cat].finals[1].winnerId === brackets[slide.cat].finals[1].team2?.id ? 'bg-emerald-900/60 text-white font-bold' : 'text-slate-200'}`}>
-                            <span className="truncate pr-2">{brackets[slide.cat].finals[1].team2?.name || 'Offen'}</span>
-                            <span className="text-emerald-400 font-bold">{brackets[slide.cat].finals[1].score?.s1[1]} {brackets[slide.cat].finals[1].score?.s2[1]}</span>
-                          </div>
-                        </div>
-                        <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden opacity-90 mt-6">
-                          <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">Spiel um Platz 5</div>
-                          <div className={`p-3 flex justify-between border-b border-slate-600 text-lg ${brackets[slide.cat].finals[2].winnerId === brackets[slide.cat].finals[2].team1?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                            <span className="truncate pr-2">{brackets[slide.cat].finals[2].team1?.name || 'Offen'}</span>
-                            <span className="text-indigo-300 font-bold">{brackets[slide.cat].finals[2].score?.s1[0]} {brackets[slide.cat].finals[2].score?.s2[0]}</span>
-                          </div>
-                          <div className={`p-3 flex justify-between text-lg ${brackets[slide.cat].finals[2].winnerId === brackets[slide.cat].finals[2].team2?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                            <span className="truncate pr-2">{brackets[slide.cat].finals[2].team2?.name || 'Offen'}</span>
-                            <span className="text-indigo-300 font-bold">{brackets[slide.cat].finals[2].score?.s1[1]} {brackets[slide.cat].finals[2].score?.s2[1]}</span>
-                          </div>
-                        </div>
+                        {(() => {
+                            const place3 = matches.find(m => m.id === brackets[slide.cat].finals[1].id) || brackets[slide.cat].finals[1];
+                            const place5 = matches.find(m => m.id === brackets[slide.cat].finals[2].id) || brackets[slide.cat].finals[2];
+                            return (
+                               <>
+                                <div className="bg-slate-800 border-2 border-emerald-600/50 rounded-xl shadow-xl overflow-hidden scale-105">
+                                  <div className="bg-emerald-700 text-white text-md text-center py-3 font-bold uppercase tracking-widest border-b border-emerald-800">Spiel um Platz 3</div>
+                                  <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${place3.winnerId === place3.team1?.id ? 'bg-emerald-900/60 text-white font-bold' : 'text-slate-200'}`}>
+                                    <span className="truncate pr-2">{place3.team1?.name || 'Offen'}</span>
+                                    <span className="text-emerald-400 font-bold">{place3.score?.s1[0]} {place3.score?.s2[0]}</span>
+                                  </div>
+                                  <div className={`p-4 flex justify-between text-xl ${place3.winnerId === place3.team2?.id ? 'bg-emerald-900/60 text-white font-bold' : 'text-slate-200'}`}>
+                                    <span className="truncate pr-2">{place3.team2?.name || 'Offen'}</span>
+                                    <span className="text-emerald-400 font-bold">{place3.score?.s1[1]} {place3.score?.s2[1]}</span>
+                                  </div>
+                                </div>
+                                <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden opacity-90 mt-6">
+                                  <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">Spiel um Platz 5</div>
+                                  <div className={`p-3 flex justify-between border-b border-slate-600 text-lg ${place5.winnerId === place5.team1?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{place5.team1?.name || 'Offen'}</span>
+                                    <span className="text-indigo-300 font-bold">{place5.score?.s1[0]} {place5.score?.s2[0]}</span>
+                                  </div>
+                                  <div className={`p-3 flex justify-between text-lg ${place5.winnerId === place5.team2?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
+                                    <span className="truncate pr-2">{place5.team2?.name || 'Offen'}</span>
+                                    <span className="text-indigo-300 font-bold">{place5.score?.s1[1]} {place5.score?.s2[1]}</span>
+                                  </div>
+                                </div>
+                               </>
+                            );
+                        })()}
                      </div>
                  </div>
              </div>
