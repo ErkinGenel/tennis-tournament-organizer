@@ -109,7 +109,7 @@ export default function App() {
   
   const [simState, setSimState] = useState('idle');
   const [koQualifyCount, setKoQualifyCount] = useState(2);
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('de-DE'));
 
   // --- FIREBASE LOGIC ---
   useEffect(() => {
@@ -159,7 +159,7 @@ export default function App() {
   // --- TV Monitor Logic ---
   useEffect(() => {
     if (appMode === 'monitor') {
-      const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
+      const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('de-DE')), 1000);
       return () => clearInterval(clockInt);
     }
   }, [appMode]);
@@ -200,7 +200,7 @@ export default function App() {
         setLoggedInTeamId(foundTeam.id);
         setAuthError('');
       } else {
-        setAuthError('Incorrect Password or Team PIN.');
+        setAuthError('Falsches Passwort oder falsche Team-PIN.');
       }
     }
   };
@@ -287,7 +287,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tc_wannweil_tournament_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `tc_wannweil_turnier_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -315,7 +315,7 @@ export default function App() {
         }
         setAuthError('');
       } catch (err) {
-        setAuthError('Error: Invalid JSON file format.');
+        setAuthError('Fehler: Ungültiges JSON-Dateiformat.');
         setTimeout(() => setAuthError(''), 4000);
       }
     };
@@ -348,7 +348,7 @@ export default function App() {
         gIndex += dir;
         if (gIndex >= numGroups || gIndex < 0) { dir *= -1; gIndex += dir; }
       }
-      groupArrays.forEach((arr, i) => newGroups[cat][`Group ${String.fromCharCode(65 + i)}`] = arr);
+      groupArrays.forEach((arr, i) => newGroups[cat][`Gruppe ${String.fromCharCode(65 + i)}`] = arr);
     });
     setGroups(newGroups);
     setMatches([]);
@@ -400,7 +400,6 @@ export default function App() {
             }
           }
           
-          // Greedy algorithm: Pick the match that maximizes the rest time for both teams involved
           let orderedPairs = [];
           let lastPlayed = {};
           
@@ -427,7 +426,7 @@ export default function App() {
 
           orderedPairs.forEach((p, idx) => {
             newMatches.push({ 
-              id: generateId(), day: 1, time: 'Flexible', court: courtNum, 
+              id: generateId(), day: 1, time: 'Flexibel', court: courtNum, 
               category: cat, stage: 'Group', groupName, 
               team1: p.t1, team2: p.t2, score: null, winnerId: null,
               matchOrder: idx + 1
@@ -437,34 +436,6 @@ export default function App() {
           gIdx++;
         });
       });
-    }
-
-    // Auto-adjust K.O. Start Time for 1-Day Events (ensuring K.O. is strictly scheduled after groups)
-    if (tournamentDays === 1) {
-      if (mode === 'traditional') {
-        const usedTimes = newMatches.map(m => m.time).filter(t => t);
-        if (usedTimes.length > 0) {
-           const latestTime = usedTimes.sort().reverse()[0];
-           const nextSlot = generateTimeSlots(latestTime, 2)[1];
-           setDay2Start(nextSlot);
-        }
-      } else if (mode === 'courtPerGroup') {
-        let maxTeams = 0;
-        ['U50', 'O50'].forEach(cat => {
-          if (groups[cat]) {
-            Object.values(groups[cat]).forEach(gTeams => {
-              if (gTeams.length > maxTeams) maxTeams = gTeams.length;
-            });
-          }
-        });
-        const maxMatches = (maxTeams * (maxTeams - 1)) / 2;
-        const totalMinutes = maxMatches * 90; // Calculate ~90 mins per match
-        let [hours, minutes] = day1Start.split(':').map(Number);
-        hours += Math.floor(totalMinutes / 60);
-        minutes += totalMinutes % 60;
-        if (minutes >= 60) { hours += Math.floor(minutes / 60); minutes %= 60; }
-        setDay2Start(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
-      }
     }
 
     const koMatches = matches.filter(m => m.stage !== 'Group');
@@ -605,7 +576,7 @@ export default function App() {
       });
 
       qualifiers = qualifiers.slice(0, 8);
-      while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'BYE' });
+      while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'FREILOS' });
 
       const qfNodes = [
         { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
@@ -615,25 +586,25 @@ export default function App() {
       ];
 
       const sfNodes = [
-        { id: `sf1_${cat}`, title: 'Semi-Final 1', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` },
-        { id: `sf2_${cat}`, title: 'Semi-Final 2', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` }
+        { id: `sf1_${cat}`, title: 'Halbfinale 1', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` },
+        { id: `sf2_${cat}`, title: 'Halbfinale 2', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` }
       ];
 
       const pSfNodes = [
-        { id: `place_sf1_${cat}`, title: 'Pos 5-8 Semi-Final 1', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` },
-        { id: `place_sf2_${cat}`, title: 'Pos 5-8 Semi-Final 2', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` }
+        { id: `place_sf1_${cat}`, title: 'Plätze 5-8 Halbfinale 1', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` },
+        { id: `place_sf2_${cat}`, title: 'Plätze 5-8 Halbfinale 2', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` }
       ];
 
       const finalNodes = [
-        { id: `final_${cat}`, title: 'Grand Final', team1: null, team2: null, time: timeGrandFinal },
-        { id: `place_3_${cat}`, title: '3rd Place Match', team1: null, team2: null, time: timePlacements },
-        { id: `place_5_${cat}`, title: '5th Place Match', team1: null, team2: null, time: timePlacements },
-        { id: `place_7_${cat}`, title: '7th Place Match', team1: null, team2: null, time: timePlacements }
+        { id: `final_${cat}`, title: 'Finale', team1: null, team2: null, time: timeGrandFinal },
+        { id: `place_3_${cat}`, title: 'Spiel um Platz 3', team1: null, team2: null, time: timePlacements },
+        { id: `place_5_${cat}`, title: 'Spiel um Platz 5', team1: null, team2: null, time: timePlacements },
+        { id: `place_7_${cat}`, title: 'Spiel um Platz 7', team1: null, team2: null, time: timePlacements }
       ];
 
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
-           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Quarter-Final', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
+           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Viertelfinale', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
         }
       });
 
@@ -744,9 +715,9 @@ export default function App() {
           setActiveTab('bracket'); 
           setSimState('ko_qf_scores'); 
           break;
-        case 'ko_qf_scores': fillMissingScores('KO', 'Quarter-Final'); setSimState('ko_sf_scores'); break;
-        case 'ko_sf_scores': fillMissingScores('KO', 'Semi-Final'); fillMissingScores('Placement', 'Pos 5-8 Semi-Final'); setSimState('ko_final_scores'); break;
-        case 'ko_final_scores': fillMissingScores('KO', 'Final'); fillMissingScores('Placement', 'Place Match'); setSimState('idle'); break;
+        case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
+        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Plätze 5-8 Halbfinale'); setSimState('ko_final_scores'); break;
+        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Spiel um Platz'); setSimState('idle'); break;
         default: setSimState('idle');
       }
     }, delay);
@@ -759,11 +730,6 @@ export default function App() {
     if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += ` | [${score.tb[0]}:${score.tb[1]}]`;
     return <span className="font-semibold text-slate-800">{text}</span>;
   };
-
-  // Helper variables to prevent K.O. generation before group stages are completed
-  const groupMatches = matches.filter(m => m.stage === 'Group');
-  const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
-  const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
 
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
@@ -780,15 +746,15 @@ export default function App() {
           <div className="bg-white p-8 rounded-2xl shadow-2xl w-full border border-gray-200 mb-6 relative overflow-hidden">
             {authError && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
             <h2 className="text-2xl font-extrabold text-center text-slate-900 mt-2 mb-2">{BRAND.name} Portal</h2>
-            <p className="text-center text-gray-500 text-sm mb-6 font-medium">Enter Organizer Password or Team PIN</p>
+            <p className="text-center text-gray-500 text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-lg text-center tracking-widest font-bold focus:border-red-500 focus:ring-0 transition" placeholder="Password or PIN" required />
-              <button type="submit" className="w-full bg-red-700 text-white p-3 rounded-lg font-bold hover:bg-red-800 shadow-md transition">Login</button>
+              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-lg text-center tracking-widest font-bold focus:border-red-500 focus:ring-0 transition" placeholder="Passwort oder PIN" required />
+              <button type="submit" className="w-full bg-red-700 text-white p-3 rounded-lg font-bold hover:bg-red-800 shadow-md transition">Anmelden</button>
             </form>
             <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-              <p className="text-xs text-gray-400 mb-2 font-medium">Have an offline tournament file?</p>
+              <p className="text-xs text-gray-400 mb-2 font-medium">Haben Sie eine Offline-Turnierdatei?</p>
               <label className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg cursor-pointer transition font-bold">
-                 Load File
+                 Datei laden
                  <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
               </label>
             </div>
@@ -796,10 +762,10 @@ export default function App() {
 
           <div className="bg-slate-800/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full border border-slate-700 text-center">
              <Tv className="h-10 w-10 text-red-500 mx-auto mb-4" />
-             <h3 className="font-bold text-white text-xl mb-2">TV Monitor Display</h3>
-             <p className="text-sm text-slate-300 mb-6 font-medium">Launch the live tournament dashboard designed for large screens.</p>
+             <h3 className="font-bold text-white text-xl mb-2">TV-Monitor Anzeige</h3>
+             <p className="text-sm text-slate-300 mb-6 font-medium">Starten Sie das Live-Turnier-Dashboard für große Bildschirme.</p>
              <button onClick={() => setAppMode('monitor')} className="w-full bg-slate-700 text-white p-3 rounded-lg font-bold hover:bg-slate-600 shadow-lg flex items-center justify-center border border-slate-600 transition">
-               <Monitor size={20} className="mr-2" /> Launch Monitor
+               <Monitor size={20} className="mr-2" /> Monitor starten
              </button>
           </div>
         </div>
@@ -811,7 +777,7 @@ export default function App() {
   if (appMode === 'player') {
     const myTeam = teams.find(t => t.id === loggedInTeamId);
     if (!myTeam) { setAppMode('login'); return null; }
-    let myGroupTeams = []; let myGroupName = 'TBD';
+    let myGroupTeams = []; let myGroupName = 'Offen';
     if (groups[myTeam.category]) {
       Object.entries(groups[myTeam.category]).forEach(([name, gTeams]) => {
         if (gTeams.find(t => t.id === myTeam.id)) { myGroupTeams = standings[myTeam.category][name] || gTeams; myGroupName = name; }
@@ -852,9 +818,9 @@ export default function App() {
           <main className="flex-1 overflow-y-auto p-5 pb-24">
             {playerTab === 'matches' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Calendar className="mr-2 text-red-600" size={20}/> My Schedule</h2>
+                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Calendar className="mr-2 text-red-600" size={20}/> Mein Spielplan</h2>
                 {scheduledMatches.length === 0 ? (
-                  <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500 font-medium">No matches scheduled yet.</div>
+                  <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500 font-medium">Noch keine Spiele geplant.</div>
                 ) : (
                   scheduledMatches.map(m => {
                     const isWinner = m.winnerId === myTeam.id; const isLoser = m.winnerId && m.winnerId !== myTeam.id;
@@ -862,12 +828,12 @@ export default function App() {
                     return (
                       <div key={m.id} className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-emerald-500' : isLoser ? 'border-l-red-500' : 'border-l-slate-400'}`}>
                         <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">
-                          <span>Day {m.day} • {m.time} • Crt {m.court}</span>
+                          <span>Tag {m.day} • {m.time} • Platz {m.court}</span>
                           <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded">{m.groupName}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Opponent</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Gegner</div>
                             <div className="font-bold text-slate-800 text-sm">{opp.name}</div>
                           </div>
                           <div className="text-right pl-4">
@@ -892,7 +858,7 @@ export default function App() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                    <table className="w-full text-sm text-left">
                      <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
-                       <tr><th className="p-3">Pos</th><th className="p-3">Team</th><th className="p-3 text-center">W-L</th></tr>
+                       <tr><th className="p-3">Pos</th><th className="p-3">Team</th><th className="p-3 text-center">S-N</th></tr>
                      </thead>
                      <tbody>
                        {myGroupTeams.map((t, idx) => (
@@ -910,9 +876,9 @@ export default function App() {
 
             {playerTab === 'rankings' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Award className="mr-2 text-yellow-500" size={20}/> Leaderboard</h2>
+                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Award className="mr-2 text-yellow-500" size={20}/> Rangliste</h2>
                 {(!finalRankings[myTeam.category] || finalRankings[myTeam.category].length === 0) ? (
-                   <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500 font-medium">Rankings will appear after K.O. stage begins.</div>
+                   <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500 font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
                 ) : (
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {finalRankings[myTeam.category].map((item, idx) => (
@@ -929,13 +895,13 @@ export default function App() {
 
           <nav className="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
              <button onClick={() => setPlayerTab('matches')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'matches' ? 'text-red-700 bg-red-50' : 'text-gray-400 hover:text-slate-600'}`}>
-               <Calendar size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Matches</span>
+               <Calendar size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Spiele</span>
              </button>
              <button onClick={() => setPlayerTab('group')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'group' ? 'text-red-700 bg-red-50' : 'text-gray-400 hover:text-slate-600'}`}>
-               <Shield size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Group</span>
+               <Shield size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Gruppe</span>
              </button>
              <button onClick={() => setPlayerTab('rankings')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'rankings' ? 'text-red-700 bg-red-50' : 'text-gray-400 hover:text-slate-600'}`}>
-               <Award size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Rankings</span>
+               <Award size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Rangliste</span>
              </button>
           </nav>
         </div>
@@ -966,12 +932,17 @@ export default function App() {
                 </div>
                 <div>
                   <h1 className="text-5xl font-extrabold tracking-tight text-white drop-shadow-lg">{BRAND.name}</h1>
-                  <div className="text-2xl font-bold text-red-500 uppercase tracking-widest mt-2 drop-shadow-md">{activeTab.replace('_', ' ')}</div>
+                  <div className="text-2xl font-bold text-red-500 uppercase tracking-widest mt-2 drop-shadow-md">
+                    {activeTab === 'schedule' && 'Spielplan'}
+                    {activeTab === 'groups' && 'Gruppen'}
+                    {activeTab === 'bracket' && 'K.O.-Baum'}
+                    {activeTab === 'rankings' && 'Rangliste'}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center space-x-6">
                 <button onClick={handleLogout} className="flex items-center space-x-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-4 py-2 rounded-xl transition border border-slate-600 text-lg group backdrop-blur-sm">
-                  <Lock size={20} className="group-hover:text-red-400 transition-colors" /> <span>Organizer Mode</span>
+                  <Lock size={20} className="group-hover:text-red-400 transition-colors" /> <span>Veranstalter-Modus</span>
                 </button>
                 <div className="text-4xl font-bold text-slate-200 flex items-center bg-slate-800/80 backdrop-blur-sm px-6 py-3 rounded-xl shadow-inner border border-slate-600">
                   <Clock className="mr-4 text-red-500" size={32} /> {currentTime}
@@ -985,30 +956,30 @@ export default function App() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {[1, 2].map(day => {
                 const dayM = matches.filter(m => m.day === day && m.time !== 'BYE').sort((a,b) => {
-                   if (a.time === 'Flexible' && b.time === 'Flexible') {
+                   if (a.time === 'Flexibel' && b.time === 'Flexibel') {
                       if (a.court !== b.court) return (a.court || 0) - (b.court || 0);
                       return a.groupName.localeCompare(b.groupName);
                    }
-                   if (a.time === 'Flexible') return -1;
-                   if (b.time === 'Flexible') return 1;
+                   if (a.time === 'Flexibel') return -1;
+                   if (b.time === 'Flexibel') return 1;
                    return a.time.localeCompare(b.time);
                 });
                 if (!dayM.length) return null;
                 return (
                   <div key={day} className="bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col h-full">
                     <div className="bg-red-800 text-white p-5 text-2xl font-bold uppercase tracking-wider">
-                      {tournamentDays === 1 ? 'Tournament Schedule' : `Day ${day} Schedule`}
+                      {tournamentDays === 1 ? 'Turnier-Spielplan' : `Spielplan Tag ${day}`}
                     </div>
                     <div className="p-1">
                       <table className="w-full text-xl">
                         <tbody>
                           {dayM.map((m, i) => (
                             <tr key={m.id} className={`border-b border-slate-700 last:border-0 ${i % 2 === 0 ? 'bg-slate-800' : 'bg-slate-800/50'}`}>
-                              <td className={`p-4 font-bold w-24 ${m.time === 'Flexible' ? 'text-indigo-400 text-sm tracking-widest' : 'text-slate-300'}`}>{m.time}</td>
-                              <td className="p-4 text-red-400 font-semibold w-24">Crt {m.court}</td>
-                              <td className={`p-4 text-right truncate max-w-[200px] ${m.winnerId === m.team1?.id ? 'text-white font-bold' : 'text-slate-400'}`}>{m.team1?.name || 'TBD'}</td>
+                              <td className={`p-4 font-bold w-24 ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-slate-300'}`}>{m.time}</td>
+                              <td className="p-4 text-red-400 font-semibold w-28">Platz {m.court}</td>
+                              <td className={`p-4 text-right truncate max-w-[200px] ${m.winnerId === m.team1?.id ? 'text-white font-bold' : 'text-slate-400'}`}>{m.team1?.name || 'Offen'}</td>
                               <td className="p-4 text-center tracking-widest w-48 bg-slate-900/50">{renderMonitorScore(m.score)}</td>
-                              <td className={`p-4 text-left truncate max-w-[200px] ${m.winnerId === m.team2?.id ? 'text-white font-bold' : 'text-slate-400'}`}>{m.team2?.name || 'TBD'}</td>
+                              <td className={`p-4 text-left truncate max-w-[200px] ${m.winnerId === m.team2?.id ? 'text-white font-bold' : 'text-slate-400'}`}>{m.team2?.name || 'Offen'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1032,7 +1003,7 @@ export default function App() {
                          <div key={groupName} className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl">
                            <div className="bg-slate-700 p-3 text-xl font-bold text-center text-white tracking-widest">{groupName}</div>
                            <table className="w-full text-lg">
-                             <thead className="bg-slate-900/50 text-slate-400"><tr><th className="p-2">Team</th><th className="p-2 text-center">W-L</th><th className="p-2 text-center">Sets</th></tr></thead>
+                             <thead className="bg-slate-900/50 text-slate-400"><tr><th className="p-2">Team</th><th className="p-2 text-center">S-N</th><th className="p-2 text-center">Sätze</th></tr></thead>
                              <tbody>
                                {(standings[cat][groupName] || groupTeams).map(t => (
                                  <tr key={t.id} className="border-b border-slate-700 last:border-0">
@@ -1084,7 +1055,7 @@ export default function App() {
                  const getMatchData = (id) => matches.find(m => m.id === id);
                  
                  const MatchBox = ({ match, title }) => {
-                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800/50 flex items-center justify-center text-slate-500 text-lg font-medium m-2">TBD</div>;
+                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800/50 flex items-center justify-center text-slate-500 text-lg font-medium m-2">Offen</div>;
                    const t1IsBye = match.team1?.isBye; const t2IsBye = match.team2?.isBye;
                    if (t1IsBye && t2IsBye) return null;
 
@@ -1092,11 +1063,11 @@ export default function App() {
                      <div className="w-72 border border-slate-600 rounded-xl bg-slate-800 shadow-xl overflow-hidden m-2">
                         <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 border-b border-slate-600 tracking-wider uppercase">{title || match.groupName}</div>
                         <div className={`p-3 border-b border-slate-600 flex justify-between text-lg ${match.winnerId === match.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                          <span className={`truncate pr-2 ${t1IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Advances (BYE)' : (match.team1?.name || 'TBD')}</span>
+                          <span className={`truncate pr-2 ${t1IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Kommt weiter (Freilos)' : (match.team1?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="text-emerald-400 font-bold tracking-widest">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
                         </div>
                         <div className={`p-3 flex justify-between text-lg ${match.winnerId === match.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                          <span className={`truncate pr-2 ${t2IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Advances (BYE)' : (match.team2?.name || 'TBD')}</span>
+                          <span className={`truncate pr-2 ${t2IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Kommt weiter (Freilos)' : (match.team2?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="text-emerald-400 font-bold tracking-widest">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
                         </div>
                      </div>
@@ -1106,12 +1077,12 @@ export default function App() {
                  return (
                    <div key={cat} className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 shadow-2xl">
                       <h2 className="text-3xl font-extrabold text-white mb-8 border-b border-slate-700 pb-4 flex items-center">
-                        <Trophy className="mr-4 text-yellow-400" size={32}/> {CATEGORIES[cat]} Bracket
+                        <Trophy className="mr-4 text-yellow-400" size={32}/> {CATEGORIES[cat]} K.O.-Baum
                       </h2>
                       <div className="flex items-center space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-6 h-[600px]">
                            {brackets[cat].qf.map((qf, i) => (
-                             <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Quarter-Final ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-600"></div></div>
+                             <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-600"></div></div>
                            ))}
                         </div>
                         <div className="flex flex-col justify-around h-[600px]">
@@ -1120,20 +1091,20 @@ export default function App() {
                            ))}
                         </div>
                         <div className="flex flex-col justify-center h-[600px]">
-                           <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-600"></div><MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="CHAMPIONSHIP" /></div>
+                           <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-600"></div><MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" /></div>
                         </div>
                       </div>
-                      <h3 className="text-2xl font-bold text-slate-300 mt-12 mb-6 border-b border-slate-700 pb-2">Placement Matches</h3>
+                      <h3 className="text-2xl font-bold text-slate-300 mt-12 mb-6 border-b border-slate-700 pb-2">Platzierungsspiele</h3>
                       <div className="flex items-start space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-4">
                            {brackets[cat].pSf.map((pSf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(pSf.id)} title={pSf.title} /></div> ))}
                         </div>
                         <div className="flex flex-col justify-around space-y-4">
-                           <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="5th Place Match" />
-                           <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="7th Place Match" />
+                           <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Spiel um Platz 5" />
+                           <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Spiel um Platz 7" />
                         </div>
                       </div>
-                      <div className="mt-4"><MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="3rd Place Match" /></div>
+                      <div className="mt-4"><MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Spiel um Platz 3" /></div>
                    </div>
                  )
                })}
@@ -1160,26 +1131,26 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-2xl font-extrabold hidden md:block tracking-tight drop-shadow-md">{BRAND.name}</h1>
-              <div className="text-xs font-bold text-red-400 uppercase tracking-widest drop-shadow-md hidden md:block">Tournament Organizer</div>
+              <div className="text-xs font-bold text-red-400 uppercase tracking-widest drop-shadow-md hidden md:block">Turnier-Veranstalter</div>
             </div>
           </div>
           <div className="flex space-x-2 sm:space-x-3">
             <label className="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700 px-3 sm:px-4 py-2 rounded-lg cursor-pointer transition text-sm sm:text-base border border-slate-600 backdrop-blur-sm">
-               <Upload size={18} /> <span className="hidden sm:inline">Load</span>
+               <Upload size={18} /> <span className="hidden sm:inline">Laden</span>
                <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
             </label>
             <button onClick={handleExportTournament} className="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base border border-slate-600 backdrop-blur-sm">
-               <Download size={18} /> <span className="hidden sm:inline">Save</span>
+               <Download size={18} /> <span className="hidden sm:inline">Speichern</span>
             </button>
             <div className="w-px bg-slate-700 mx-1 sm:mx-2"></div>
             
             <button onClick={handleSimulateTournament} disabled={simState !== 'idle'}
               className={`flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg font-bold transition shadow-sm text-sm sm:text-base ${simState !== 'idle' ? 'bg-purple-800 text-purple-300 cursor-not-allowed' : 'bg-red-700 hover:bg-red-600 text-white animate-pulse'}`}
             >
-              {simState !== 'idle' ? <><Loader2 size={18} className="animate-spin" /> <span className="hidden sm:inline">Simulating...</span></> : <><FastForward size={18} /> <span className="hidden sm:inline">Simulate</span></>}
+              {simState !== 'idle' ? <><Loader2 size={18} className="animate-spin" /> <span className="hidden sm:inline">Simuliere...</span></> : <><FastForward size={18} /> <span className="hidden sm:inline">Simulieren</span></>}
             </button>
             <button onClick={() => window.print()} className="flex items-center space-x-2 bg-slate-700 hover:bg-slate-600 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base">
-              <Printer size={18} /> <span className="hidden sm:inline">Print</span>
+              <Printer size={18} /> <span className="hidden sm:inline">Drucken</span>
             </button>
             <button onClick={() => setAppMode('monitor')} className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base shadow-sm border border-slate-600">
               <Tv size={18} /> <span className="hidden sm:inline">Monitor</span>
@@ -1192,11 +1163,11 @@ export default function App() {
         
         <div className="flex space-x-1 bg-white border border-gray-200 p-1 rounded-xl mb-8 print:hidden overflow-x-auto shadow-sm">
           {[
-            { id: 'registration', icon: Users, label: 'Registration' },
-            { id: 'groups', icon: Shield, label: 'Groups' },
-            { id: 'schedule', icon: Calendar, label: 'Schedule' },
-            { id: 'bracket', icon: Trophy, label: 'K.O. Bracket' },
-            { id: 'rankings', icon: Award, label: 'Rankings' }
+            { id: 'registration', icon: Users, label: 'Anmeldung' },
+            { id: 'groups', icon: Shield, label: 'Gruppen' },
+            { id: 'schedule', icon: Calendar, label: 'Spielplan' },
+            { id: 'bracket', icon: Trophy, label: 'K.O.-Baum' },
+            { id: 'rankings', icon: Award, label: 'Rangliste' }
           ].map((t) => (
             <button
               key={t.id}
@@ -1217,11 +1188,11 @@ export default function App() {
             <div className="space-y-8 print:hidden">
               <div className="flex justify-between items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
                 <div>
-                  <h2 className="text-xl font-extrabold text-slate-800">Tournament Setup</h2>
-                  <p className="text-slate-500 text-sm mt-1 font-medium">Register teams manually or load mock data. Edit start times below.</p>
+                  <h2 className="text-xl font-extrabold text-slate-800">Turnier-Einstellungen</h2>
+                  <p className="text-slate-500 text-sm mt-1 font-medium">Teams manuell registrieren oder Testdaten laden. Startzeiten unten bearbeiten.</p>
                 </div>
                 <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-300 px-5 py-2.5 rounded-lg shadow-sm hover:bg-slate-100 font-bold transition">
-                  <Play size={18} /> <span>Load Mock Teams</span>
+                  <Play size={18} /> <span>Test-Teams laden</span>
                 </button>
               </div>
 
@@ -1229,30 +1200,30 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-slate-200">
                    <div className="flex items-center space-x-3 col-span-1 md:col-span-3">
                      <Calendar className="text-slate-600" />
-                     <div className="font-bold text-slate-700">Tournament Duration:</div>
+                     <div className="font-bold text-slate-700">Turnierdauer:</div>
                      <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border rounded-md font-bold text-slate-800 focus:ring-red-500 focus:border-red-500 bg-white shadow-sm">
-                       <option value={1}>1-Day Event (All matches on Day 1)</option>
-                       <option value={2}>2-Day Event (K.O. matches on Day 2)</option>
+                       <option value={1}>1-Tages-Turnier (Alle Spiele an Tag 1)</option>
+                       <option value={2}>2-Tages-Turnier (K.O.-Spiele an Tag 2)</option>
                      </select>
                    </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-3">
                      <Clock className="text-slate-600" />
-                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'Tournament Start Time:' : 'Day 1 Start Time:'}</div>
+                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'Turnier-Startzeit:' : 'Startzeit Tag 1:'}</div>
                      <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
                   </div>
                   {tournamentDays === 2 && (
                     <div className="flex items-center space-x-3">
                        <Clock className="text-slate-600" />
-                       <div className="font-bold text-slate-700">Day 2 (K.O.) Start Time:</div>
+                       <div className="font-bold text-slate-700">Startzeit Tag 2 (K.O.):</div>
                        <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
                     </div>
                   )}
                 </div>
                 <div className="mt-4 pt-4 border-t border-slate-200 flex items-center space-x-3">
                   <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500" />
-                  <label htmlFor="isolateFinals" className="font-bold text-slate-700">Isolate Grand Finals (Schedule after all other matches to focus audience)</label>
+                  <label htmlFor="isolateFinals" className="font-bold text-slate-700">Finale isolieren (Nach allen anderen Spielen ansetzen, um die Aufmerksamkeit zu fokussieren)</label>
                 </div>
               </div>
 
@@ -1260,36 +1231,36 @@ export default function App() {
                 <div className="col-span-1 bg-slate-50 p-6 rounded-xl border border-slate-200 h-fit">
                   <h3 className="font-extrabold text-lg mb-4 flex items-center text-slate-800">
                     {editingTeam ? <Edit2 size={18} className="mr-2 text-amber-500"/> : <PlusCircle size={18} className="mr-2 text-red-600"/>} 
-                    {editingTeam ? 'Edit Team' : 'New Team'}
+                    {editingTeam ? 'Team bearbeiten' : 'Neues Team'}
                   </h3>
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-3">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Player 1</div>
-                      <div><input value={regForm.p1Name} onChange={e=>setRegForm({...regForm, p1Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Full Name" required /></div>
-                      <div><input value={regForm.p1Club} onChange={e=>setRegForm({...regForm, p1Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Club (Optional)" /></div>
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Spieler 1</div>
+                      <div><input value={regForm.p1Name} onChange={e=>setRegForm({...regForm, p1Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Vollständiger Name" required /></div>
+                      <div><input value={regForm.p1Club} onChange={e=>setRegForm({...regForm, p1Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Verein (Optional)" /></div>
                     </div>
                     <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-3">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Player 2</div>
-                      <div><input value={regForm.p2Name} onChange={e=>setRegForm({...regForm, p2Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Full Name" required /></div>
-                      <div><input value={regForm.p2Club} onChange={e=>setRegForm({...regForm, p2Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Club (Optional)" /></div>
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Spieler 2</div>
+                      <div><input value={regForm.p2Name} onChange={e=>setRegForm({...regForm, p2Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Vollständiger Name" required /></div>
+                      <div><input value={regForm.p2Club} onChange={e=>setRegForm({...regForm, p2Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Verein (Optional)" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><label className="block text-sm font-bold text-slate-700 mb-1">Level</label>
+                      <div><label className="block text-sm font-bold text-slate-700 mb-1">Spielstärke</label>
                         <select value={regForm.level} onChange={e=>setRegForm({...regForm, level: e.target.value})} className="w-full p-2 border rounded-md font-medium">
-                          <option value="3">3 - Adv</option><option value="2">2 - Int</option><option value="1">1 - Beg</option>
+                          <option value="3">3 - Fortgeschritten</option><option value="2">2 - Mittel</option><option value="1">1 - Anfänger</option>
                         </select></div>
-                      <div><label className="block text-sm font-bold text-slate-700 mb-1">Category</label>
+                      <div><label className="block text-sm font-bold text-slate-700 mb-1">Kategorie</label>
                         <select value={regForm.category} onChange={e=>setRegForm({...regForm, category: e.target.value})} className="w-full p-2 border rounded-md font-medium">
                           <option value="U50">U50</option><option value="O50">O50</option>
                         </select></div>
                     </div>
                     <div className="flex space-x-2 pt-2">
                       <button type="submit" className={`flex-1 text-white py-2.5 rounded-lg font-bold shadow-sm transition ${editingTeam ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-700 hover:bg-red-800'}`}>
-                        {editingTeam ? 'Update Team' : 'Register'}
+                        {editingTeam ? 'Team aktualisieren' : 'Registrieren'}
                       </button>
                       {editingTeam && (
                         <button type="button" onClick={() => {setEditingTeam(null); setRegForm({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });}} className="px-4 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-bold transition">
-                          Cancel
+                          Abbrechen
                         </button>
                       )}
                     </div>
@@ -1298,31 +1269,31 @@ export default function App() {
                 
                 <div className="col-span-2">
                   <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-extrabold text-lg text-slate-800">Registered Teams ({teams.length})</h3>
+                     <h3 className="font-extrabold text-lg text-slate-800">Registrierte Teams ({teams.length})</h3>
                   </div>
                   <div className="overflow-auto max-h-[600px] border border-slate-200 rounded-xl shadow-inner bg-slate-50/50">
                     <table className="w-full text-left text-sm table-fixed">
                       <thead className="bg-slate-100 sticky top-0 shadow-sm z-10 text-slate-600">
                         <tr>
                           <th className="p-3 border-b border-slate-200 w-1/3">Team</th>
-                          <th className="p-3 border-b border-slate-200 w-1/4">Clubs</th>
-                          <th className="p-3 border-b border-slate-200 w-20">Cat</th>
+                          <th className="p-3 border-b border-slate-200 w-1/4">Vereine</th>
+                          <th className="p-3 border-b border-slate-200 w-20">Kat</th>
                           <th className="p-3 border-b border-slate-200 w-16 text-center text-red-600">PIN</th>
                           <th className="p-3 border-b border-slate-200 w-24"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {teams.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-500 font-medium">No teams registered yet.</td></tr> : 
+                        {teams.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-500 font-medium">Noch keine Teams registriert.</td></tr> : 
                          teams.map((t) => (
                           <tr key={t.id} className={`border-b border-slate-100 last:border-0 hover:bg-white transition ${editingTeam?.id === t.id ? 'bg-amber-50 hover:bg-amber-50' : ''}`}>
                             <td className="p-3 font-bold text-slate-800 truncate">{t.name}</td>
-                            <td className="p-3 text-xs font-medium text-slate-500 truncate">{t.clubs.join(' / ') || 'No Club'}</td>
+                            <td className="p-3 text-xs font-medium text-slate-500 truncate">{t.clubs.join(' / ') || 'Kein Verein'}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold shadow-sm ${t.category==='U50'?'bg-emerald-100 text-emerald-800':'bg-purple-100 text-purple-800'}`}>{t.category}</span></td>
                             <td className="p-3 text-center font-mono font-bold text-red-700 bg-red-50/50">{t.pin}</td>
                             <td className="p-3 text-right space-x-2">
                                <button onClick={() => handleEdit(t)} className="text-slate-400 hover:text-amber-500 transition"><Edit2 size={16}/></button>
                                <button onClick={() => confirmDelete === t.id ? handleDelete(t.id) : setConfirmDelete(t.id)} className={`transition ${confirmDelete === t.id ? 'text-white bg-red-600 px-2 rounded font-bold shadow-sm' : 'text-slate-400 hover:text-red-600'}`}>
-                                  {confirmDelete === t.id ? 'Sure?' : <Trash2 size={16}/>}
+                                  {confirmDelete === t.id ? 'Sicher?' : <Trash2 size={16}/>}
                                </button>
                             </td>
                           </tr>
@@ -1339,13 +1310,13 @@ export default function App() {
           {activeTab === 'groups' && (
             <div className="space-y-8">
               <div className="flex justify-between items-center print:hidden">
-                <p className="text-slate-500 font-medium">Groups balanced by skill level and club affiliation.</p>
+                <p className="text-slate-500 font-medium">Gruppen, ausbalanciert nach Spielstärke und Vereinszugehörigkeit.</p>
                 <div className="space-x-3">
                    <button onClick={generateGroups} disabled={teams.length < 4} className="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold disabled:opacity-50 transition border border-slate-300">
-                     1. Re-Generate Groups
+                     1. Gruppen neu generieren
                    </button>
                    <button onClick={() => setSchedulePrompt(true)} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 transition">
-                     2. Generate Schedule
+                     2. Spielplan erstellen
                    </button>
                 </div>
               </div>
@@ -1354,7 +1325,7 @@ export default function App() {
                  groups[cat] && Object.keys(groups[cat]).length > 0 && (
                    <div key={cat} className="mb-10 page-break-after">
                      <h2 className="text-2xl font-extrabold text-slate-800 mb-6 border-b-2 border-slate-100 pb-2 flex items-center">
-                       {CATEGORIES[cat]} <span className="ml-3 text-sm bg-slate-100 px-3 py-1 rounded-full text-slate-600">{Object.keys(groups[cat]).length} Groups</span>
+                       {CATEGORIES[cat]} <span className="ml-3 text-sm bg-slate-100 px-3 py-1 rounded-full text-slate-600">{Object.keys(groups[cat]).length} Gruppen</span>
                      </h2>
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {Object.entries(groups[cat]).map(([groupName, groupTeams]) => (
@@ -1365,8 +1336,8 @@ export default function App() {
                                 <tr>
                                   <th className="px-4 py-2 w-12 border-b border-slate-100">Pos</th>
                                   <th className="px-4 py-2 border-b border-slate-100">Team</th>
-                                  <th className="px-4 py-2 text-center w-16 border-b border-slate-100">W-L</th>
-                                  <th className="px-4 py-2 text-center w-20 border-b border-slate-100">Sets</th>
+                                  <th className="px-4 py-2 text-center w-16 border-b border-slate-100">S-N</th>
+                                  <th className="px-4 py-2 text-center w-20 border-b border-slate-100">Sätze</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1396,19 +1367,18 @@ export default function App() {
           {activeTab === 'schedule' && (
             <div>
                <div className="flex justify-between items-center mb-6 print:hidden">
-                 <h2 className="text-xl font-extrabold text-slate-800">Match Schedule</h2>
+                 <h2 className="text-xl font-extrabold text-slate-800">Spielplan</h2>
                  <div className="flex space-x-3">
-                   {matches.some(m => m.day === 1 && m.time === 'Flexible') && (
+                   {matches.some(m => m.day === 1 && m.time === 'Flexibel') && (
                      <button onClick={() => { setPrintView('sheets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 150); }} className="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-700 transition shadow-sm flex items-center">
-                       <Printer size={18} className="mr-2"/> Print Group Sheets
+                       <Printer size={18} className="mr-2"/> Gruppen-Spielpläne drucken
                      </button>
                    )}
                    <button onClick={() => fillMissingScores('Group')} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200 transition border border-slate-300">
-                     Auto-Fill Group Scores
+                     Gruppen-Ergebnisse auto-ausfüllen
                    </button>
-                   <button onClick={handleKoGeneration} disabled={!canGenerateKO} className={`px-5 py-2 rounded-lg font-bold shadow-sm transition flex items-center ${canGenerateKO ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-600/50 text-white/70 cursor-not-allowed'}`}>
-                      <Trophy size={18} className="mr-2"/> 
-                      {!canGenerateKO && groupMatches.length > 0 ? `Play ${unplayedGroupCount} Group Matches First` : `Gen K.O. Bracket ${tournamentDays === 2 ? '(Day 2)' : ''}`}
+                   <button onClick={handleKoGeneration} disabled={matches.length === 0} className="bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold shadow-sm hover:bg-emerald-700 transition flex items-center">
+                      <Trophy size={18} className="mr-2"/> K.O.-Baum erstellen {tournamentDays === 2 ? '(Tag 2)' : ''}
                    </button>
                  </div>
                </div>
@@ -1416,13 +1386,13 @@ export default function App() {
                <div className="space-y-8">
                  {[1, 2].map(day => {
                     const dayMatches = matches.filter(m => m.day === day && m.time !== null).sort((a,b) => {
-                       if (a.time === 'Flexible' && b.time === 'Flexible') {
+                       if (a.time === 'Flexibel' && b.time === 'Flexibel') {
                           if (a.court !== b.court) return (a.court || 0) - (b.court || 0);
                           if (a.groupName !== b.groupName) return a.groupName.localeCompare(b.groupName);
                           return (a.matchOrder || 0) - (b.matchOrder || 0);
                        }
-                       if (a.time === 'Flexible') return -1;
-                       if (b.time === 'Flexible') return 1;
+                       if (a.time === 'Flexibel') return -1;
+                       if (b.time === 'Flexibel') return 1;
                        return a.time.localeCompare(b.time);
                     });
                     const unscheduled = matches.filter(m => m.day === day && m.time === null);
@@ -1431,20 +1401,20 @@ export default function App() {
                     return (
                       <div key={day} className="mb-8">
                         <h3 className="text-lg font-bold bg-slate-800 text-white p-4 rounded-t-2xl flex justify-between items-center shadow-sm">
-                          <span>{tournamentDays === 1 ? 'All Matches (1-Day Event)' : `Day ${day} ${day===1 ? '(Group Stage)' : '(Finals & Placements)'}`}</span>
+                          <span>{tournamentDays === 1 ? 'Alle Spiele (1-Tages-Turnier)' : `Tag ${day} ${day===1 ? '(Gruppenphase)' : '(Finals & Platzierungen)'}`}</span>
                           <span className="text-sm font-medium text-slate-300 bg-slate-700 px-3 py-1 rounded-full">
-                            {tournamentDays === 1 ? `Groups: ${day1Start} | K.O.: ${day2Start}` : `Start: ${day===1 ? day1Start : day2Start}`}
+                            {tournamentDays === 1 ? `Gruppen: ${day1Start} | K.O.: ${day2Start}` : `Start: ${day===1 ? day1Start : day2Start}`}
                           </span>
                         </h3>
                         <div className="border-x border-b border-slate-200 rounded-b-2xl overflow-hidden bg-white shadow-sm">
                           <table className="w-full text-sm table-fixed">
                             <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                               <tr>
-                                <th className="p-3 text-left w-20 border-b border-slate-200">Time</th>
-                                <th className="p-3 text-left w-20 border-b border-slate-200">Court</th>
-                                <th className="p-3 text-left w-24 border-b border-slate-200">Stage</th>
+                                <th className="p-3 text-left w-20 border-b border-slate-200">Zeit</th>
+                                <th className="p-3 text-left w-20 border-b border-slate-200">Platz</th>
+                                <th className="p-3 text-left w-24 border-b border-slate-200">Phase</th>
                                 <th className="p-3 text-right border-b border-slate-200">Team 1</th>
-                                <th className="p-3 text-center w-40 border-b border-slate-200">Score</th>
+                                <th className="p-3 text-center w-40 border-b border-slate-200">Ergebnis</th>
                                 <th className="p-3 text-left border-b border-slate-200">Team 2</th>
                               </tr>
                             </thead>
@@ -1459,17 +1429,17 @@ export default function App() {
                                 return (
                                 <tr key={m.id} className={`border-b border-slate-100 last:border-0 transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-slate-50'}`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexible' ? 'text-indigo-600 text-xs tracking-widest' : 'text-slate-800')}`}>{m.time || 'Unscheduled'}</td>
-                                  <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Crt {m.court}</span> : '-'}</td>
-                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{m.groupName}</span></td>
+                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexibel' ? 'text-indigo-600 text-xs tracking-widest' : 'text-slate-800')}`}>{m.time || 'Nicht angesetzt'}</td>
+                                  <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Platz {m.court}</span> : '-'}</td>
+                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{m.stage === 'Group' ? 'Gruppe ' + m.groupName.replace('Gruppe ', '') : m.groupName}</span></td>
                                   <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
-                                    {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Advances (BYE)</span> : (m.team1?.name || 'TBD')}
+                                    {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Kommt weiter (Freilos)</span> : (m.team1?.name || 'Offen')}
                                   </td>
                                   <td className="p-3 text-center bg-slate-50/50 border-x border-slate-100">
-                                     {isBye ? <span className="text-slate-400 italic text-xs font-bold">NO MATCH</span> : renderScore(m.score)}
+                                     {isBye ? <span className="text-slate-400 italic text-xs font-bold">KEIN SPIEL</span> : renderScore(m.score)}
                                   </td>
                                   <td className={`p-3 text-left truncate ${isT2Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
-                                    {m.team2?.isBye ? <span className="text-red-500 font-bold italic">Advances (BYE)</span> : (m.team2?.name || 'TBD')}
+                                    {m.team2?.isBye ? <span className="text-red-500 font-bold italic">Kommt weiter (Freilos)</span> : (m.team2?.name || 'Offen')}
                                   </td>
                                 </tr>
                               )})}
@@ -1490,18 +1460,18 @@ export default function App() {
                  if (!brackets[cat]) return null;
                  const getMatchData = (id) => matches.find(m => m.id === id);
                  const MatchBox = ({ match, title }) => {
-                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-sm font-bold m-2">TBD</div>;
+                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-sm font-bold m-2">Offen</div>;
                    const t1IsBye = match.team1?.isBye; const t2IsBye = match.team2?.isBye;
                    if (t1IsBye && t2IsBye) return null;
                    return (
                      <div className="w-64 border border-slate-300 rounded-xl bg-white shadow-sm overflow-hidden m-2 print:border-slate-400 print:shadow-none break-inside-avoid">
                         <div className="bg-slate-100 text-xs text-center py-1 font-extrabold text-slate-600 border-b border-slate-200 uppercase tracking-wider">{title || match.groupName}</div>
                         <div className={`p-2 border-b border-slate-100 flex justify-between ${match.winnerId === match.team1?.id ? 'bg-emerald-50 font-bold text-emerald-900' : 'text-slate-700'}`}>
-                          <span className={`truncate pr-2 ${t1IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t1IsBye ? 'Advances (BYE)' : (match.team1?.name || 'TBD')}</span>
+                          <span className={`truncate pr-2 ${t1IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t1IsBye ? 'Kommt weiter (Freilos)' : (match.team1?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
                         </div>
                         <div className={`p-2 flex justify-between ${match.winnerId === match.team2?.id ? 'bg-emerald-50 font-bold text-emerald-900' : 'text-slate-700'}`}>
-                          <span className={`truncate pr-2 ${t2IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t2IsBye ? 'Advances (BYE)' : (match.team2?.name || 'TBD')}</span>
+                          <span className={`truncate pr-2 ${t2IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t2IsBye ? 'Kommt weiter (Freilos)' : (match.team2?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
                         </div>
                      </div>
@@ -1511,31 +1481,31 @@ export default function App() {
                  return (
                    <div key={cat} className="mb-16 page-break-after">
                       <h2 className="text-2xl font-extrabold text-slate-800 mb-8 border-b-2 border-slate-200 pb-2 flex items-center">
-                         <Trophy className="text-yellow-500 mr-3"/> Main Bracket: {CATEGORIES[cat]}
+                         <Trophy className="text-yellow-500 mr-3"/> Hauptrunde: {CATEGORIES[cat]}
                       </h2>
                       <div className="flex items-center space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-4 h-[600px]">
-                           {brackets[cat].qf.map((qf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Quarter-Final ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-300"></div></div> ))}
+                           {brackets[cat].qf.map((qf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-300"></div></div> ))}
                         </div>
                         <div className="flex flex-col justify-around h-[600px]">
                            {brackets[cat].sf.map((sf, i) => ( <div key={i} className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-slate-300 rounded-tl-lg"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-slate-300 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-300"></div><MatchBox match={getMatchData(sf.id)} title={sf.title} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-300"></div></div> ))}
                         </div>
                         <div className="flex flex-col justify-center h-[600px]">
-                           <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-300 rounded-tl-lg"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-300 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-300"></div><MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="CHAMPIONSHIP" /></div>
+                           <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-300 rounded-tl-lg"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-300 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-300"></div><MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" /></div>
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-bold text-slate-600 mt-12 mb-4 border-b border-slate-200 pb-2">Placement Matches (Positions 3-8)</h3>
+                      <h3 className="text-xl font-bold text-slate-600 mt-12 mb-4 border-b border-slate-200 pb-2">Platzierungsspiele (Plätze 3-8)</h3>
                       <div className="flex items-start space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-4">
                            {brackets[cat].pSf.map((pSf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(pSf.id)} title={pSf.title} /></div> ))}
                         </div>
                         <div className="flex flex-col justify-around space-y-4">
-                           <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="5th Place Match" />
-                           <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="7th Place Match" />
+                           <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Spiel um Platz 5" />
+                           <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Spiel um Platz 7" />
                         </div>
                       </div>
-                      <div className="mt-4"><MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="3rd Place Match" /></div>
+                      <div className="mt-4"><MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Spiel um Platz 3" /></div>
                    </div>
                  )
                })}
@@ -1550,15 +1520,15 @@ export default function App() {
                  return (
                    <div key={cat} className="page-break-after">
                       <h2 className="text-2xl font-extrabold text-slate-800 mb-6 border-b-2 border-slate-200 pb-2 flex items-center">
-                        <Award className="mr-3 text-amber-500" /> Final Rankings: {CATEGORIES[cat]}
+                        <Award className="mr-3 text-amber-500" /> Abschlussplatzierungen: {CATEGORIES[cat]}
                       </h2>
                       <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <table className="w-full text-left text-sm table-fixed">
                            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
                              <tr>
-                               <th className="p-4 w-20 text-center border-r border-slate-200">Rank</th>
+                               <th className="p-4 w-20 text-center border-r border-slate-200">Platz</th>
                                <th className="p-4 w-1/3">Team</th>
-                               <th className="p-4">Clubs</th>
+                               <th className="p-4">Vereine</th>
                                <th className="p-4 w-32 text-center">Status</th>
                              </tr>
                            </thead>
@@ -1573,8 +1543,8 @@ export default function App() {
                                  <td className="p-4 text-slate-500 font-medium truncate">{item.team.clubs.join(' / ')}</td>
                                  <td className="p-4 text-center">
                                    {idx < 8 
-                                     ? <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold shadow-sm">K.O. Stage</span> 
-                                     : <span className="bg-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold shadow-sm">Group Stage</span>}
+                                     ? <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold shadow-sm">K.O.-Phase</span> 
+                                     : <span className="bg-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold shadow-sm">Gruppenphase</span>}
                                  </td>
                                </tr>
                              ))}
@@ -1604,11 +1574,11 @@ export default function App() {
                    <div className="flex justify-between items-end border-b-4 border-slate-800 pb-4 mb-6">
                       <div>
                          <h1 className="text-4xl font-black uppercase text-slate-900">{BRAND.name}</h1>
-                         <div className="text-xl font-bold text-slate-500 mt-1">Official Group Match Sheet</div>
+                         <div className="text-xl font-bold text-slate-500 mt-1">Offizieller Gruppen-Spielbericht</div>
                       </div>
                       <div className="text-right">
                          <h2 className="text-3xl font-extrabold text-slate-900">{CATEGORIES[cat]}</h2>
-                         <h3 className="text-2xl font-bold text-red-700 mt-1">{groupName} • Assigned Court {courtNum}</h3>
+                         <h3 className="text-2xl font-bold text-red-700 mt-1">{groupName} • Zugewiesener Platz {courtNum}</h3>
                       </div>
                    </div>
                    
@@ -1618,8 +1588,8 @@ export default function App() {
                         <tr>
                           <th className="border-2 border-slate-800 p-4 text-lg w-1/3">Team 1</th>
                           <th className="border-2 border-slate-800 p-4 text-lg w-1/3">Team 2</th>
-                          <th className="border-2 border-slate-800 p-4 text-center">Set 1</th>
-                          <th className="border-2 border-slate-800 p-4 text-center">Set 2</th>
+                          <th className="border-2 border-slate-800 p-4 text-center">Satz 1</th>
+                          <th className="border-2 border-slate-800 p-4 text-center">Satz 2</th>
                           <th className="border-2 border-slate-800 p-4 text-center">Tiebreak</th>
                         </tr>
                       </thead>
@@ -1635,7 +1605,7 @@ export default function App() {
                         ))}
                       </tbody>
                    </table>
-                   <div className="text-slate-600 italic font-medium text-lg text-center mt-8">Please fill out scores clearly and return this sheet to the tournament desk when all matches are completed.</div>
+                   <div className="text-slate-600 italic font-medium text-lg text-center mt-8">Bitte füllen Sie die Ergebnisse leserlich aus und bringen Sie diesen Bogen nach Abschluss aller Spiele zur Turnierleitung.</div>
                 </div>
               )
             })
@@ -1648,7 +1618,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
             <div className="bg-red-700 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold">Enter Match Score</h3>
+               <h3 className="font-bold">Spielergebnis eintragen</h3>
                <button onClick={() => setScoreModal(null)} className="hover:text-red-200 transition"><X size={20}/></button>
             </div>
             <form onSubmit={(e) => {
@@ -1656,7 +1626,7 @@ export default function App() {
                handleSaveScore(scoreModal.id, [parseInt(fd.get('s1_t1')||0), parseInt(fd.get('s1_t2')||0)], [parseInt(fd.get('s2_t1')||0), parseInt(fd.get('s2_t2')||0)], [parseInt(fd.get('tb_t1')||0), parseInt(fd.get('tb_t2')||0)]);
             }} className="p-6">
               <div className="flex justify-between items-end mb-4 font-bold text-sm text-slate-400 border-b border-slate-200 pb-2 uppercase tracking-wider">
-                <div className="w-1/2">Teams</div><div className="w-12 text-center">Set 1</div><div className="w-12 text-center">Set 2</div><div className="w-12 text-center text-orange-500">TieBrk</div>
+                <div className="w-1/2">Teams</div><div className="w-12 text-center">Satz 1</div><div className="w-12 text-center">Satz 2</div><div className="w-12 text-center text-orange-500">Tiebreak</div>
               </div>
               <div className="flex justify-between items-center mb-4">
                 <div className="w-1/2 font-bold text-slate-800 truncate pr-2">{scoreModal.team1?.name}</div>
@@ -1671,7 +1641,7 @@ export default function App() {
                 <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[1]} className="w-12 p-2 border rounded text-center font-bold bg-orange-50 text-orange-700 focus:border-orange-500 focus:ring-0" />
               </div>
               <button type="submit" className="w-full bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 flex items-center justify-center shadow-md transition">
-                 <CheckCircle size={18} className="mr-2" /> Save Result
+                 <CheckCircle size={18} className="mr-2" /> Ergebnis speichern
               </button>
             </form>
           </div>
@@ -1683,21 +1653,21 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
             <div className="bg-red-700 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold flex items-center"><Calendar size={20} className="mr-2"/> Day 1 Scheduling Method</h3>
+               <h3 className="font-bold flex items-center"><Calendar size={20} className="mr-2"/> Tag 1 Spielplan-Methode</h3>
                <button onClick={() => setSchedulePrompt(false)} className="hover:text-red-200 transition"><X size={20}/></button>
             </div>
             <div className="p-6">
               <p className="text-slate-700 mb-6 font-medium">
-                How would you like to schedule the Group Stage matches?
+                Wie möchten Sie die Spiele der Gruppenphase ansetzen?
               </p>
               <div className="flex flex-col space-y-3">
                 <button onClick={() => generateSchedule('traditional')} className="bg-slate-100 text-slate-800 p-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex flex-col border border-slate-200">
-                   <span className="text-lg mb-1">1. Traditional Time Slots</span> 
-                   <span className="text-sm font-medium text-slate-500">Assigns a specific start time and court to every single match.</span>
+                   <span className="text-lg mb-1">1. Klassische Zeitfenster</span> 
+                   <span className="text-sm font-medium text-slate-500">Weist jedem Spiel eine spezifische Startzeit und einen Platz zu.</span>
                 </button>
                 <button onClick={() => generateSchedule('courtPerGroup')} className="bg-red-50 text-red-800 border border-red-200 p-4 rounded-lg font-bold hover:bg-red-100 transition text-left flex flex-col shadow-sm">
-                   <span className="text-lg mb-1">2. Assign Courts to Groups (Flexible)</span> 
-                   <span className="text-sm font-medium text-red-600/80">Each group gets 1 assigned court for the whole day. Times are flexible. Generates printable scorecards.</span>
+                   <span className="text-lg mb-1">2. Plätze an Gruppen zuweisen (Flexibel)</span> 
+                   <span className="text-sm font-medium text-red-600/80">Jede Gruppe bekommt einen festen Platz für den gesamten Tag. Zeiten sind flexibel. Erstellt druckbare Spielberichte.</span>
                 </button>
               </div>
             </div>
@@ -1710,22 +1680,22 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
             <div className="bg-amber-500 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold flex items-center"><AlertTriangle size={20} className="mr-2"/> Bracket Setup Required</h3>
+               <h3 className="font-bold flex items-center"><AlertTriangle size={20} className="mr-2"/> Turnierbaum-Einstellungen erforderlich</h3>
                <button onClick={() => setKoPrompt(false)} className="hover:text-amber-100 transition"><X size={20}/></button>
             </div>
             <div className="p-6">
               <p className="text-slate-700 mb-6 font-medium">
-                You don't have enough groups to perfectly fill an 8-team Quarter-Final using only the Top {koQualifyCount} teams. How would you like to fill the empty slots?
+                Sie haben nicht genügend Gruppen, um ein 8-Team-Viertelfinale nur mit den Top {koQualifyCount} Teams perfekt zu füllen. Wie möchten Sie die leeren Plätze auffüllen?
               </p>
               <div className="flex flex-col space-y-3">
                 <button onClick={() => generateKO(2, false)} className="bg-slate-100 text-slate-800 py-3 px-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex justify-between items-center">
-                   <span>1. Leave slots empty</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Uses BYEs</span>
+                   <span>1. Plätze leer lassen</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Verwendet Freilose</span>
                 </button>
                 <button onClick={() => generateKO(2, true)} className="bg-red-50 text-red-800 border border-red-200 py-3 px-4 rounded-lg font-bold hover:bg-red-100 transition text-left flex justify-between items-center shadow-sm">
-                   <span>2. Take the best remaining teams</span> <span className="text-xs bg-red-700 text-white px-2 py-1 rounded">Recommended Wildcards</span>
+                   <span>2. Beste verbleibende Teams nehmen</span> <span className="text-xs bg-red-700 text-white px-2 py-1 rounded">Empfohlene Wildcards</span>
                 </button>
                 <button onClick={() => generateKO(3, false)} className="bg-slate-100 text-slate-800 py-3 px-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex justify-between items-center">
-                   <span>3. Advance Top 3 from all groups</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Strict cutoff</span>
+                   <span>3. Top 3 aus allen Gruppen weiterlassen</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Striktes Limit</span>
                 </button>
               </div>
             </div>
