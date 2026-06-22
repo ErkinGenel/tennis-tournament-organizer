@@ -10,7 +10,6 @@ import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 // ==========================================
 // 🎨 BRANDING SETTINGS
-// Replace these URLs with the actual image links from tcwannweil.com
 // ==========================================
 const BRAND = {
   logo: "https://tcwannweil.com/wp-content/uploads/Logo-50-Jahre.png", 
@@ -79,14 +78,59 @@ const generateRandomScore = () => {
 const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 // Cleans up the group name for display
-const formatStageGroupName = (m) => {
-   if (!m) return '';
-   if (m.stage === 'Placement') {
-       if (m.groupName.includes('Halbfinale')) return 'Platzierungsspiel';
-       return m.groupName; // e.g. "Spiel um Platz 3"
-   }
-   if (m.stage === 'Group') return m.groupName.includes('Gruppe') ? m.groupName : 'Gruppe ' + m.groupName;
-   return m.groupName;
+const formatStageGroupName = (stage, rawName) => {
+    if (!rawName) return 'Offen';
+    if (stage === 'Placement') {
+        if (rawName.includes('Halbfinale') || rawName.includes('5-8')) return 'Platzierungsspiel, 5-8';
+        return rawName; 
+    }
+    if (stage === 'Group') return rawName.includes('Gruppe') ? rawName : 'Gruppe ' + rawName;
+    return rawName;
+};
+
+// --- REUSABLE MATCH BOX COMPONENT ---
+const MonitorMatchBox = ({ match, title, type = 'normal' }) => {
+    let displayTitle = formatStageGroupName(match ? match.stage : null, title || (match ? match.groupName : 'Offen'));
+    
+    let borderColor = 'border-slate-600';
+    let headerBg = 'bg-slate-700 text-slate-300 border-slate-600';
+    let contentBg = 'bg-slate-800';
+    let scale = 'scale-100';
+    
+    if (type === 'sf') { scale = 'scale-105'; }
+    else if (type === 'final') {
+        borderColor = 'border-yellow-500/50 border-2';
+        headerBg = 'bg-gradient-to-r from-yellow-600 to-amber-600 text-white border-yellow-700';
+        scale = 'scale-110 shadow-2xl';
+    } else if (type === 'place_sf') {
+        contentBg = 'bg-slate-800 opacity-90';
+    } else if (type === 'place_3') {
+        borderColor = 'border-emerald-600/50 border-2';
+        headerBg = 'bg-emerald-700 text-white border-emerald-800';
+        scale = 'scale-105 shadow-xl';
+    }
+
+    if (!match) return <div className={`w-64 h-24 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800/50 flex flex-col items-center justify-center text-slate-500 font-bold m-2 break-inside-avoid ${scale}`}><div className="text-xs uppercase tracking-widest my-2 opacity-50">{displayTitle}</div><div className="text-lg mb-4">Offen</div></div>;
+
+    const t1IsBye = match.team1?.isBye;
+    const t2IsBye = match.team2?.isBye;
+    if (t1IsBye && t2IsBye) return null;
+
+    return (
+        <div className={`w-72 border ${borderColor} rounded-xl shadow-xl overflow-hidden m-2 break-inside-avoid ${scale} transition-transform`}>
+            <div className={`${headerBg} text-xs text-center py-2 font-bold uppercase tracking-widest border-b`}>{displayTitle}</div>
+            
+            <div className={`p-3 flex justify-between text-lg border-b border-slate-600 ${match.winnerId === match.team1?.id ? 'bg-red-900/50 text-white font-bold' : `text-slate-300 ${contentBg}`}`}>
+                <span className={`truncate pr-2 ${t1IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
+                {!t1IsBye && !t2IsBye && <span className="text-emerald-400 font-bold tracking-widest">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
+            </div>
+            
+            <div className={`p-3 flex justify-between text-lg ${match.winnerId === match.team2?.id ? 'bg-red-900/50 text-white font-bold' : `text-slate-300 ${contentBg}`}`}>
+                <span className={`truncate pr-2 ${t2IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
+                {!t1IsBye && !t2IsBye && <span className="text-emerald-400 font-bold tracking-widest">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
+            </div>
+        </div>
+    );
 };
 
 // --- Main Application Component ---
@@ -340,7 +384,7 @@ export default function App() {
     if (appMode === 'monitor' && monitorSlides.length > 0) {
       const rotateInt = setInterval(() => {
         setMonitorSlideIdx(prev => (prev + 1) % monitorSlides.length);
-      }, 15000); // 15 seconds per slide
+      }, 15000); 
       return () => clearInterval(rotateInt);
     }
   }, [appMode, monitorSlides]);
@@ -723,10 +767,10 @@ export default function App() {
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'FREILOS' });
 
       const qfNodes = [
-        { id: `qf1_${cat}`, title: 'Viertelfinale 1', team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
-        { id: `qf2_${cat}`, title: 'Viertelfinale 2', team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
-        { id: `qf3_${cat}`, title: 'Viertelfinale 3', team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` },
-        { id: `qf4_${cat}`, title: 'Viertelfinale 4', team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` }
+        { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
+        { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
+        { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` },
+        { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` }
       ];
 
       const sfNodes = [
@@ -735,8 +779,8 @@ export default function App() {
       ];
 
       const pSfNodes = [
-        { id: `place_sf1_${cat}`, title: 'Plätze 5-8 Halbfinale 1', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` },
-        { id: `place_sf2_${cat}`, title: 'Plätze 5-8 Halbfinale 2', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` }
+        { id: `place_sf1_${cat}`, title: 'Platzierungsspiel, 5-8', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` },
+        { id: `place_sf2_${cat}`, title: 'Platzierungsspiel, 5-8', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` }
       ];
 
       const finalNodes = [
@@ -748,7 +792,7 @@ export default function App() {
 
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
-           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: node.title, team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
+           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Viertelfinale', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
         }
       });
 
@@ -819,7 +863,7 @@ export default function App() {
           setSimState('ko_qf_scores'); 
           break;
         case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
-        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Plätze 5-8 Halbfinale'); setSimState('ko_final_scores'); break;
+        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Platzierungsspiel, 5-8'); setSimState('ko_final_scores'); break;
         case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Spiel um Platz'); setSimState('idle'); break;
         default: setSimState('idle');
       }
@@ -838,60 +882,8 @@ export default function App() {
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
 
-  // --- REUSABLE MATCH BOX COMPONENT ---
-  const MonitorMatchBox = ({ match, title, type = 'normal' }) => {
-    let displayTitle = title || (match ? match.groupName : 'Offen');
-    let borderColor = 'border-slate-600';
-    let headerBg = 'bg-slate-700 text-slate-300 border-slate-600';
-    
-    if (type === 'final') {
-       borderColor = 'border-yellow-500/50';
-       headerBg = 'bg-gradient-to-r from-yellow-600 to-amber-600 text-white border-yellow-700';
-    } else if (type === 'bronze') {
-       borderColor = 'border-emerald-600/50';
-       headerBg = 'bg-emerald-700 text-white border-emerald-800';
-    }
-
-    if (!match) {
-       return (
-         <div className={`border rounded-xl shadow-xl overflow-hidden m-2 bg-slate-800/50 ${borderColor} ${type === 'final' ? 'w-[25rem] scale-110' : 'w-[22rem]'}`}>
-            <div className={`text-sm text-center py-2 font-bold uppercase tracking-widest border-b ${headerBg}`}>{displayTitle}</div>
-            <div className="p-8 text-center text-slate-500 text-lg font-bold tracking-widest">OFFEN</div>
-         </div>
-       );
-    }
-    
-    const t1IsBye = match.team1?.isBye;
-    const t2IsBye = match.team2?.isBye;
-    if (t1IsBye && t2IsBye) return null;
-
-    return (
-      <div className={`border rounded-xl shadow-xl overflow-hidden m-2 bg-slate-800 ${borderColor} ${type === 'final' ? 'w-[25rem] scale-110' : 'w-[22rem]'}`}>
-         <div className={`text-sm text-center py-2 font-bold uppercase tracking-widest border-b ${headerBg}`}>{displayTitle}</div>
-         
-         <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${match.winnerId === match.team1?.id ? 'bg-red-900/60 text-white font-bold' : 'text-slate-300'}`}>
-           <span className={`truncate pr-2 ${t1IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
-           {!t1IsBye && !t2IsBye && match.score && (
-              <span className="text-emerald-400 font-bold tracking-widest">
-                {match.score.s1[0]} {match.score.s2[0]} {match.score.tb && (match.score.tb[0] > 0 || match.score.tb[1] > 0) ? `[${match.score.tb[0]}]` : ''}
-              </span>
-           )}
-         </div>
-         
-         <div className={`p-4 flex justify-between text-xl ${match.winnerId === match.team2?.id ? 'bg-red-900/60 text-white font-bold' : 'text-slate-300'}`}>
-           <span className={`truncate pr-2 ${t2IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
-           {!t1IsBye && !t2IsBye && match.score && (
-              <span className="text-emerald-400 font-bold tracking-widest">
-                {match.score.s1[1]} {match.score.s2[1]} {match.score.tb && (match.score.tb[0] > 0 || match.score.tb[1] > 0) ? `[${match.score.tb[1]}]` : ''}
-              </span>
-           )}
-         </div>
-      </div>
-    );
-  };
-
+  // --- Helpers for TV Monitor live data ---
   const getMonitorMatchData = (id) => matches.find(m => m.id === id);
-
 
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
@@ -991,7 +983,7 @@ export default function App() {
                       <div key={m.id} className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-emerald-500' : isLoser ? 'border-l-red-500' : 'border-l-slate-400'}`}>
                         <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">
                           <span>Tag {m.day} • {m.time} • Platz {m.court}</span>
-                          <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded">{formatStageGroupName(m)}</span>
+                          <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded">{formatStageGroupName(m.stage, m.groupName)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
@@ -1120,7 +1112,7 @@ export default function App() {
                     <div key={m.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-4">
                        <div className="text-slate-400 font-bold mb-3 flex justify-between text-lg border-b border-slate-700 pb-2">
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-red-400'}`}>{m.time} • Platz {m.court}</span>
-                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m)}</span>
+                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
                           <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1135,7 +1127,7 @@ export default function App() {
                     <div key={m.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-4">
                        <div className="text-slate-400 font-bold mb-3 flex justify-between text-lg border-b border-slate-700 pb-2">
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-red-400'}`}>{m.time} • Platz {m.court}</span>
-                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m)}</span>
+                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
                           <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1176,32 +1168,32 @@ export default function App() {
                      {/* QF */}
                      <div className="flex flex-col justify-around w-[22rem] z-10">
                         {brackets[slide.cat].qf.map((qfRef, i) => (
-                             <div key={i} className="relative">
-                               <MonitorMatchBox match={getMonitorMatchData(qfRef.id)} title={qfRef.title || `Viertelfinale ${i+1}`} />
-                               <div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-600"></div>
-                             </div>
+                           <div key={i} className="relative">
+                              <MonitorMatchBox match={getMonitorMatchData(qfRef.id)} title={`Viertelfinale ${i+1}`} />
+                              <div className="absolute top-1/2 -right-4 w-4 border-b-2 border-slate-600"></div>
+                           </div>
                         ))}
                      </div>
                      {/* SF */}
                      <div className="flex flex-col justify-around w-[22rem] z-10">
                         {brackets[slide.cat].sf.map((sfRef, i) => (
-                             <div key={i} className="relative">
-                               <div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
-                               <div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
-                               <div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-600"></div>
-                               <MonitorMatchBox match={getMonitorMatchData(sfRef.id)} title={sfRef.title} />
-                               <div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-600"></div>
-                             </div>
+                           <div key={i} className="relative">
+                              <div className="absolute top-[-100px] -left-4 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
+                              <div className="absolute bottom-[-100px] -left-4 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
+                              <div className="absolute top-1/2 -left-4 w-4 border-b-2 border-slate-600"></div>
+                              <MonitorMatchBox match={getMonitorMatchData(sfRef.id)} title={sfRef.title} type="sf" />
+                              <div className="absolute top-1/2 -right-4 w-4 border-b-2 border-slate-600"></div>
+                           </div>
                         ))}
                      </div>
                      {/* FINAL */}
                      <div className="flex flex-col justify-center w-[25rem] z-10">
-                        <div className="relative">
-                           <div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
-                           <div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
-                           <div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-600"></div>
-                           <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[0].id)} title="FINALE" type="final" />
-                        </div>
+                         <div className="relative">
+                            <div className="absolute top-[-150px] -left-4 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
+                            <div className="absolute bottom-[-150px] -left-4 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
+                            <div className="absolute top-1/2 -left-4 w-4 border-b-2 border-slate-600"></div>
+                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[0].id)} title="FINALE" type="final" />
+                         </div>
                      </div>
                  </div>
              </div>
@@ -1210,23 +1202,21 @@ export default function App() {
           {slide.type === 'bracket_placement' && brackets[slide.cat] && (
              <div className="h-full flex justify-center items-center pb-12">
                  <div className="flex space-x-24 w-full max-w-5xl">
+                     {/* Placement Semi-Finals */}
                      <div className="flex flex-col justify-around h-[60vh] flex-1 space-y-12">
                         {brackets[slide.cat].pSf.map((pSfRef, i) => (
-                             <div key={i} className="relative">
-                               <MonitorMatchBox match={getMonitorMatchData(pSfRef.id)} title={pSfRef.title} />
-                             </div>
+                           <MonitorMatchBox key={i} match={getMonitorMatchData(pSfRef.id)} title={pSfRef.title} type="place_sf" />
                         ))}
                      </div>
+                     {/* Placement Finals */}
                      <div className="flex flex-col justify-between h-[60vh] flex-1">
-                         <div className="relative">
-                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[1].id)} title="Spiel um Platz 3" type="bronze" />
-                         </div>
-                         <div className="relative mt-6 opacity-90">
-                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[2].id)} title="Spiel um Platz 5" />
-                         </div>
-                         <div className="relative mt-6 opacity-75">
-                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[3].id)} title="Spiel um Platz 7" />
-                         </div>
+                        <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[1].id)} title="Spiel um Platz 3" type="place_3" />
+                        <div className="mt-6 opacity-90">
+                           <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[2].id)} title="Spiel um Platz 5" type="place_sf" />
+                        </div>
+                        <div className="mt-2 opacity-90">
+                           <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[3].id)} title="Spiel um Platz 7" type="place_sf" />
+                        </div>
                      </div>
                  </div>
              </div>
@@ -1567,7 +1557,7 @@ export default function App() {
                               <tr>
                                 <th className="p-3 text-left w-20 border-b border-slate-200">Zeit</th>
                                 <th className="p-3 text-left w-20 border-b border-slate-200">Platz</th>
-                                <th className="p-3 text-left w-32 border-b border-slate-200">Phase</th>
+                                <th className="p-3 text-left w-24 border-b border-slate-200">Phase</th>
                                 <th className="p-3 text-right border-b border-slate-200">Team 1</th>
                                 <th className="p-3 text-center w-40 border-b border-slate-200">Ergebnis</th>
                                 <th className="p-3 text-left border-b border-slate-200">Team 2</th>
@@ -1586,7 +1576,7 @@ export default function App() {
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
                                   <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexibel' ? 'text-indigo-600 text-xs tracking-widest' : 'text-slate-800')}`}>{m.time || 'Nicht angesetzt'}</td>
                                   <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Platz {m.court}</span> : '-'}</td>
-                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{formatStageGroupName(m)}</span></td>
+                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{formatStageGroupName(m.stage, m.groupName)}</span></td>
                                   <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
                                     {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Kommt weiter (Freilos)</span> : (m.team1?.name || 'Offen')}
                                   </td>
@@ -1614,9 +1604,10 @@ export default function App() {
                {['U50', 'O50'].map(cat => {
                  if (!brackets[cat]) return null;
                  const getMatchData = (id) => matches.find(m => m.id === id);
+                 
                  const MatchBox = ({ match, title }) => {
-                   let displayTitle = title || (match ? match.groupName : 'Offen');
-                   if (!match) return <div className="w-64 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center justify-center text-slate-400 font-bold m-2 break-inside-avoid"><div className="text-xs uppercase tracking-widest my-2 opacity-50">{displayTitle}</div><div className="text-lg mb-4">Offen</div></div>;
+                   let displayTitle = formatStageGroupName(match ? match.stage : null, title || (match ? match.groupName : 'Offen'));
+                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-sm font-bold m-2 break-inside-avoid">Offen</div>;
                    const t1IsBye = match.team1?.isBye; const t2IsBye = match.team2?.isBye;
                    if (t1IsBye && t2IsBye) return null;
                    return (
