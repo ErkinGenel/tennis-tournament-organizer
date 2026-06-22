@@ -870,7 +870,7 @@ export default function App() {
         <div className="absolute inset-0 z-0 opacity-10" style={{backgroundImage: `url(${BRAND.banner})`, backgroundSize: 'cover'}}></div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-28 w-28 rounded full flex items-center justify-center p-2 shadow-xl border-2 border-[var(--tcw-green)] mb-6">
+          <div className="h-28 w-28 rounded full flex items-center justify-center p-2 shadow-xl border-2 mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div className="p-8 rounded full shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
@@ -1050,7 +1050,7 @@ export default function App() {
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded border border-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 rounded full flex items-center justify-center p-1 border-2 border-[var(--tcw-green)]">
+                <div className="h-20 w-20 rounded full flex items-center justify-center p-1 border-2 ">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
@@ -1209,7 +1209,7 @@ export default function App() {
       <header className={`relative bg-[var(--tcw-green-dark)] text-[var(--base-3)] shadow-md ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-12 w-12 rounded full flex items-center justify-center p-1 border border-[var(--base)]">
+            <div className="h-12 w-12 rounded full flex items-center justify-center p-1">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
