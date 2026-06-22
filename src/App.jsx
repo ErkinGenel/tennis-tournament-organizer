@@ -895,7 +895,7 @@ export default function App() {
         </div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-28 w-28 bg-white rounded-full flex items-center justify-center p-2 shadow-lg border-[3px] border-[#E3000F] mb-6">
+          <div className="h-28 w-28 rounded-full flex items-center justify-center p-2 shadow-lg border-[3px] mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
           </div>
           <div className="bg-white p-8 rounded-lg shadow-xl w-full border-t-4 border-[#E3000F] mb-6 relative overflow-hidden">
@@ -958,7 +958,7 @@ export default function App() {
             </div>
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border-2 border-[#E3000F]">
+                <div className="h-14 w-14 rounded-full flex items-center justify-center p-0.5 shadow-sm border-2">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <button onClick={handleLogout} className="text-gray-400 hover:text-[#E3000F] p-2 bg-gray-50 rounded-full transition">
@@ -1089,7 +1089,7 @@ export default function App() {
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-lg shadow-2xl border border-[#333333] shrink-0 bg-[#222222]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center p-1 shadow-lg border-[3px] border-[#E3000F]">
+                <div className="h-20 w-20 rounded-full flex items-center justify-center p-1 shadow-lg border-[3px]">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <div>
@@ -1277,7 +1277,7 @@ export default function App() {
       <header className={`relative bg-white text-[#222222] shadow-sm border-b-[4px] border-[#E3000F] ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border-[2px] border-[#E3000F]">
+            <div className="h-14 w-14 rounded-full flex items-center justify-center p-0.5 shadow-sm border-[2px]">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
             </div>
             <div>
