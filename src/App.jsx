@@ -1000,22 +1000,41 @@ export default function App() {
             )}
 
             {playerTab === 'rankings' && (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2 className="heading-font text-lg font-bold text-[var(--contrast)] flex items-center"><Award className="mr-2 text-[var(--tcw-yellow)]" size={20}/> Rangliste</h2>
-                {(!finalRankings[myTeam.category] || finalRankings[myTeam.category].length === 0) ? (
-                   <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
-                ) : (
-                  <div className="bg-[var(--base-3)] rounded shadow-sm border border-[var(--base)] overflow-hidden divide-y divide-[var(--base)]">
-                    {finalRankings[myTeam.category].map((item, idx) => (
-                       <div key={item.team.id} className={`flex items-center p-3 ${item.team.id === myTeam.id ? 'bg-[var(--base)] border-l-4 border-l-[var(--tcw-green)]' : ''}`}>
-                         <div className="w-8 text-center font-extrabold text-[var(--contrast-3)]">{idx===0?'🏆':item.rank}</div>
-                         <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)] font-medium'}`}>{item.team.name}</div>
-                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+			  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+				<h2 className="heading-font text-lg font-bold text-[var(--contrast)] flex items-center"><Award className="mr-2 text-[var(--tcw-yellow)]" size={20}/> Rangliste</h2>
+				{(() => {
+				  const finals = matches.filter(m => m.id && m.id.startsWith('final_'));
+				  const isEnded = finals.length > 0 && finals.every(m => m.winnerId !== null);
+
+				  if (!isEnded) {
+					return (
+					  <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">
+						Die endgültige Rangliste ist erst nach Abschluss aller Finalspiele verfügbar.
+					  </div>
+					);
+				  }
+
+				  const myRanks = finalRankings[myTeam.category];
+				  if (!myRanks || myRanks.length === 0) {
+					return (
+					   <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
+					);
+				  }
+
+				  return (
+					<div className="bg-[var(--base-3)] rounded shadow-sm border border-[var(--base)] overflow-hidden divide-y divide-[var(--base)]">
+					  {myRanks.map((item, idx) => (
+						 <div key={item.team.id} className={`flex items-center p-3 ${item.team.id === myTeam.id ? 'bg-[var(--base)] border-l-4 border-l-[var(--tcw-green)]' : ''}`}>
+						   <div className="w-8 text-center font-extrabold text-[var(--contrast-3)]">{idx===0?'🏆':item.rank}</div>
+						   <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)] font-medium'}`}>{item.team.name}</div>
+						 </div>
+					  ))}
+					</div>
+				  );
+				})()}
+			  </div>
+			)}
+
           </main>
 
           <nav className="absolute bottom-0 w-full bg-[var(--base-3)] border-t border-[var(--contrast-3)] flex justify-around p-3 shadow-lg">
