@@ -870,10 +870,10 @@ export default function App() {
         <div className="absolute inset-0 z-0 opacity-10" style={{backgroundImage: `url(${BRAND.banner})`, backgroundSize: 'cover'}}></div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-28 w-28 bg-[var(--base-3)] rounded flex items-center justify-center p-2 shadow-xl border-2 border-[var(--tcw-green)] mb-6">
+          <div className="h-28 w-28 rounded full flex items-center justify-center p-2 shadow-xl border-2 border-[var(--tcw-green)] mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
           </div>
-          <div className="bg-[var(--base-3)] p-8 rounded shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
+          <div className="p-8 rounded full shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
             {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
             <h2 className="heading-font text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2">{BRAND.name} Portal</h2>
             <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
@@ -925,7 +925,7 @@ export default function App() {
           <header className="relative bg-[var(--tcw-green)] text-[var(--base-3)] pt-10 pb-6 px-5 rounded-b shadow-md z-10">
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 bg-[var(--base-3)] rounded flex items-center justify-center p-1 shadow">
+                <div className="h-14 w-14 rounded full flex items-center justify-center p-1 shadow">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <button onClick={handleLogout} className="text-[var(--base-3)] p-2 bg-[var(--tcw-green-dark)] rounded">
@@ -1050,7 +1050,7 @@ export default function App() {
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded border border-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 bg-[var(--base-3)] rounded flex items-center justify-center p-1 border-2 border-[var(--tcw-green)]">
+                <div className="h-20 w-20 rounded full flex items-center justify-center p-1 border-2 border-[var(--tcw-green)]">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
@@ -1209,7 +1209,7 @@ export default function App() {
       <header className={`relative bg-[var(--tcw-green-dark)] text-[var(--base-3)] shadow-md ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-12 w-12 bg-[var(--base-3)] rounded flex items-center justify-center p-1 border border-[var(--base)]">
+            <div className="h-12 w-12 rounded full flex items-center justify-center p-1 border border-[var(--base)]">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
