@@ -11,7 +11,6 @@ import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
 // ==========================================
 // 🎨 BRANDING SETTINGS
 // Replace these URLs with the actual image links from tcwannweil.com
-// (If you save the images to your PC, put them in the "public" folder and type "/logo.png")
 // ==========================================
 const BRAND = {
   logo: "https://tcwannweil.com/wp-content/uploads/Logo-50-Jahre.png", 
@@ -79,6 +78,17 @@ const generateRandomScore = () => {
 
 const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
+// Cleans up the group name for display
+const formatStageGroupName = (m) => {
+   if (!m) return '';
+   if (m.stage === 'Placement') {
+       if (m.groupName.includes('Halbfinale')) return 'Platzierungsspiel';
+       return m.groupName; // e.g. "Spiel um Platz 3"
+   }
+   if (m.stage === 'Group') return m.groupName.includes('Gruppe') ? m.groupName : 'Gruppe ' + m.groupName;
+   return m.groupName;
+};
+
 // --- Main Application Component ---
 export default function App() {
   // --- 1. BASIC STATE ---
@@ -115,7 +125,7 @@ export default function App() {
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
 
-  // --- 2. DERIVED STATE (MUST BE DEFINED BEFORE EFFECTS) ---
+  // --- 2. DERIVED STATE ---
   const standings = useMemo(() => {
     const stats = {};
     teams.forEach(t => { stats[t.id] = { ...t, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }; });
@@ -540,7 +550,6 @@ export default function App() {
         Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
           const courtNum = (gIdx % COURTS) + 1;
           
-          // Generate all possible pairs for this group
           let pairs = [];
           for (let i = 0; i < groupTeams.length; i++) {
             for (let j = i + 1; j < groupTeams.length; j++) {
@@ -548,7 +557,6 @@ export default function App() {
             }
           }
           
-          // Greedy Optimization: Maximize distance between games for each team
           let orderedPairs = [];
           let lastPlayed = {};
           
@@ -715,10 +723,10 @@ export default function App() {
       while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'FREILOS' });
 
       const qfNodes = [
-        { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
-        { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
-        { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` },
-        { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` }
+        { id: `qf1_${cat}`, title: 'Viertelfinale 1', team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
+        { id: `qf2_${cat}`, title: 'Viertelfinale 2', team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
+        { id: `qf3_${cat}`, title: 'Viertelfinale 3', team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` },
+        { id: `qf4_${cat}`, title: 'Viertelfinale 4', team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` }
       ];
 
       const sfNodes = [
@@ -740,7 +748,7 @@ export default function App() {
 
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
-           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Viertelfinale', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
+           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: node.title, team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
         }
       });
 
@@ -829,6 +837,61 @@ export default function App() {
   const groupMatches = matches.filter(m => m.stage === 'Group');
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
+
+  // --- REUSABLE MATCH BOX COMPONENT ---
+  const MonitorMatchBox = ({ match, title, type = 'normal' }) => {
+    let displayTitle = title || (match ? match.groupName : 'Offen');
+    let borderColor = 'border-slate-600';
+    let headerBg = 'bg-slate-700 text-slate-300 border-slate-600';
+    
+    if (type === 'final') {
+       borderColor = 'border-yellow-500/50';
+       headerBg = 'bg-gradient-to-r from-yellow-600 to-amber-600 text-white border-yellow-700';
+    } else if (type === 'bronze') {
+       borderColor = 'border-emerald-600/50';
+       headerBg = 'bg-emerald-700 text-white border-emerald-800';
+    }
+
+    if (!match) {
+       return (
+         <div className={`border rounded-xl shadow-xl overflow-hidden m-2 bg-slate-800/50 ${borderColor} ${type === 'final' ? 'w-[25rem] scale-110' : 'w-[22rem]'}`}>
+            <div className={`text-sm text-center py-2 font-bold uppercase tracking-widest border-b ${headerBg}`}>{displayTitle}</div>
+            <div className="p-8 text-center text-slate-500 text-lg font-bold tracking-widest">OFFEN</div>
+         </div>
+       );
+    }
+    
+    const t1IsBye = match.team1?.isBye;
+    const t2IsBye = match.team2?.isBye;
+    if (t1IsBye && t2IsBye) return null;
+
+    return (
+      <div className={`border rounded-xl shadow-xl overflow-hidden m-2 bg-slate-800 ${borderColor} ${type === 'final' ? 'w-[25rem] scale-110' : 'w-[22rem]'}`}>
+         <div className={`text-sm text-center py-2 font-bold uppercase tracking-widest border-b ${headerBg}`}>{displayTitle}</div>
+         
+         <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${match.winnerId === match.team1?.id ? 'bg-red-900/60 text-white font-bold' : 'text-slate-300'}`}>
+           <span className={`truncate pr-2 ${t1IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
+           {!t1IsBye && !t2IsBye && match.score && (
+              <span className="text-emerald-400 font-bold tracking-widest">
+                {match.score.s1[0]} {match.score.s2[0]} {match.score.tb && (match.score.tb[0] > 0 || match.score.tb[1] > 0) ? `[${match.score.tb[0]}]` : ''}
+              </span>
+           )}
+         </div>
+         
+         <div className={`p-4 flex justify-between text-xl ${match.winnerId === match.team2?.id ? 'bg-red-900/60 text-white font-bold' : 'text-slate-300'}`}>
+           <span className={`truncate pr-2 ${t2IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
+           {!t1IsBye && !t2IsBye && match.score && (
+              <span className="text-emerald-400 font-bold tracking-widest">
+                {match.score.s1[1]} {match.score.s2[1]} {match.score.tb && (match.score.tb[0] > 0 || match.score.tb[1] > 0) ? `[${match.score.tb[1]}]` : ''}
+              </span>
+           )}
+         </div>
+      </div>
+    );
+  };
+
+  const getMonitorMatchData = (id) => matches.find(m => m.id === id);
+
 
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
@@ -928,7 +991,7 @@ export default function App() {
                       <div key={m.id} className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-emerald-500' : isLoser ? 'border-l-red-500' : 'border-l-slate-400'}`}>
                         <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">
                           <span>Tag {m.day} • {m.time} • Platz {m.court}</span>
-                          <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded">{m.groupName}</span>
+                          <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded">{formatStageGroupName(m)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
@@ -1057,7 +1120,7 @@ export default function App() {
                     <div key={m.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-4">
                        <div className="text-slate-400 font-bold mb-3 flex justify-between text-lg border-b border-slate-700 pb-2">
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-red-400'}`}>{m.time} • Platz {m.court}</span>
-                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {m.groupName}</span>
+                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
                           <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1072,7 +1135,7 @@ export default function App() {
                     <div key={m.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-4">
                        <div className="text-slate-400 font-bold mb-3 flex justify-between text-lg border-b border-slate-700 pb-2">
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-red-400'}`}>{m.time} • Platz {m.court}</span>
-                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {m.groupName}</span>
+                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
                           <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1112,60 +1175,33 @@ export default function App() {
                  <div className="flex justify-between items-stretch h-[65vh] px-12 relative">
                      {/* QF */}
                      <div className="flex flex-col justify-around w-[22rem] z-10">
-                        {brackets[slide.cat].qf.map((qfRef, i) => {
-                            const qf = matches.find(m => m.id === qfRef.id) || qfRef;
-                            return (
-                                <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden">
-                                  <div className="bg-slate-700 text-xs text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">Viertelfinale {i+1}</div>
-                                  <div className={`p-3 flex justify-between border-b border-slate-600 text-lg ${qf.winnerId === qf.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{qf.team1?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (qf.team1?.name || 'Offen')}</span>
-                                    <span className="text-emerald-400 font-bold">{qf.score?.s1[0]} {qf.score?.s2[0]}</span>
-                                  </div>
-                                  <div className={`p-3 flex justify-between text-lg ${qf.winnerId === qf.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{qf.team2?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (qf.team2?.name || 'Offen')}</span>
-                                    <span className="text-emerald-400 font-bold">{qf.score?.s1[1]} {qf.score?.s2[1]}</span>
-                                  </div>
-                                </div>
-                            );
-                        })}
+                        {brackets[slide.cat].qf.map((qfRef, i) => (
+                             <div key={i} className="relative">
+                               <MonitorMatchBox match={getMonitorMatchData(qfRef.id)} title={qfRef.title || `Viertelfinale ${i+1}`} />
+                               <div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-600"></div>
+                             </div>
+                        ))}
                      </div>
                      {/* SF */}
                      <div className="flex flex-col justify-around w-[22rem] z-10">
-                        {brackets[slide.cat].sf.map((sfRef, i) => {
-                            const sf = matches.find(m => m.id === sfRef.id) || sfRef;
-                            return (
-                                <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden scale-105">
-                                  <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">{sf.title}</div>
-                                  <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${sf.winnerId === sf.team1?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{sf.team1?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (sf.team1?.name || 'Offen')}</span>
-                                    <span className="text-emerald-400 font-bold tracking-widest">{sf.score?.s1[0]} {sf.score?.s2[0]}</span>
-                                  </div>
-                                  <div className={`p-4 flex justify-between text-xl ${sf.winnerId === sf.team2?.id ? 'bg-red-900/50 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{sf.team2?.isBye ? <span className="text-red-400 italic font-bold text-sm">Freilos</span> : (sf.team2?.name || 'Offen')}</span>
-                                    <span className="text-emerald-400 font-bold tracking-widest">{sf.score?.s1[1]} {sf.score?.s2[1]}</span>
-                                  </div>
-                                </div>
-                            );
-                        })}
+                        {brackets[slide.cat].sf.map((sfRef, i) => (
+                             <div key={i} className="relative">
+                               <div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
+                               <div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
+                               <div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-600"></div>
+                               <MonitorMatchBox match={getMonitorMatchData(sfRef.id)} title={sfRef.title} />
+                               <div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-600"></div>
+                             </div>
+                        ))}
                      </div>
                      {/* FINAL */}
                      <div className="flex flex-col justify-center w-[25rem] z-10">
-                        {(() => {
-                           const finalMatch = matches.find(m => m.id === brackets[slide.cat].finals[0].id) || brackets[slide.cat].finals[0];
-                           return (
-                               <div className="bg-slate-800 border-2 border-yellow-500/50 rounded-xl shadow-2xl overflow-hidden scale-110">
-                                 <div className="bg-gradient-to-r from-yellow-600 to-amber-600 text-white text-lg text-center py-3 font-black uppercase tracking-widest border-b border-yellow-700">FINALE</div>
-                                 <div className={`p-5 flex justify-between border-b border-slate-600 text-2xl ${finalMatch.winnerId === finalMatch.team1?.id ? 'bg-red-900/80 text-white font-bold' : 'text-slate-200'}`}>
-                                   <span className="truncate pr-2">{finalMatch.team1?.name || 'Offen'}</span>
-                                   <span className="text-emerald-400 font-black">{finalMatch.score?.s1[0]} {finalMatch.score?.s2[0]}</span>
-                                 </div>
-                                 <div className={`p-5 flex justify-between text-2xl ${finalMatch.winnerId === finalMatch.team2?.id ? 'bg-red-900/80 text-white font-bold' : 'text-slate-200'}`}>
-                                   <span className="truncate pr-2">{finalMatch.team2?.name || 'Offen'}</span>
-                                   <span className="text-emerald-400 font-black">{finalMatch.score?.s1[1]} {finalMatch.score?.s2[1]}</span>
-                                 </div>
-                               </div>
-                           );
-                        })()}
+                        <div className="relative">
+                           <div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
+                           <div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
+                           <div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-600"></div>
+                           <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[0].id)} title="FINALE" type="final" />
+                        </div>
                      </div>
                  </div>
              </div>
@@ -1175,54 +1211,22 @@ export default function App() {
              <div className="h-full flex justify-center items-center pb-12">
                  <div className="flex space-x-24 w-full max-w-5xl">
                      <div className="flex flex-col justify-around h-[60vh] flex-1 space-y-12">
-                        {brackets[slide.cat].pSf.map((pSfRef, i) => {
-                            const pSf = matches.find(m => m.id === pSfRef.id) || pSfRef;
-                            return (
-                                <div key={i} className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden">
-                                  <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">{pSf.title}</div>
-                                  <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${pSf.winnerId === pSf.team1?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{pSf.team1?.name || 'Offen'}</span>
-                                    <span className="text-indigo-300 font-bold">{pSf.score?.s1[0]} {pSf.score?.s2[0]}</span>
-                                  </div>
-                                  <div className={`p-4 flex justify-between text-xl ${pSf.winnerId === pSf.team2?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{pSf.team2?.name || 'Offen'}</span>
-                                    <span className="text-indigo-300 font-bold">{pSf.score?.s1[1]} {pSf.score?.s2[1]}</span>
-                                  </div>
-                                </div>
-                            );
-                        })}
+                        {brackets[slide.cat].pSf.map((pSfRef, i) => (
+                             <div key={i} className="relative">
+                               <MonitorMatchBox match={getMonitorMatchData(pSfRef.id)} title={pSfRef.title} />
+                             </div>
+                        ))}
                      </div>
                      <div className="flex flex-col justify-between h-[60vh] flex-1">
-                        {(() => {
-                            const place3 = matches.find(m => m.id === brackets[slide.cat].finals[1].id) || brackets[slide.cat].finals[1];
-                            const place5 = matches.find(m => m.id === brackets[slide.cat].finals[2].id) || brackets[slide.cat].finals[2];
-                            return (
-                               <>
-                                <div className="bg-slate-800 border-2 border-emerald-600/50 rounded-xl shadow-xl overflow-hidden scale-105">
-                                  <div className="bg-emerald-700 text-white text-md text-center py-3 font-bold uppercase tracking-widest border-b border-emerald-800">Spiel um Platz 3</div>
-                                  <div className={`p-4 flex justify-between border-b border-slate-600 text-xl ${place3.winnerId === place3.team1?.id ? 'bg-emerald-900/60 text-white font-bold' : 'text-slate-200'}`}>
-                                    <span className="truncate pr-2">{place3.team1?.name || 'Offen'}</span>
-                                    <span className="text-emerald-400 font-bold">{place3.score?.s1[0]} {place3.score?.s2[0]}</span>
-                                  </div>
-                                  <div className={`p-4 flex justify-between text-xl ${place3.winnerId === place3.team2?.id ? 'bg-emerald-900/60 text-white font-bold' : 'text-slate-200'}`}>
-                                    <span className="truncate pr-2">{place3.team2?.name || 'Offen'}</span>
-                                    <span className="text-emerald-400 font-bold">{place3.score?.s1[1]} {place3.score?.s2[1]}</span>
-                                  </div>
-                                </div>
-                                <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-hidden opacity-90 mt-6">
-                                  <div className="bg-slate-700 text-sm text-center py-2 font-bold text-slate-300 uppercase tracking-widest border-b border-slate-600">Spiel um Platz 5</div>
-                                  <div className={`p-3 flex justify-between border-b border-slate-600 text-lg ${place5.winnerId === place5.team1?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{place5.team1?.name || 'Offen'}</span>
-                                    <span className="text-indigo-300 font-bold">{place5.score?.s1[0]} {place5.score?.s2[0]}</span>
-                                  </div>
-                                  <div className={`p-3 flex justify-between text-lg ${place5.winnerId === place5.team2?.id ? 'bg-slate-600 text-white font-bold' : 'text-slate-300'}`}>
-                                    <span className="truncate pr-2">{place5.team2?.name || 'Offen'}</span>
-                                    <span className="text-indigo-300 font-bold">{place5.score?.s1[1]} {place5.score?.s2[1]}</span>
-                                  </div>
-                                </div>
-                               </>
-                            );
-                        })()}
+                         <div className="relative">
+                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[1].id)} title="Spiel um Platz 3" type="bronze" />
+                         </div>
+                         <div className="relative mt-6 opacity-90">
+                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[2].id)} title="Spiel um Platz 5" />
+                         </div>
+                         <div className="relative mt-6 opacity-75">
+                            <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[3].id)} title="Spiel um Platz 7" />
+                         </div>
                      </div>
                  </div>
              </div>
@@ -1563,7 +1567,7 @@ export default function App() {
                               <tr>
                                 <th className="p-3 text-left w-20 border-b border-slate-200">Zeit</th>
                                 <th className="p-3 text-left w-20 border-b border-slate-200">Platz</th>
-                                <th className="p-3 text-left w-24 border-b border-slate-200">Phase</th>
+                                <th className="p-3 text-left w-32 border-b border-slate-200">Phase</th>
                                 <th className="p-3 text-right border-b border-slate-200">Team 1</th>
                                 <th className="p-3 text-center w-40 border-b border-slate-200">Ergebnis</th>
                                 <th className="p-3 text-left border-b border-slate-200">Team 2</th>
@@ -1582,7 +1586,7 @@ export default function App() {
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
                                   <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexibel' ? 'text-indigo-600 text-xs tracking-widest' : 'text-slate-800')}`}>{m.time || 'Nicht angesetzt'}</td>
                                   <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Platz {m.court}</span> : '-'}</td>
-                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{m.stage === 'Group' ? 'Gruppe ' + m.groupName.replace('Gruppe ', '') : m.groupName}</span></td>
+                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{formatStageGroupName(m)}</span></td>
                                   <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
                                     {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Kommt weiter (Freilos)</span> : (m.team1?.name || 'Offen')}
                                   </td>
@@ -1611,12 +1615,13 @@ export default function App() {
                  if (!brackets[cat]) return null;
                  const getMatchData = (id) => matches.find(m => m.id === id);
                  const MatchBox = ({ match, title }) => {
-                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-sm font-bold m-2">Offen</div>;
+                   let displayTitle = title || (match ? match.groupName : 'Offen');
+                   if (!match) return <div className="w-64 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center justify-center text-slate-400 font-bold m-2 break-inside-avoid"><div className="text-xs uppercase tracking-widest my-2 opacity-50">{displayTitle}</div><div className="text-lg mb-4">Offen</div></div>;
                    const t1IsBye = match.team1?.isBye; const t2IsBye = match.team2?.isBye;
                    if (t1IsBye && t2IsBye) return null;
                    return (
                      <div className="w-64 border border-slate-300 rounded-xl bg-white shadow-sm overflow-hidden m-2 print:border-slate-400 print:shadow-none break-inside-avoid">
-                        <div className="bg-slate-100 text-xs text-center py-1 font-extrabold text-slate-600 border-b border-slate-200 uppercase tracking-wider">{title || match.groupName}</div>
+                        <div className="bg-slate-100 text-xs text-center py-1 font-extrabold text-slate-600 border-b border-slate-200 uppercase tracking-wider">{displayTitle}</div>
                         <div className={`p-2 border-b border-slate-100 flex justify-between ${match.winnerId === match.team1?.id ? 'bg-emerald-50 font-bold text-emerald-900' : 'text-slate-700'}`}>
                           <span className={`truncate pr-2 ${t1IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t1IsBye ? 'Kommt weiter (Freilos)' : (match.team1?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
