@@ -326,18 +326,16 @@ export default function App() {
         });
     }
 
-    ['U50', 'O50'].forEach(cat => {
-        const finalMatch = matches.find(m => m.id === `final_${cat}`);
-        const isCatEnded = finalMatch && finalMatch.winnerId !== null;
-        if (isCatEnded) {
+    if (isEnded) {
+        ['U50', 'O50'].forEach(cat => {
             const ranks = finalRankings[cat] || [];
             if (ranks.length > 0) {
                 for(let i=0; i<ranks.length; i+=12) {
                     newSlides.push({ type: 'rankings', cat, title: `Abschlussplatzierungen: ${CATEGORIES[cat]}`, data: ranks.slice(i, i+12), pageInfo: ranks.length>12 ? `(Plätze ${i+1}-${Math.min(i+12, ranks.length)})` : '' });
                 }
             }
-        }
-    });
+        });
+    }
 
     if (newSlides.length === 0) newSlides.push({ type: 'idle', title: 'Willkommen beim Turnier' });
 
@@ -872,10 +870,10 @@ export default function App() {
         <div className="absolute inset-0 z-0 opacity-10" style={{backgroundImage: `url(${BRAND.banner})`, backgroundSize: 'cover'}}></div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-28 w-28 bg-[var(--base-3)] rounded flex items-center justify-center p-2 shadow-xl border-2 border-[var(--tcw-green)] mb-6">
+          <div className="h-28 w-28 rounded full flex items-center justify-center p-2 shadow-xl border-2 mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
           </div>
-          <div className="bg-[var(--base-3)] p-8 rounded shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
+          <div className="p-8 rounded full shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
             {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
             <h2 className="heading-font text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2">{BRAND.name} Portal</h2>
             <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
@@ -927,7 +925,7 @@ export default function App() {
           <header className="relative bg-[var(--tcw-green)] text-[var(--base-3)] pt-10 pb-6 px-5 rounded-b shadow-md z-10">
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 bg-[var(--base-3)] rounded flex items-center justify-center p-1 shadow">
+                <div className="h-14 w-14 rounded full flex items-center justify-center p-1 shadow">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <button onClick={handleLogout} className="text-[var(--base-3)] p-2 bg-[var(--tcw-green-dark)] rounded">
@@ -1004,25 +1002,18 @@ export default function App() {
             {playerTab === 'rankings' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
                 <h2 className="heading-font text-lg font-bold text-[var(--contrast)] flex items-center"><Award className="mr-2 text-[var(--tcw-yellow)]" size={20}/> Rangliste</h2>
-                {(() => {
-                   const finalMatch = matches.find(m => m.id === `final_${myTeam.category}`);
-                   const isFinished = finalMatch && finalMatch.winnerId !== null;
-                   
-                   if (!isFinished) {
-                     return <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Die Rangliste wird berechnet, sobald das Finale beendet ist.</div>;
-                   }
-                   
-                   return (!finalRankings[myTeam.category] || finalRankings[myTeam.category].length === 0) ? null : (
-                      <div className="bg-[var(--base-3)] rounded shadow-sm border border-[var(--base)] overflow-hidden divide-y divide-[var(--base)]">
-                        {finalRankings[myTeam.category].map((item, idx) => (
-                           <div key={item.team.id} className={`flex items-center p-3 ${item.team.id === myTeam.id ? 'bg-[var(--base)] border-l-4 border-l-[var(--tcw-green)]' : ''}`}>
-                             <div className="w-8 text-center font-extrabold text-[var(--contrast-3)]">{idx===0?'🏆':item.rank}</div>
-                             <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)] font-medium'}`}>{item.team.name}</div>
-                           </div>
-                        ))}
-                      </div>
-                   );
-                })()}
+                {(!finalRankings[myTeam.category] || finalRankings[myTeam.category].length === 0) ? (
+                   <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
+                ) : (
+                  <div className="bg-[var(--base-3)] rounded shadow-sm border border-[var(--base)] overflow-hidden divide-y divide-[var(--base)]">
+                    {finalRankings[myTeam.category].map((item, idx) => (
+                       <div key={item.team.id} className={`flex items-center p-3 ${item.team.id === myTeam.id ? 'bg-[var(--base)] border-l-4 border-l-[var(--tcw-green)]' : ''}`}>
+                         <div className="w-8 text-center font-extrabold text-[var(--contrast-3)]">{idx===0?'🏆':item.rank}</div>
+                         <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)] font-medium'}`}>{item.team.name}</div>
+                       </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </main>
@@ -1059,7 +1050,7 @@ export default function App() {
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded border border-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 bg-[var(--base-3)] rounded flex items-center justify-center p-1 border-2 border-[var(--tcw-green)]">
+                <div className="h-20 w-20 rounded full flex items-center justify-center p-1 border-2 ">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
@@ -1218,7 +1209,7 @@ export default function App() {
       <header className={`relative bg-[var(--tcw-green-dark)] text-[var(--base-3)] shadow-md ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-12 w-12 bg-[var(--base-3)] rounded flex items-center justify-center p-1 border border-[var(--base)]">
+            <div className="h-12 w-12 rounded full flex items-center justify-center p-1">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
@@ -1610,20 +1601,11 @@ export default function App() {
              <div className="space-y-12">
                {['U50', 'O50'].map(cat => {
                  if (!finalRankings[cat] || finalRankings[cat].length === 0) return null;
-                 
-                 const finalMatch = matches.find(m => m.id === `final_${cat}`);
-                 const isFinished = finalMatch && finalMatch.winnerId !== null;
-
                  return (
                    <div key={cat} className="page-break-after">
                       <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center">
                         <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {CATEGORIES[cat]}
                       </h2>
-                      {!isFinished ? (
-                        <div className="bg-[var(--base-3)] p-8 rounded text-center border border-[var(--contrast-3)] shadow-sm">
-                           <p className="text-[var(--contrast-2)] font-medium text-lg">Die Rangliste für {CATEGORIES[cat]} wird berechnet, sobald das Finale gespielt wurde.</p>
-                        </div>
-                      ) : (
                       <div className="border border-[var(--contrast-3)] rounded overflow-hidden">
                         <table className="w-full text-left text-sm table-fixed">
                            <thead className="bg-[var(--base)] text-[var(--contrast-2)] uppercase text-xs border-b border-[var(--contrast-3)]">
@@ -1652,7 +1634,6 @@ export default function App() {
                            </tbody>
                         </table>
                       </div>
-                      )}
                    </div>
                  )
                })}
