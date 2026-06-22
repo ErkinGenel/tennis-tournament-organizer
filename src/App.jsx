@@ -77,7 +77,6 @@ const generateRandomScore = () => {
 
 const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
-// Cleans up the group name for display
 const formatStageGroupName = (stage, rawName) => {
     if (!rawName) return 'Offen';
     if (stage === 'Placement') {
@@ -92,42 +91,42 @@ const formatStageGroupName = (stage, rawName) => {
 const MonitorMatchBox = ({ match, title, type = 'normal' }) => {
     let displayTitle = formatStageGroupName(match ? match.stage : null, title || (match ? match.groupName : 'Offen'));
     
-    let borderColor = 'border-slate-600';
-    let headerBg = 'bg-slate-700 text-slate-300 border-slate-600';
-    let contentBg = 'bg-slate-800';
+    let borderColor = 'border-[#444444]';
+    let headerBg = 'bg-[#333333] text-gray-200 border-[#444444]';
+    let contentBg = 'bg-[#222222]';
     let scale = 'scale-100';
     
     if (type === 'sf') { scale = 'scale-105'; }
     else if (type === 'final') {
-        borderColor = 'border-yellow-500/50 border-2';
-        headerBg = 'bg-gradient-to-r from-yellow-600 to-amber-600 text-white border-yellow-700';
+        borderColor = 'border-[#E3000F] border-2';
+        headerBg = 'bg-[#E3000F] text-white border-[#C2000D]';
         scale = 'scale-110 shadow-2xl';
     } else if (type === 'place_sf') {
-        contentBg = 'bg-slate-800 opacity-90';
+        contentBg = 'bg-[#222222] opacity-90';
     } else if (type === 'place_3') {
-        borderColor = 'border-emerald-600/50 border-2';
-        headerBg = 'bg-emerald-700 text-white border-emerald-800';
+        borderColor = 'border-gray-500 border-2';
+        headerBg = 'bg-gray-600 text-white border-gray-700';
         scale = 'scale-105 shadow-xl';
     }
 
-    if (!match) return <div className={`w-64 h-24 border-2 border-dashed border-slate-600 rounded-xl bg-slate-800/50 flex flex-col items-center justify-center text-slate-500 font-bold m-2 break-inside-avoid ${scale}`}><div className="text-xs uppercase tracking-widest my-2 opacity-50">{displayTitle}</div><div className="text-lg mb-4">Offen</div></div>;
+    if (!match) return <div className={`w-64 h-24 border-2 border-dashed border-[#555555] rounded-lg bg-[#222222]/50 flex flex-col items-center justify-center text-gray-500 font-bold m-2 break-inside-avoid ${scale}`}><div className="heading-font text-xs uppercase tracking-widest my-2 opacity-50">{displayTitle}</div><div className="heading-font text-lg mb-4">Offen</div></div>;
 
     const t1IsBye = match.team1?.isBye;
     const t2IsBye = match.team2?.isBye;
     if (t1IsBye && t2IsBye) return null;
 
     return (
-        <div className={`w-72 border ${borderColor} rounded-xl shadow-xl overflow-hidden m-2 break-inside-avoid ${scale} transition-transform`}>
-            <div className={`${headerBg} text-xs text-center py-2 font-bold uppercase tracking-widest border-b`}>{displayTitle}</div>
+        <div className={`w-72 border ${borderColor} rounded-lg shadow-xl overflow-hidden m-2 break-inside-avoid ${scale} transition-transform`}>
+            <div className={`heading-font ${headerBg} text-xs text-center py-2 font-bold uppercase tracking-widest border-b`}>{displayTitle}</div>
             
-            <div className={`p-3 flex justify-between text-lg border-b border-slate-600 ${match.winnerId === match.team1?.id ? 'bg-red-900/50 text-white font-bold' : `text-slate-300 ${contentBg}`}`}>
-                <span className={`truncate pr-2 ${t1IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
-                {!t1IsBye && !t2IsBye && <span className="text-emerald-400 font-bold tracking-widest">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
+            <div className={`p-3 flex justify-between text-lg border-b border-[#444444] ${match.winnerId === match.team1?.id ? 'bg-[#333333] text-white font-bold' : `text-gray-300 ${contentBg}`}`}>
+                <span className={`truncate pr-2 ${t1IsBye ? 'text-[#E3000F] italic font-bold text-sm' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
+                {!t1IsBye && !t2IsBye && <span className="text-white font-bold tracking-widest">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
             </div>
             
-            <div className={`p-3 flex justify-between text-lg ${match.winnerId === match.team2?.id ? 'bg-red-900/50 text-white font-bold' : `text-slate-300 ${contentBg}`}`}>
-                <span className={`truncate pr-2 ${t2IsBye ? 'text-red-400 italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
-                {!t1IsBye && !t2IsBye && <span className="text-emerald-400 font-bold tracking-widest">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
+            <div className={`p-3 flex justify-between text-lg ${match.winnerId === match.team2?.id ? 'bg-[#333333] text-white font-bold' : `text-gray-300 ${contentBg}`}`}>
+                <span className={`truncate pr-2 ${t2IsBye ? 'text-[#E3000F] italic font-bold text-sm' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
+                {!t1IsBye && !t2IsBye && <span className="text-white font-bold tracking-widest">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
             </div>
         </div>
     );
@@ -313,7 +312,6 @@ export default function App() {
     const hasBrackets = brackets && (brackets.U50 || brackets.O50);
 
     if (!isEnded) {
-        // GROUPS SLIDES (4 per slide)
         ['U50', 'O50'].forEach(cat => {
             const grps = Object.entries(groups[cat] || {});
             if (grps.length > 0) {
@@ -323,7 +321,6 @@ export default function App() {
             }
         });
 
-        // SCHEDULE SLIDES (10 per slide)
         const scheduleMatches = matches.filter(m => m.time !== 'BYE').sort((a,b) => {
             if (a.day !== b.day) return a.day - b.day;
             if (a.time === 'Flexibel' && b.time === 'Flexibel') {
@@ -875,50 +872,54 @@ export default function App() {
     if (!score) return <span className="text-gray-400">vs</span>;
     let text = `${score.s1[0]}:${score.s1[1]} | ${score.s2[0]}:${score.s2[1]}`;
     if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += ` | [${score.tb[0]}:${score.tb[1]}]`;
-    return <span className="font-semibold text-slate-800">{text}</span>;
+    return <span className="font-semibold text-gray-800">{text}</span>;
   };
 
   const groupMatches = matches.filter(m => m.stage === 'Group');
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
 
-  // --- Helpers for TV Monitor live data ---
   const getMonitorMatchData = (id) => matches.find(m => m.id === id);
 
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-slate-900">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[#F5F7FA]">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&family=Open+Sans:wght@400;600;700&display=swap');
+          body, button, input, select, textarea { font-family: 'Open Sans', sans-serif; }
+          .heading-font, h1, h2, h3, h4, h5, h6, th, .uppercase, .font-extrabold { font-family: 'Montserrat', sans-serif; }
+        `}</style>
         <div className="absolute inset-0 z-0">
-          <img src={BRAND.banner} alt="Background" className="w-full h-full object-cover opacity-20" />
+          <img src={BRAND.banner} alt="Background" className="w-full h-full object-cover opacity-10 grayscale" />
         </div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-24 w-24 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl border-4 border-red-600 mb-6">
+          <div className="h-28 w-28 bg-white rounded-full flex items-center justify-center p-2 shadow-lg border-[3px] border-[#E3000F] mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
           </div>
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full border border-gray-200 mb-6 relative overflow-hidden">
-            {authError && <div className="absolute top-0 left-0 w-full bg-red-600 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
-            <h2 className="text-2xl font-extrabold text-center text-slate-900 mt-2 mb-2">{BRAND.name} Portal</h2>
+          <div className="bg-white p-8 rounded-lg shadow-xl w-full border-t-4 border-[#E3000F] mb-6 relative overflow-hidden">
+            {authError && <div className="absolute top-0 left-0 w-full bg-[#E3000F] text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top heading-font tracking-wider">{authError}</div>}
+            <h2 className="heading-font text-2xl font-extrabold text-center text-[#222222] mt-2 mb-2">{BRAND.name} Portal</h2>
             <p className="text-center text-gray-500 text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-gray-200 rounded-lg text-center tracking-widest font-bold focus:border-red-500 focus:ring-0 transition" placeholder="Passwort oder PIN" required />
-              <button type="submit" className="w-full bg-red-700 text-white p-3 rounded-lg font-bold hover:bg-red-800 shadow-md transition">Anmelden</button>
+              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md text-center tracking-widest font-bold focus:border-[#E3000F] focus:ring-1 focus:ring-[#E3000F] transition outline-none" placeholder="Passwort oder PIN" required />
+              <button type="submit" className="heading-font uppercase tracking-wider w-full bg-[#E3000F] text-white p-3 rounded-md font-bold hover:bg-[#C2000D] shadow-md transition">Anmelden</button>
             </form>
             <div className="mt-8 pt-6 border-t border-gray-100 text-center">
               <p className="text-xs text-gray-400 mb-2 font-medium">Haben Sie eine Offline-Turnierdatei?</p>
-              <label className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg cursor-pointer transition font-bold">
+              <label className="heading-font text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-md cursor-pointer transition font-bold uppercase tracking-wider">
                  Datei laden
                  <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
               </label>
             </div>
           </div>
 
-          <div className="bg-slate-800/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full border border-slate-700 text-center">
-             <Tv className="h-10 w-10 text-red-500 mx-auto mb-4" />
-             <h3 className="font-bold text-white text-xl mb-2">TV-Monitor Anzeige</h3>
-             <p className="text-sm text-slate-300 mb-6 font-medium">Starten Sie das Live-Turnier-Dashboard für große Bildschirme.</p>
-             <button onClick={() => setAppMode('monitor')} className="w-full bg-slate-700 text-white p-3 rounded-lg font-bold hover:bg-slate-600 shadow-lg flex items-center justify-center border border-slate-600 transition">
+          <div className="bg-[#222222] p-8 rounded-lg shadow-xl w-full border-t-4 border-[#444444] text-center">
+             <Tv className="h-10 w-10 text-[#E3000F] mx-auto mb-4" />
+             <h3 className="heading-font font-bold text-white text-xl mb-2">TV-Monitor Anzeige</h3>
+             <p className="text-sm text-gray-400 mb-6 font-medium">Starten Sie das Live-Turnier-Dashboard für große Bildschirme.</p>
+             <button onClick={() => setAppMode('monitor')} className="heading-font uppercase tracking-wider w-full bg-[#333333] text-white p-3 rounded-md font-bold hover:bg-[#444444] shadow-md flex items-center justify-center transition">
                <Monitor size={20} className="mr-2" /> Monitor starten
              </button>
           </div>
@@ -943,60 +944,64 @@ export default function App() {
     });
 
     return (
-      <div className="bg-slate-900 min-h-screen flex justify-center">
-        <div className="w-full max-w-[400px] bg-gray-50 min-h-screen flex flex-col shadow-2xl relative">
+      <div className="bg-[#F5F7FA] min-h-screen flex justify-center">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&family=Open+Sans:wght@400;600;700&display=swap');
+          body, button, input, select, textarea { font-family: 'Open Sans', sans-serif; }
+          .heading-font, h1, h2, h3, h4, h5, h6, th, .uppercase, .font-extrabold { font-family: 'Montserrat', sans-serif; }
+        `}</style>
+        <div className="w-full max-w-[400px] bg-white min-h-screen flex flex-col shadow-2xl relative">
           
-          <header className="relative bg-slate-900 text-white pt-10 pb-6 px-5 rounded-b-3xl shadow-xl z-10 overflow-hidden">
+          <header className="relative bg-white text-[#222222] pt-10 pb-6 px-5 border-b-[4px] border-[#E3000F] shadow-sm z-10 overflow-hidden">
             <div className="absolute inset-0 z-0">
-              <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-30" />
-              <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 to-slate-900"></div>
+              <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-5 grayscale" />
             </div>
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-lg border-2 border-red-600">
+                <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border-2 border-[#E3000F]">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
-                <button onClick={handleLogout} className="text-red-300 hover:text-white p-2 bg-black/20 rounded-full backdrop-blur-sm">
+                <button onClick={handleLogout} className="text-gray-400 hover:text-[#E3000F] p-2 bg-gray-50 rounded-full transition">
                   <LogOut size={20} />
                 </button>
               </div>
-              <h1 className="text-2xl font-bold leading-tight mb-1 drop-shadow-md">{myTeam.name}</h1>
-              <div className="flex items-center space-x-2 text-red-200 text-sm font-medium drop-shadow-sm">
+              <h1 className="heading-font text-2xl font-black leading-tight mb-1">{myTeam.name}</h1>
+              <div className="flex items-center space-x-2 text-[#E3000F] text-sm font-bold">
                  <span>{CATEGORIES[myTeam.category]}</span>
-                 <span>•</span>
-                 <span className="truncate">{myTeam.clubs.join(' / ')}</span>
+                 <span className="text-gray-300">•</span>
+                 <span className="truncate text-gray-600">{myTeam.clubs.join(' / ')}</span>
               </div>
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto p-5 pb-24">
+          <main className="flex-1 overflow-y-auto p-5 pb-24 bg-[#F5F7FA]">
             {playerTab === 'matches' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Calendar className="mr-2 text-red-600" size={20}/> Mein Spielplan</h2>
+                <h2 className="heading-font text-lg font-extrabold text-[#222222] flex items-center uppercase"><Calendar className="mr-2 text-[#E3000F]" size={20}/> Mein Spielplan</h2>
                 {scheduledMatches.length === 0 ? (
-                  <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500 font-medium">Noch keine Spiele geplant.</div>
+                  <div className="bg-white p-6 rounded-lg text-center shadow-sm border border-gray-200 text-gray-500 font-medium">Noch keine Spiele geplant.</div>
                 ) : (
                   scheduledMatches.map(m => {
                     const isWinner = m.winnerId === myTeam.id; const isLoser = m.winnerId && m.winnerId !== myTeam.id;
                     const opp = m.team1.id === myTeam.id ? m.team2 : m.team1;
                     return (
-                      <div key={m.id} className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-emerald-500' : isLoser ? 'border-l-red-500' : 'border-l-slate-400'}`}>
-                        <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">
+                      <div key={m.id} className={`bg-white rounded-lg p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-green-600' : isLoser ? 'border-l-gray-400' : 'border-l-[#E3000F]'}`}>
+                        <div className="heading-font flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 pb-2 border-b border-gray-100">
                           <span>Tag {m.day} • {m.time} • Platz {m.court}</span>
-                          <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded">{formatStageGroupName(m.stage, m.groupName)}</span>
+                          <span className="text-[#E3000F] bg-red-50 px-2 py-0.5 rounded-sm">{formatStageGroupName(m.stage, m.groupName)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
                             <div className="text-xs text-gray-500 mb-1 font-medium">Gegner</div>
-                            <div className="font-bold text-slate-800 text-sm">{opp.name}</div>
+                            <div className="font-bold text-[#222222] text-sm">{opp.name}</div>
                           </div>
                           <div className="text-right pl-4">
                             {m.score ? (
-                               <div className={`font-black text-lg ${isWinner ? 'text-emerald-600' : 'text-red-600'}`}>
+                               <div className={`font-black text-lg ${isWinner ? 'text-green-600' : 'text-gray-500'}`}>
                                   {m.score.s1[0]}:{m.score.s1[1]} <br/> {m.score.s2[0]}:{m.score.s2[1]}
                                   {m.score.tb && <span><br/>[{m.score.tb[0]}:{m.score.tb[1]}]</span>}
                                </div>
-                            ) : (<span className="text-gray-300 font-bold text-sm">VS</span>)}
+                            ) : (<span className="heading-font text-gray-300 font-bold text-sm uppercase">VS</span>)}
                           </div>
                         </div>
                       </div>
@@ -1008,18 +1013,18 @@ export default function App() {
 
             {playerTab === 'group' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Shield className="mr-2 text-red-600" size={20}/> {myGroupName}</h2>
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <h2 className="heading-font text-lg font-extrabold text-[#222222] flex items-center uppercase"><Shield className="mr-2 text-[#E3000F]" size={20}/> {myGroupName}</h2>
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                    <table className="w-full text-sm text-left">
-                     <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                     <thead className="bg-gray-50 text-gray-500 text-xs uppercase heading-font">
                        <tr><th className="p-3">Pos</th><th className="p-3">Team</th><th className="p-3 text-center">S-N</th></tr>
                      </thead>
                      <tbody>
                        {myGroupTeams.map((t, idx) => (
-                         <tr key={t.id} className={`border-b border-gray-50 last:border-0 ${t.id === myTeam.id ? 'bg-red-50/50' : ''}`}>
+                         <tr key={t.id} className={`border-b border-gray-100 last:border-0 ${t.id === myTeam.id ? 'bg-red-50/50' : ''}`}>
                            <td className="p-3 font-bold text-gray-400">{idx+1}</td>
-                           <td className={`p-3 truncate max-w-[120px] ${t.id === myTeam.id ? 'font-bold text-red-800' : 'text-slate-700 font-medium'}`}>{t.name}</td>
-                           <td className="p-3 text-center font-bold text-slate-800">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
+                           <td className={`p-3 truncate max-w-[120px] ${t.id === myTeam.id ? 'font-bold text-[#E3000F]' : 'text-[#222222] font-medium'}`}>{t.name}</td>
+                           <td className="p-3 text-center font-bold text-[#222222]">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
                          </tr>
                        ))}
                      </tbody>
@@ -1030,15 +1035,15 @@ export default function App() {
 
             {playerTab === 'rankings' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <h2 className="text-lg font-extrabold text-slate-800 flex items-center"><Award className="mr-2 text-yellow-500" size={20}/> Rangliste</h2>
+                <h2 className="heading-font text-lg font-extrabold text-[#222222] flex items-center uppercase"><Award className="mr-2 text-yellow-500" size={20}/> Rangliste</h2>
                 {(!finalRankings[myTeam.category] || finalRankings[myTeam.category].length === 0) ? (
-                   <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 text-gray-500 font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
+                   <div className="bg-white p-6 rounded-lg text-center shadow-sm border border-gray-200 text-gray-500 font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
                 ) : (
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     {finalRankings[myTeam.category].map((item, idx) => (
-                       <div key={item.team.id} className={`flex items-center p-3 border-b border-gray-50 last:border-0 ${item.team.id === myTeam.id ? 'bg-red-50 border-l-4 border-l-red-600' : ''}`}>
-                         <div className="w-8 text-center font-extrabold text-slate-400">{idx===0?'🏆':item.rank}</div>
-                         <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-red-800' : 'text-slate-700 font-medium'}`}>{item.team.name}</div>
+                       <div key={item.team.id} className={`flex items-center p-3 border-b border-gray-100 last:border-0 ${item.team.id === myTeam.id ? 'bg-red-50 border-l-4 border-l-[#E3000F]' : ''}`}>
+                         <div className="w-8 text-center font-extrabold text-gray-400">{idx===0?'🏆':item.rank}</div>
+                         <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-[#E3000F]' : 'text-[#222222] font-medium'}`}>{item.team.name}</div>
                        </div>
                     ))}
                   </div>
@@ -1048,14 +1053,14 @@ export default function App() {
           </main>
 
           <nav className="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-3 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-             <button onClick={() => setPlayerTab('matches')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'matches' ? 'text-red-700 bg-red-50' : 'text-gray-400 hover:text-slate-600'}`}>
-               <Calendar size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Spiele</span>
+             <button onClick={() => setPlayerTab('matches')} className={`flex flex-col items-center p-2 rounded-md w-20 transition-colors ${playerTab === 'matches' ? 'text-[#E3000F] bg-red-50' : 'text-gray-400 hover:text-[#222222]'}`}>
+               <Calendar size={20} className="mb-1" /> <span className="heading-font text-[10px] font-bold uppercase tracking-wider">Spiele</span>
              </button>
-             <button onClick={() => setPlayerTab('group')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'group' ? 'text-red-700 bg-red-50' : 'text-gray-400 hover:text-slate-600'}`}>
-               <Shield size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Gruppe</span>
+             <button onClick={() => setPlayerTab('group')} className={`flex flex-col items-center p-2 rounded-md w-20 transition-colors ${playerTab === 'group' ? 'text-[#E3000F] bg-red-50' : 'text-gray-400 hover:text-[#222222]'}`}>
+               <Shield size={20} className="mb-1" /> <span className="heading-font text-[10px] font-bold uppercase tracking-wider">Gruppe</span>
              </button>
-             <button onClick={() => setPlayerTab('rankings')} className={`flex flex-col items-center p-2 rounded-xl w-20 transition-colors ${playerTab === 'rankings' ? 'text-red-700 bg-red-50' : 'text-gray-400 hover:text-slate-600'}`}>
-               <Award size={20} className="mb-1" /> <span className="text-[10px] font-bold uppercase tracking-wider">Rangliste</span>
+             <button onClick={() => setPlayerTab('rankings')} className={`flex flex-col items-center p-2 rounded-md w-20 transition-colors ${playerTab === 'rankings' ? 'text-[#E3000F] bg-red-50' : 'text-gray-400 hover:text-[#222222]'}`}>
+               <Award size={20} className="mb-1" /> <span className="heading-font text-[10px] font-bold uppercase tracking-wider">Rangliste</span>
              </button>
           </nav>
         </div>
@@ -1066,38 +1071,39 @@ export default function App() {
   // --- UI RENDER: TV MONITOR MODE ---
   if (appMode === 'monitor') {
     const renderMonitorScore = (score) => {
-      if (!score) return <span className="text-slate-600 font-normal">vs</span>;
+      if (!score) return <span className="text-gray-500 font-normal">vs</span>;
       let text = `${score.s1[0]}:${score.s1[1]}   ${score.s2[0]}:${score.s2[1]}`;
       if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += `   [${score.tb[0]}:${score.tb[1]}]`;
-      return <span className="font-bold text-emerald-400">{text}</span>;
+      return <span className="font-bold text-white">{text}</span>;
     };
 
     const slide = monitorSlides[monitorSlideIdx] || { type: 'loading', title: 'Lade Daten...' };
 
     return (
-      <div className="h-screen w-screen overflow-hidden bg-slate-900 text-slate-100 font-sans p-6 flex flex-col">
-        <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-2xl shadow-2xl border border-slate-700 shrink-0">
-          <div className="absolute inset-0 z-0">
-            <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-30" />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/90 to-transparent"></div>
-          </div>
+      <div className="h-screen w-screen overflow-hidden bg-[#1a1a1a] text-gray-100 font-sans p-6 flex flex-col">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&family=Open+Sans:wght@400;600;700&display=swap');
+          body, button, input, select, textarea { font-family: 'Open Sans', sans-serif; }
+          .heading-font, h1, h2, h3, h4, h5, h6, th, .uppercase, .font-extrabold { font-family: 'Montserrat', sans-serif; }
+        `}</style>
+        <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-lg shadow-2xl border border-[#333333] shrink-0 bg-[#222222]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center p-1 shadow-2xl border-4 border-red-600">
+                <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center p-1 shadow-lg border-[3px] border-[#E3000F]">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-5xl font-extrabold tracking-tight text-white drop-shadow-lg">{BRAND.name}</h1>
-                  <div className="text-2xl font-bold text-red-500 uppercase tracking-widest mt-2 drop-shadow-md flex items-center">
-                    {slide.title} <span className="text-slate-400 ml-3 text-lg">{slide.pageInfo}</span>
+                  <h1 className="heading-font text-5xl font-black tracking-tight text-white uppercase">{BRAND.name}</h1>
+                  <div className="heading-font text-2xl font-bold text-[#E3000F] uppercase tracking-widest mt-2 flex items-center">
+                    {slide.title} <span className="text-gray-500 ml-3 text-lg">{slide.pageInfo}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center space-x-6">
-                <button onClick={handleLogout} className="flex items-center space-x-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-4 py-2 rounded-xl transition border border-slate-600 text-lg group backdrop-blur-sm">
-                  <Lock size={20} className="group-hover:text-red-400 transition-colors" /> <span>Veranstalter</span>
+                <button onClick={handleLogout} className="heading-font uppercase tracking-wider flex items-center space-x-2 text-gray-400 hover:text-white bg-[#333333] hover:bg-[#444444] px-4 py-2 rounded-md transition border border-[#444444] text-lg group">
+                  <Lock size={20} className="group-hover:text-[#E3000F] transition-colors" /> <span>Veranstalter</span>
                 </button>
-                <div className="text-4xl font-bold text-slate-200 flex items-center bg-slate-800/80 backdrop-blur-sm px-6 py-3 rounded-xl shadow-inner border border-slate-600 min-w-[160px] justify-center">
+                <div className="heading-font text-4xl font-bold text-gray-200 flex items-center bg-[#333333] px-6 py-3 rounded-md shadow-inner border border-[#444444] min-w-[160px] justify-center tracking-wider">
                   {currentTime}
                 </div>
               </div>
@@ -1109,30 +1115,30 @@ export default function App() {
             <div className="grid grid-cols-2 gap-6 h-full content-start">
               <div className="flex flex-col space-y-4">
                  {(slide.data || []).slice(0, 5).map(m => (
-                    <div key={m.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-4">
-                       <div className="text-slate-400 font-bold mb-3 flex justify-between text-lg border-b border-slate-700 pb-2">
-                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-red-400'}`}>{m.time} • Platz {m.court}</span>
-                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                    <div key={m.id} className="bg-[#222222] rounded-lg overflow-hidden shadow-lg border border-[#333333] p-4">
+                       <div className="heading-font text-gray-400 font-bold mb-3 flex justify-between text-lg border-b border-[#333333] pb-2 uppercase tracking-wider">
+                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-gray-300 text-sm tracking-widest' : 'text-[#E3000F]'}`}>{m.time} • Platz {m.court}</span>
+                          <span className="text-gray-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
-                          <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team1?.name || 'Offen'}</span>
-                          <span className="w-2/12 text-center bg-slate-900 py-1 rounded font-bold tracking-widest shadow-inner">{renderMonitorScore(m.score)}</span>
-                          <span className={`truncate w-5/12 text-left ${m.winnerId === m.team2?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team2?.name || 'Offen'}</span>
+                          <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-gray-300'}`}>{m.team1?.name || 'Offen'}</span>
+                          <span className="w-2/12 text-center bg-[#111111] py-1 rounded-sm font-bold tracking-widest shadow-inner">{renderMonitorScore(m.score)}</span>
+                          <span className={`truncate w-5/12 text-left ${m.winnerId === m.team2?.id ? 'text-white font-extrabold' : 'text-gray-300'}`}>{m.team2?.name || 'Offen'}</span>
                        </div>
                     </div>
                  ))}
               </div>
               <div className="flex flex-col space-y-4">
                  {(slide.data || []).slice(5, 10).map(m => (
-                    <div key={m.id} className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 p-4">
-                       <div className="text-slate-400 font-bold mb-3 flex justify-between text-lg border-b border-slate-700 pb-2">
-                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-indigo-400 text-sm tracking-widest' : 'text-red-400'}`}>{m.time} • Platz {m.court}</span>
-                          <span className="text-slate-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                    <div key={m.id} className="bg-[#222222] rounded-lg overflow-hidden shadow-lg border border-[#333333] p-4">
+                       <div className="heading-font text-gray-400 font-bold mb-3 flex justify-between text-lg border-b border-[#333333] pb-2 uppercase tracking-wider">
+                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-gray-300 text-sm tracking-widest' : 'text-[#E3000F]'}`}>{m.time} • Platz {m.court}</span>
+                          <span className="text-gray-500">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
-                          <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team1?.name || 'Offen'}</span>
-                          <span className="w-2/12 text-center bg-slate-900 py-1 rounded font-bold tracking-widest shadow-inner">{renderMonitorScore(m.score)}</span>
-                          <span className={`truncate w-5/12 text-left ${m.winnerId === m.team2?.id ? 'text-white font-extrabold' : 'text-slate-300'}`}>{m.team2?.name || 'Offen'}</span>
+                          <span className={`truncate w-5/12 text-right ${m.winnerId === m.team1?.id ? 'text-white font-extrabold' : 'text-gray-300'}`}>{m.team1?.name || 'Offen'}</span>
+                          <span className="w-2/12 text-center bg-[#111111] py-1 rounded-sm font-bold tracking-widest shadow-inner">{renderMonitorScore(m.score)}</span>
+                          <span className={`truncate w-5/12 text-left ${m.winnerId === m.team2?.id ? 'text-white font-extrabold' : 'text-gray-300'}`}>{m.team2?.name || 'Offen'}</span>
                        </div>
                     </div>
                  ))}
@@ -1143,16 +1149,16 @@ export default function App() {
           {slide.type === 'groups' && (
              <div className="grid grid-cols-2 gap-6 h-full content-start">
                {(slide.data || []).map(([groupName, groupTeams]) => (
-                 <div key={groupName} className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-                   <div className="bg-slate-700 p-3 text-2xl font-bold text-center text-white tracking-widest">{groupName}</div>
+                 <div key={groupName} className="bg-[#222222] rounded-lg border border-[#333333] overflow-hidden shadow-xl">
+                   <div className="heading-font bg-[#111111] p-3 text-2xl font-bold text-center text-white tracking-widest uppercase">{groupName}</div>
                    <table className="w-full text-xl">
-                     <thead className="bg-slate-900/50 text-slate-400"><tr><th className="p-3 text-left pl-6">Team</th><th className="p-3 text-center">S-N</th><th className="p-3 text-center">Sätze</th></tr></thead>
+                     <thead className="bg-[#1a1a1a] text-gray-500 heading-font uppercase text-sm tracking-wider"><tr><th className="p-3 text-left pl-6">Team</th><th className="p-3 text-center">S-N</th><th className="p-3 text-center">Sätze</th></tr></thead>
                      <tbody>
                        {(standings[slide.cat]?.[groupName] || groupTeams).map((t, idx) => (
-                         <tr key={t.id} className="border-b border-slate-700/50 last:border-0">
-                           <td className="p-4 pl-6 font-medium text-slate-200 truncate flex items-center"><span className="text-slate-500 w-8 font-bold">{idx+1}</span> {t.name}</td>
-                           <td className="p-4 text-center font-bold text-white bg-slate-900/20">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
-                           <td className="p-4 text-center text-slate-400 bg-slate-900/20">{t.setsWon !== undefined ? `${t.setsWon}:${t.setsLost}` : '0:0'}</td>
+                         <tr key={t.id} className="border-b border-[#333333] last:border-0">
+                           <td className="p-4 pl-6 font-medium text-gray-200 truncate flex items-center"><span className="text-gray-600 w-8 font-bold">{idx+1}</span> {t.name}</td>
+                           <td className="p-4 text-center font-bold text-white bg-[#1a1a1a]/50">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
+                           <td className="p-4 text-center text-gray-400 bg-[#1a1a1a]/50">{t.setsWon !== undefined ? `${t.setsWon}:${t.setsLost}` : '0:0'}</td>
                          </tr>
                        ))}
                      </tbody>
@@ -1170,7 +1176,7 @@ export default function App() {
                         {brackets[slide.cat].qf.map((qfRef, i) => (
                            <div key={i} className="relative">
                               <MonitorMatchBox match={getMonitorMatchData(qfRef.id)} title={`Viertelfinale ${i+1}`} />
-                              <div className="absolute top-1/2 -right-4 w-4 border-b-2 border-slate-600"></div>
+                              <div className="absolute top-1/2 -right-4 w-4 border-b-2 border-[#444444]"></div>
                            </div>
                         ))}
                      </div>
@@ -1178,20 +1184,20 @@ export default function App() {
                      <div className="flex flex-col justify-around w-[22rem] z-10">
                         {brackets[slide.cat].sf.map((sfRef, i) => (
                            <div key={i} className="relative">
-                              <div className="absolute top-[-100px] -left-4 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
-                              <div className="absolute bottom-[-100px] -left-4 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
-                              <div className="absolute top-1/2 -left-4 w-4 border-b-2 border-slate-600"></div>
+                              <div className="absolute top-[-100px] -left-4 bottom-[50%] border-l-2 border-[#444444] rounded-tl-lg"></div>
+                              <div className="absolute bottom-[-100px] -left-4 top-[50%] border-l-2 border-[#444444] rounded-bl-lg"></div>
+                              <div className="absolute top-1/2 -left-4 w-4 border-b-2 border-[#444444]"></div>
                               <MonitorMatchBox match={getMonitorMatchData(sfRef.id)} title={sfRef.title} type="sf" />
-                              <div className="absolute top-1/2 -right-4 w-4 border-b-2 border-slate-600"></div>
+                              <div className="absolute top-1/2 -right-4 w-4 border-b-2 border-[#444444]"></div>
                            </div>
                         ))}
                      </div>
                      {/* FINAL */}
                      <div className="flex flex-col justify-center w-[25rem] z-10">
                          <div className="relative">
-                            <div className="absolute top-[-150px] -left-4 bottom-[50%] border-l-2 border-slate-600 rounded-tl-lg"></div>
-                            <div className="absolute bottom-[-150px] -left-4 top-[50%] border-l-2 border-slate-600 rounded-bl-lg"></div>
-                            <div className="absolute top-1/2 -left-4 w-4 border-b-2 border-slate-600"></div>
+                            <div className="absolute top-[-150px] -left-4 bottom-[50%] border-l-2 border-[#444444] rounded-tl-lg"></div>
+                            <div className="absolute bottom-[-150px] -left-4 top-[50%] border-l-2 border-[#444444] rounded-bl-lg"></div>
+                            <div className="absolute top-1/2 -left-4 w-4 border-b-2 border-[#444444]"></div>
                             <MonitorMatchBox match={getMonitorMatchData(brackets[slide.cat].finals[0].id)} title="FINALE" type="final" />
                          </div>
                      </div>
@@ -1226,21 +1232,21 @@ export default function App() {
              <div className="grid grid-cols-2 gap-8 h-full content-start">
                 <div className="flex flex-col space-y-4">
                    {(slide.data || []).slice(0, 6).map(item => (
-                      <div key={item.team.id} className={`rounded-xl border flex items-center p-5 shadow-lg ${item.rank === 1 ? 'bg-yellow-500/20 border-yellow-500/50' : item.rank === 2 ? 'bg-slate-400/10 border-slate-500/50' : item.rank === 3 ? 'bg-amber-700/20 border-amber-600/50' : 'bg-slate-800 border-slate-700'}`}>
-                         <div className={`text-4xl font-black w-20 text-center ${item.rank === 1 ? 'text-yellow-400' : item.rank === 2 ? 'text-slate-300' : item.rank === 3 ? 'text-amber-500' : 'text-slate-500'}`}>
+                      <div key={item.team.id} className={`rounded-lg border flex items-center p-5 shadow-lg ${item.rank === 1 ? 'bg-yellow-500/20 border-yellow-500/50' : item.rank === 2 ? 'bg-gray-400/10 border-gray-500/50' : item.rank === 3 ? 'bg-[#E3000F]/20 border-[#E3000F]/50' : 'bg-[#222222] border-[#333333]'}`}>
+                         <div className={`text-4xl font-black w-20 text-center ${item.rank === 1 ? 'text-yellow-400' : item.rank === 2 ? 'text-gray-300' : item.rank === 3 ? 'text-[#E3000F]' : 'text-gray-600'}`}>
                             {item.rank === 1 ? '🏆' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : item.rank}
                          </div>
                          <div className="flex-1 text-3xl font-bold text-white truncate pl-4 pr-2">{item.team.name}</div>
-                         <div className="text-indigo-300 text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="text-gray-400 text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
                       </div>
                    ))}
                 </div>
                 <div className="flex flex-col space-y-4">
                    {(slide.data || []).slice(6, 12).map(item => (
-                      <div key={item.team.id} className="bg-slate-800 rounded-xl border border-slate-700 flex items-center p-5 shadow-lg">
-                         <div className="text-4xl font-black text-slate-500 w-20 text-center">{item.rank}</div>
+                      <div key={item.team.id} className="bg-[#222222] rounded-lg border border-[#333333] flex items-center p-5 shadow-lg">
+                         <div className="text-4xl font-black text-gray-600 w-20 text-center">{item.rank}</div>
                          <div className="flex-1 text-3xl font-bold text-white truncate pl-4 pr-2">{item.team.name}</div>
-                         <div className="text-indigo-300 text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="text-gray-400 text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
                       </div>
                    ))}
                 </div>
@@ -1248,9 +1254,9 @@ export default function App() {
           )}
 
           {slide.type === 'idle' && (
-             <div className="flex items-center justify-center h-full flex-col text-slate-500 space-y-6">
-                <Trophy size={120} className="text-slate-700" />
-                <h2 className="text-4xl font-bold">Turnier startet in Kürze</h2>
+             <div className="flex items-center justify-center h-full flex-col text-gray-600 space-y-6">
+                <Trophy size={120} className="text-[#333333]" />
+                <h2 className="heading-font text-4xl font-bold uppercase">Turnier startet in Kürze</h2>
                 <p className="text-xl">Die Bildschirme werden automatisch aktualisiert, sobald Daten verfügbar sind.</p>
              </div>
           )}
@@ -1261,43 +1267,44 @@ export default function App() {
 
   // --- UI RENDER: ORGANIZER MODE ---
   return (
-    <div className={`min-h-screen bg-gray-50 text-slate-800 font-sans pb-12 relative ${printView === 'sheets' ? 'bg-white' : ''}`}>
+    <div className={`min-h-screen bg-[#F5F7FA] text-[#333333] font-sans pb-12 relative ${printView === 'sheets' ? 'bg-white' : ''}`}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800;900&family=Open+Sans:wght@400;600;700&display=swap');
+        body, button, input, select, textarea { font-family: 'Open Sans', sans-serif; }
+        .heading-font, h1, h2, h3, h4, h5, h6, th, .uppercase, .font-extrabold { font-family: 'Montserrat', sans-serif; }
+      `}</style>
       
-      <header className={`relative bg-slate-900 text-white shadow-xl overflow-hidden ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
-        <div className="absolute inset-0 z-0">
-          <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/80 to-transparent"></div>
-        </div>
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <header className={`relative bg-white text-[#222222] shadow-sm border-b-[4px] border-[#E3000F] ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-lg border-2 border-red-600">
+            <div className="h-14 w-14 bg-white rounded-full flex items-center justify-center p-0.5 shadow-sm border-[2px] border-[#E3000F]">
                <img src={BRAND.logo} alt="Logo" className="w-full h-full rounded-full object-contain" />
             </div>
             <div>
-              <h1 className="text-2xl font-extrabold hidden md:block tracking-tight drop-shadow-md">{BRAND.name}</h1>
-              <div className="text-xs font-bold text-red-400 uppercase tracking-widest drop-shadow-md hidden md:block">Turnier-Veranstalter</div>
+              <h1 className="heading-font text-2xl font-black hidden md:block tracking-tight text-[#222222] uppercase">{BRAND.name}</h1>
+              <div className="heading-font text-xs font-bold text-[#E3000F] uppercase tracking-widest hidden md:block">Turnier-Veranstalter</div>
             </div>
           </div>
           <div className="flex space-x-2 sm:space-x-3">
-            <label className="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700 px-3 sm:px-4 py-2 rounded-lg cursor-pointer transition text-sm sm:text-base border border-slate-600 backdrop-blur-sm">
-               <Upload size={18} /> <span className="hidden sm:inline">Laden</span>
+            <label className="heading-font uppercase tracking-wider text-xs flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 sm:px-4 py-2 rounded-md cursor-pointer transition font-bold border border-gray-200">
+               <Upload size={16} /> <span className="hidden sm:inline">Laden</span>
                <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
             </label>
-            <button onClick={handleExportTournament} className="flex items-center space-x-2 bg-slate-800/80 hover:bg-slate-700 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base border border-slate-600 backdrop-blur-sm">
-               <Download size={18} /> <span className="hidden sm:inline">Speichern</span>
+            <button onClick={handleExportTournament} className="heading-font uppercase tracking-wider text-xs flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 sm:px-4 py-2 rounded-md transition font-bold border border-gray-200">
+               <Download size={16} /> <span className="hidden sm:inline">Speichern</span>
             </button>
-            <div className="w-px bg-slate-700 mx-1 sm:mx-2"></div>
+            <div className="w-px bg-gray-300 mx-1 sm:mx-2"></div>
             
             <button onClick={handleSimulateTournament} disabled={simState !== 'idle'}
-              className={`flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-lg font-bold transition shadow-sm text-sm sm:text-base ${simState !== 'idle' ? 'bg-purple-800 text-purple-300 cursor-not-allowed' : 'bg-red-700 hover:bg-red-600 text-white animate-pulse'}`}
+              className={`heading-font uppercase tracking-wider text-xs flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-md font-bold transition shadow-sm ${simState !== 'idle' ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-[#E3000F] hover:bg-[#C2000D] text-white animate-pulse'}`}
             >
-              {simState !== 'idle' ? <><Loader2 size={18} className="animate-spin" /> <span className="hidden sm:inline">Simuliere...</span></> : <><FastForward size={18} /> <span className="hidden sm:inline">Simulieren</span></>}
+              {simState !== 'idle' ? <><Loader2 size={16} className="animate-spin" /> <span className="hidden sm:inline">Simuliere...</span></> : <><FastForward size={16} /> <span className="hidden sm:inline">Simulieren</span></>}
             </button>
-            <button onClick={() => window.print()} className="flex items-center space-x-2 bg-slate-700 hover:bg-slate-600 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base">
-              <Printer size={18} /> <span className="hidden sm:inline">Drucken</span>
+            <button onClick={() => window.print()} className="heading-font uppercase tracking-wider text-xs flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 sm:px-4 py-2 rounded-md transition font-bold border border-gray-200">
+              <Printer size={16} /> <span className="hidden sm:inline">Drucken</span>
             </button>
-            <button onClick={() => setAppMode('monitor')} className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base shadow-sm border border-slate-600">
-              <Tv size={18} /> <span className="hidden sm:inline">Monitor</span>
+            <button onClick={() => setAppMode('monitor')} className="heading-font uppercase tracking-wider text-xs flex items-center space-x-2 bg-[#222222] hover:bg-[#333333] text-white px-3 sm:px-4 py-2 rounded-md transition shadow-sm font-bold border border-[#111111]">
+              <Tv size={16} /> <span className="hidden sm:inline">Monitor</span>
             </button>
           </div>
         </div>
@@ -1305,7 +1312,7 @@ export default function App() {
 
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${printView === 'sheets' ? 'hidden' : 'print:p-0 print:max-w-none'}`}>
         
-        <div className="flex space-x-1 bg-white border border-gray-200 p-1 rounded-xl mb-8 print:hidden overflow-x-auto shadow-sm">
+        <div className="flex space-x-1 bg-white border border-gray-200 p-1 rounded-md mb-8 print:hidden shadow-sm overflow-x-auto">
           {[
             { id: 'registration', icon: Users, label: 'Anmeldung' },
             { id: 'groups', icon: Shield, label: 'Gruppen' },
@@ -1316,36 +1323,36 @@ export default function App() {
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`flex-1 min-w-[120px] flex items-center justify-center space-x-2 py-3 px-4 rounded-lg font-bold transition-all ${
-                activeTab === t.id ? 'bg-red-50 shadow-sm text-red-700 border border-red-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              className={`heading-font uppercase tracking-wider text-xs flex-1 min-w-[120px] flex items-center justify-center space-x-2 py-3 px-4 rounded font-bold transition-all ${
+                activeTab === t.id ? 'bg-[#E3000F] shadow-sm text-white' : 'text-gray-500 hover:text-[#222222] hover:bg-gray-50'
               }`}
             >
-              <t.icon size={18} /> <span>{t.label}</span>
+              <t.icon size={16} /> <span>{t.label}</span>
             </button>
           ))}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 print:border-none print:shadow-none print:p-0">
+        <div className="bg-white rounded-md shadow-sm border border-gray-200 p-6 print:border-none print:shadow-none print:p-0">
           
           {/* TAB 1: REGISTRATION */}
           {activeTab === 'registration' && (
             <div className="space-y-8 print:hidden">
-              <div className="flex justify-between items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
+              <div className="flex justify-between items-center bg-gray-50 p-6 rounded-md border border-gray-200">
                 <div>
-                  <h2 className="text-xl font-extrabold text-slate-800">Turnier-Einstellungen</h2>
-                  <p className="text-slate-500 text-sm mt-1 font-medium">Teams manuell registrieren oder Testdaten laden. Startzeiten unten bearbeiten.</p>
+                  <h2 className="heading-font text-xl font-extrabold text-[#222222] uppercase">Turnier-Einstellungen</h2>
+                  <p className="text-gray-600 text-sm mt-1">Teams manuell registrieren oder Testdaten laden. Startzeiten unten bearbeiten.</p>
                 </div>
-                <button onClick={loadMockData} className="flex items-center space-x-2 bg-white text-slate-700 border border-slate-300 px-5 py-2.5 rounded-lg shadow-sm hover:bg-slate-100 font-bold transition">
-                  <Play size={18} /> <span>Test-Teams laden</span>
+                <button onClick={loadMockData} className="heading-font uppercase tracking-wider text-xs flex items-center space-x-2 bg-white text-[#222222] border border-gray-300 px-5 py-2.5 rounded-md shadow-sm hover:bg-gray-100 font-bold transition">
+                  <Play size={16} /> <span>Test-Teams laden</span>
                 </button>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-slate-200">
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-gray-200">
                    <div className="flex items-center space-x-3 col-span-1 md:col-span-3">
-                     <Calendar className="text-slate-600" />
-                     <div className="font-bold text-slate-700">Turnierdauer:</div>
-                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border rounded-md font-bold text-slate-800 focus:ring-red-500 focus:border-red-500 bg-white shadow-sm">
+                     <Calendar className="text-gray-500" />
+                     <div className="font-bold text-[#222222]">Turnierdauer:</div>
+                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border rounded font-bold text-[#222222] focus:ring-[#E3000F] focus:border-[#E3000F] bg-white shadow-sm outline-none">
                        <option value={1}>1-Tages-Turnier (Alle Spiele an Tag 1)</option>
                        <option value={2}>2-Tages-Turnier (K.O.-Spiele an Tag 2)</option>
                      </select>
@@ -1353,57 +1360,57 @@ export default function App() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-3">
-                     <Clock className="text-slate-600" />
-                     <div className="font-bold text-slate-700">{tournamentDays === 1 ? 'Turnier-Startzeit:' : 'Startzeit Tag 1:'}</div>
-                     <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                     <Clock className="text-gray-500" />
+                     <div className="font-bold text-[#222222]">{tournamentDays === 1 ? 'Turnier-Startzeit:' : 'Startzeit Tag 1:'}</div>
+                     <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded font-bold text-[#E3000F] focus:ring-[#E3000F] focus:border-[#E3000F] shadow-sm outline-none" />
                   </div>
                   {tournamentDays === 2 && (
                     <div className="flex items-center space-x-3">
-                       <Clock className="text-slate-600" />
-                       <div className="font-bold text-slate-700">Startzeit Tag 2 (K.O.):</div>
-                       <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-red-700 focus:ring-red-500 focus:border-red-500 shadow-sm" />
+                       <Clock className="text-gray-500" />
+                       <div className="font-bold text-[#222222]">Startzeit Tag 2 (K.O.):</div>
+                       <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded font-bold text-[#E3000F] focus:ring-[#E3000F] focus:border-[#E3000F] shadow-sm outline-none" />
                     </div>
                   )}
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center space-x-3">
-                  <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-slate-300 text-red-600 focus:ring-red-500" />
-                  <label htmlFor="isolateFinals" className="font-bold text-slate-700">Finale isolieren (Nach allen anderen Spielen ansetzen, um die Aufmerksamkeit zu fokussieren)</label>
+                <div className="mt-4 pt-4 border-t border-gray-200 flex items-center space-x-3">
+                  <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-[#E3000F] focus:ring-[#E3000F]" />
+                  <label htmlFor="isolateFinals" className="font-bold text-[#222222]">Finale isolieren (Nach allen anderen Spielen ansetzen, um die Aufmerksamkeit zu fokussieren)</label>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="col-span-1 bg-slate-50 p-6 rounded-xl border border-slate-200 h-fit">
-                  <h3 className="font-extrabold text-lg mb-4 flex items-center text-slate-800">
-                    {editingTeam ? <Edit2 size={18} className="mr-2 text-amber-500"/> : <PlusCircle size={18} className="mr-2 text-red-600"/>} 
+                <div className="col-span-1 bg-gray-50 p-6 rounded-md border border-gray-200 h-fit">
+                  <h3 className="heading-font font-extrabold text-lg mb-4 flex items-center text-[#222222] uppercase">
+                    {editingTeam ? <Edit2 size={18} className="mr-2 text-yellow-600"/> : <PlusCircle size={18} className="mr-2 text-[#E3000F]"/>} 
                     {editingTeam ? 'Team bearbeiten' : 'Neues Team'}
                   </h3>
                   <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-3">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Spieler 1</div>
-                      <div><input value={regForm.p1Name} onChange={e=>setRegForm({...regForm, p1Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Vollständiger Name" required /></div>
-                      <div><input value={regForm.p1Club} onChange={e=>setRegForm({...regForm, p1Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Verein (Optional)" /></div>
+                    <div className="p-3 bg-white border border-gray-200 rounded space-y-3">
+                      <div className="heading-font text-xs font-bold text-gray-500 uppercase tracking-wider">Spieler 1</div>
+                      <div><input value={regForm.p1Name} onChange={e=>setRegForm({...regForm, p1Name: e.target.value})} className="w-full p-2 border rounded text-sm font-medium focus:ring-[#E3000F] focus:border-[#E3000F] outline-none" placeholder="Vollständiger Name" required /></div>
+                      <div><input value={regForm.p1Club} onChange={e=>setRegForm({...regForm, p1Club: e.target.value})} className="w-full p-2 border rounded text-sm font-medium focus:ring-[#E3000F] focus:border-[#E3000F] outline-none" placeholder="Verein (Optional)" /></div>
                     </div>
-                    <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-3">
-                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Spieler 2</div>
-                      <div><input value={regForm.p2Name} onChange={e=>setRegForm({...regForm, p2Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Vollständiger Name" required /></div>
-                      <div><input value={regForm.p2Club} onChange={e=>setRegForm({...regForm, p2Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-red-500 focus:border-red-500" placeholder="Verein (Optional)" /></div>
+                    <div className="p-3 bg-white border border-gray-200 rounded space-y-3">
+                      <div className="heading-font text-xs font-bold text-gray-500 uppercase tracking-wider">Spieler 2</div>
+                      <div><input value={regForm.p2Name} onChange={e=>setRegForm({...regForm, p2Name: e.target.value})} className="w-full p-2 border rounded text-sm font-medium focus:ring-[#E3000F] focus:border-[#E3000F] outline-none" placeholder="Vollständiger Name" required /></div>
+                      <div><input value={regForm.p2Club} onChange={e=>setRegForm({...regForm, p2Club: e.target.value})} className="w-full p-2 border rounded text-sm font-medium focus:ring-[#E3000F] focus:border-[#E3000F] outline-none" placeholder="Verein (Optional)" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div><label className="block text-sm font-bold text-slate-700 mb-1">Spielstärke</label>
-                        <select value={regForm.level} onChange={e=>setRegForm({...regForm, level: e.target.value})} className="w-full p-2 border rounded-md font-medium">
+                      <div><label className="block text-sm font-bold text-[#222222] mb-1">Spielstärke</label>
+                        <select value={regForm.level} onChange={e=>setRegForm({...regForm, level: e.target.value})} className="w-full p-2 border rounded font-medium outline-none">
                           <option value="3">3 - Fortgeschritten</option><option value="2">2 - Mittel</option><option value="1">1 - Anfänger</option>
                         </select></div>
-                      <div><label className="block text-sm font-bold text-slate-700 mb-1">Kategorie</label>
-                        <select value={regForm.category} onChange={e=>setRegForm({...regForm, category: e.target.value})} className="w-full p-2 border rounded-md font-medium">
+                      <div><label className="block text-sm font-bold text-[#222222] mb-1">Kategorie</label>
+                        <select value={regForm.category} onChange={e=>setRegForm({...regForm, category: e.target.value})} className="w-full p-2 border rounded font-medium outline-none">
                           <option value="U50">U50</option><option value="O50">O50</option>
                         </select></div>
                     </div>
                     <div className="flex space-x-2 pt-2">
-                      <button type="submit" className={`flex-1 text-white py-2.5 rounded-lg font-bold shadow-sm transition ${editingTeam ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-700 hover:bg-red-800'}`}>
+                      <button type="submit" className={`heading-font uppercase tracking-wider text-xs flex-1 text-white py-3 rounded font-bold shadow-sm transition ${editingTeam ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-[#E3000F] hover:bg-[#C2000D]'}`}>
                         {editingTeam ? 'Team aktualisieren' : 'Registrieren'}
                       </button>
                       {editingTeam && (
-                        <button type="button" onClick={() => {setEditingTeam(null); setRegForm({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });}} className="px-4 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-bold transition">
+                        <button type="button" onClick={() => {setEditingTeam(null); setRegForm({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });}} className="heading-font uppercase tracking-wider text-xs px-4 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-bold transition">
                           Abbrechen
                         </button>
                       )}
@@ -1413,30 +1420,30 @@ export default function App() {
                 
                 <div className="col-span-2">
                   <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-extrabold text-lg text-slate-800">Registrierte Teams ({teams.length})</h3>
+                     <h3 className="heading-font font-extrabold text-lg text-[#222222] uppercase">Registrierte Teams ({teams.length})</h3>
                   </div>
-                  <div className="overflow-auto max-h-[600px] border border-slate-200 rounded-xl shadow-inner bg-slate-50/50">
+                  <div className="overflow-auto max-h-[600px] border border-gray-200 rounded-md shadow-inner bg-gray-50/50">
                     <table className="w-full text-left text-sm table-fixed">
-                      <thead className="bg-slate-100 sticky top-0 shadow-sm z-10 text-slate-600">
+                      <thead className="heading-font bg-gray-100 sticky top-0 shadow-sm z-10 text-gray-600 uppercase text-xs tracking-wider">
                         <tr>
-                          <th className="p-3 border-b border-slate-200 w-1/3">Team</th>
-                          <th className="p-3 border-b border-slate-200 w-1/4">Vereine</th>
-                          <th className="p-3 border-b border-slate-200 w-20">Kat</th>
-                          <th className="p-3 border-b border-slate-200 w-16 text-center text-red-600">PIN</th>
-                          <th className="p-3 border-b border-slate-200 w-24"></th>
+                          <th className="p-3 border-b border-gray-200 w-1/3">Team</th>
+                          <th className="p-3 border-b border-gray-200 w-1/4">Vereine</th>
+                          <th className="p-3 border-b border-gray-200 w-20">Kat</th>
+                          <th className="p-3 border-b border-gray-200 w-16 text-center text-[#E3000F]">PIN</th>
+                          <th className="p-3 border-b border-gray-200 w-24"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {teams.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-slate-500 font-medium">Noch keine Teams registriert.</td></tr> : 
+                        {teams.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-gray-500 font-medium">Noch keine Teams registriert.</td></tr> : 
                          teams.map((t) => (
-                          <tr key={t.id} className={`border-b border-slate-100 last:border-0 hover:bg-white transition ${editingTeam?.id === t.id ? 'bg-amber-50 hover:bg-amber-50' : ''}`}>
-                            <td className="p-3 font-bold text-slate-800 truncate">{t.name}</td>
-                            <td className="p-3 text-xs font-medium text-slate-500 truncate">{t.clubs.join(' / ') || 'Kein Verein'}</td>
-                            <td className="p-3"><span className={`px-2 py-1 rounded text-xs font-bold shadow-sm ${t.category==='U50'?'bg-emerald-100 text-emerald-800':'bg-purple-100 text-purple-800'}`}>{t.category}</span></td>
-                            <td className="p-3 text-center font-mono font-bold text-red-700 bg-red-50/50">{t.pin}</td>
+                          <tr key={t.id} className={`border-b border-gray-100 last:border-0 hover:bg-white transition ${editingTeam?.id === t.id ? 'bg-yellow-50 hover:bg-yellow-50' : ''}`}>
+                            <td className="p-3 font-bold text-[#222222] truncate">{t.name}</td>
+                            <td className="p-3 text-xs text-gray-500 truncate">{t.clubs.join(' / ') || 'Kein Verein'}</td>
+                            <td className="p-3"><span className={`px-2 py-1 rounded-sm text-xs font-bold shadow-sm ${t.category==='U50'?'bg-gray-200 text-[#222222]':'bg-gray-300 text-[#222222]'}`}>{t.category}</span></td>
+                            <td className="p-3 text-center font-mono font-bold text-[#E3000F] bg-red-50/50">{t.pin}</td>
                             <td className="p-3 text-right space-x-2">
-                               <button onClick={() => handleEdit(t)} className="text-slate-400 hover:text-amber-500 transition"><Edit2 size={16}/></button>
-                               <button onClick={() => confirmDelete === t.id ? handleDelete(t.id) : setConfirmDelete(t.id)} className={`transition ${confirmDelete === t.id ? 'text-white bg-red-600 px-2 rounded font-bold shadow-sm' : 'text-slate-400 hover:text-red-600'}`}>
+                               <button onClick={() => handleEdit(t)} className="text-gray-400 hover:text-yellow-600 transition"><Edit2 size={16}/></button>
+                               <button onClick={() => confirmDelete === t.id ? handleDelete(t.id) : setConfirmDelete(t.id)} className={`transition ${confirmDelete === t.id ? 'text-white bg-[#E3000F] px-2 rounded font-bold shadow-sm' : 'text-gray-400 hover:text-[#E3000F]'}`}>
                                   {confirmDelete === t.id ? 'Sicher?' : <Trash2 size={16}/>}
                                </button>
                             </td>
@@ -1454,12 +1461,12 @@ export default function App() {
           {activeTab === 'groups' && (
             <div className="space-y-8">
               <div className="flex justify-between items-center print:hidden">
-                <p className="text-slate-500 font-medium">Gruppen, ausbalanciert nach Spielstärke und Vereinszugehörigkeit.</p>
+                <p className="text-gray-500">Gruppen, ausbalanciert nach Spielstärke und Vereinszugehörigkeit.</p>
                 <div className="space-x-3">
-                   <button onClick={generateGroups} disabled={teams.length < 4} className="bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold disabled:opacity-50 transition border border-slate-300">
+                   <button onClick={generateGroups} disabled={teams.length < 4} className="heading-font uppercase tracking-wider text-xs bg-gray-100 text-[#222222] hover:bg-gray-200 px-4 py-2 rounded-md font-bold disabled:opacity-50 transition border border-gray-300">
                      1. Gruppen neu generieren
                    </button>
-                   <button onClick={() => setSchedulePrompt(true)} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="bg-red-700 text-white hover:bg-red-800 px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 transition">
+                   <button onClick={() => setSchedulePrompt(true)} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="heading-font uppercase tracking-wider text-xs bg-[#E3000F] text-white hover:bg-[#C2000D] px-4 py-2 rounded-md font-bold shadow-sm disabled:opacity-50 transition">
                      2. Spielplan erstellen
                    </button>
                 </div>
@@ -1468,32 +1475,32 @@ export default function App() {
               {['U50', 'O50'].map(cat => (
                  groups[cat] && Object.keys(groups[cat]).length > 0 && (
                    <div key={cat} className="mb-10 page-break-after">
-                     <h2 className="text-2xl font-extrabold text-slate-800 mb-6 border-b-2 border-slate-100 pb-2 flex items-center">
-                       {CATEGORIES[cat]} <span className="ml-3 text-sm bg-slate-100 px-3 py-1 rounded-full text-slate-600">{Object.keys(groups[cat]).length} Gruppen</span>
+                     <h2 className="heading-font text-2xl font-extrabold text-[#222222] mb-6 border-b-2 border-gray-100 pb-2 flex items-center uppercase">
+                       {CATEGORIES[cat]} <span className="ml-3 text-sm bg-gray-100 px-3 py-1 rounded-full text-gray-600">{Object.keys(groups[cat]).length} Gruppen</span>
                      </h2>
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {Object.entries(groups[cat]).map(([groupName, groupTeams]) => (
-                          <div key={groupName} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                            <div className="bg-slate-50 p-3 font-extrabold text-slate-700 border-b border-slate-200">{groupName}</div>
+                          <div key={groupName} className="border border-gray-200 rounded-md overflow-hidden shadow-sm">
+                            <div className="heading-font bg-gray-100 p-3 font-extrabold text-[#222222] border-b border-gray-200 uppercase tracking-wider">{groupName}</div>
                             <table className="w-full text-sm text-left table-fixed">
-                              <thead className="bg-white text-slate-400 uppercase text-xs">
+                              <thead className="heading-font bg-white text-gray-400 uppercase text-xs tracking-wider">
                                 <tr>
-                                  <th className="px-4 py-2 w-12 border-b border-slate-100">Pos</th>
-                                  <th className="px-4 py-2 border-b border-slate-100">Team</th>
-                                  <th className="px-4 py-2 text-center w-16 border-b border-slate-100">S-N</th>
-                                  <th className="px-4 py-2 text-center w-20 border-b border-slate-100">Sätze</th>
+                                  <th className="px-4 py-2 w-12 border-b border-gray-100">Pos</th>
+                                  <th className="px-4 py-2 border-b border-gray-100">Team</th>
+                                  <th className="px-4 py-2 text-center w-16 border-b border-gray-100">S-N</th>
+                                  <th className="px-4 py-2 text-center w-20 border-b border-gray-100">Sätze</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {(standings[cat][groupName] || groupTeams).map((t, index) => (
-                                  <tr key={t.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition">
-                                    <td className="px-4 py-3 font-bold text-slate-400">{index + 1}</td>
+                                  <tr key={t.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition">
+                                    <td className="px-4 py-3 font-bold text-gray-400">{index + 1}</td>
                                     <td className="px-4 py-3 truncate">
-                                      <div className="font-bold text-slate-800 truncate">{t.name}</div>
-                                      <div className="text-xs font-medium text-slate-500 truncate">{t.clubs.join(' / ')}</div>
+                                      <div className="font-bold text-[#222222] truncate">{t.name}</div>
+                                      <div className="text-xs text-gray-500 truncate">{t.clubs.join(' / ')}</div>
                                     </td>
-                                    <td className="px-4 py-3 text-center font-bold text-slate-800">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
-                                    <td className="px-4 py-3 text-center font-medium text-slate-500">{t.setsWon !== undefined ? `${t.setsWon}:${t.setsLost}` : '0:0'}</td>
+                                    <td className="px-4 py-3 text-center font-bold text-[#222222]">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
+                                    <td className="px-4 py-3 text-center text-gray-500">{t.setsWon !== undefined ? `${t.setsWon}:${t.setsLost}` : '0:0'}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -1511,18 +1518,18 @@ export default function App() {
           {activeTab === 'schedule' && (
             <div>
                <div className="flex justify-between items-center mb-6 print:hidden">
-                 <h2 className="text-xl font-extrabold text-slate-800">Spielplan</h2>
+                 <h2 className="heading-font text-xl font-extrabold text-[#222222] uppercase">Spielplan</h2>
                  <div className="flex space-x-3">
                    {matches.some(m => m.day === 1 && m.time === 'Flexibel') && (
-                     <button onClick={() => { setPrintView('sheets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 150); }} className="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-700 transition shadow-sm flex items-center">
-                       <Printer size={18} className="mr-2"/> Gruppen-Spielpläne drucken
+                     <button onClick={() => { setPrintView('sheets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 150); }} className="heading-font uppercase tracking-wider text-xs bg-[#222222] text-white px-4 py-2 rounded-md font-bold hover:bg-[#333333] transition shadow-sm flex items-center">
+                       <Printer size={16} className="mr-2"/> Gruppen-Spielpläne drucken
                      </button>
                    )}
-                   <button onClick={() => fillMissingScores('Group')} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-slate-200 transition border border-slate-300">
+                   <button onClick={() => fillMissingScores('Group')} className="heading-font uppercase tracking-wider text-xs bg-gray-100 text-[#222222] px-4 py-2 rounded-md font-bold hover:bg-gray-200 transition border border-gray-300">
                      Gruppen-Ergebnisse auto-ausfüllen
                    </button>
-                   <button onClick={handleKoGeneration} disabled={!canGenerateKO} className={`px-5 py-2 rounded-lg font-bold shadow-sm transition flex items-center ${canGenerateKO ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-emerald-600/50 text-white/70 cursor-not-allowed'}`}>
-                      <Trophy size={18} className="mr-2"/> 
+                   <button onClick={handleKoGeneration} disabled={!canGenerateKO} className={`heading-font uppercase tracking-wider text-xs px-5 py-2 rounded-md font-bold shadow-sm transition flex items-center ${canGenerateKO ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-green-600/50 text-white/70 cursor-not-allowed'}`}>
+                      <Trophy size={16} className="mr-2"/> 
                       {!canGenerateKO && groupMatches.length > 0 ? `Zuerst ${unplayedGroupCount} Gruppenspiele eintragen` : `K.O.-Baum erstellen ${tournamentDays === 2 ? '(Tag 2)' : ''}`}
                    </button>
                  </div>
@@ -1545,22 +1552,22 @@ export default function App() {
                     
                     return (
                       <div key={day} className="mb-8">
-                        <h3 className="text-lg font-bold bg-slate-800 text-white p-4 rounded-t-2xl flex justify-between items-center shadow-sm">
+                        <h3 className="heading-font text-lg font-bold bg-[#222222] text-white p-4 rounded-t-md flex justify-between items-center shadow-sm uppercase tracking-wider border-t-4 border-[#E3000F]">
                           <span>{tournamentDays === 1 ? 'Alle Spiele (1-Tages-Turnier)' : `Tag ${day} ${day===1 ? '(Gruppenphase)' : '(Finals & Platzierungen)'}`}</span>
-                          <span className="text-sm font-medium text-slate-300 bg-slate-700 px-3 py-1 rounded-full">
+                          <span className="text-sm font-bold text-gray-300 bg-[#333333] px-3 py-1 rounded-sm">
                             {tournamentDays === 1 ? `Gruppen: ${day1Start} | K.O.: ${day2Start}` : `Start: ${day===1 ? day1Start : day2Start}`}
                           </span>
                         </h3>
-                        <div className="border-x border-b border-slate-200 rounded-b-2xl overflow-hidden bg-white shadow-sm">
+                        <div className="border-x border-b border-gray-200 rounded-b-md overflow-hidden bg-white shadow-sm">
                           <table className="w-full text-sm table-fixed">
-                            <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+                            <thead className="heading-font bg-gray-50 text-gray-500 uppercase text-xs tracking-wider">
                               <tr>
-                                <th className="p-3 text-left w-20 border-b border-slate-200">Zeit</th>
-                                <th className="p-3 text-left w-20 border-b border-slate-200">Platz</th>
-                                <th className="p-3 text-left w-24 border-b border-slate-200">Phase</th>
-                                <th className="p-3 text-right border-b border-slate-200">Team 1</th>
-                                <th className="p-3 text-center w-40 border-b border-slate-200">Ergebnis</th>
-                                <th className="p-3 text-left border-b border-slate-200">Team 2</th>
+                                <th className="p-3 text-left w-20 border-b border-gray-200">Zeit</th>
+                                <th className="p-3 text-left w-20 border-b border-gray-200">Platz</th>
+                                <th className="p-3 text-left w-24 border-b border-gray-200">Phase</th>
+                                <th className="p-3 text-right border-b border-gray-200">Team 1</th>
+                                <th className="p-3 text-center w-40 border-b border-gray-200">Ergebnis</th>
+                                <th className="p-3 text-left border-b border-gray-200">Team 2</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1572,19 +1579,19 @@ export default function App() {
                                 const isUnscheduled = m.time === null;
                                 
                                 return (
-                                <tr key={m.id} className={`border-b border-slate-100 last:border-0 transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-slate-50'}`} 
+                                <tr key={m.id} className={`border-b border-gray-100 last:border-0 transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-gray-50'}`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-red-500' : (m.time === 'Flexibel' ? 'text-indigo-600 text-xs tracking-widest' : 'text-slate-800')}`}>{m.time || 'Nicht angesetzt'}</td>
-                                  <td className="p-3">{m.court ? <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-full text-xs font-bold">Platz {m.court}</span> : '-'}</td>
-                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-red-700">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-slate-500 font-medium">{formatStageGroupName(m.stage, m.groupName)}</span></td>
-                                  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
-                                    {m.team1?.isBye ? <span className="text-red-500 font-bold italic">Kommt weiter (Freilos)</span> : (m.team1?.name || 'Offen')}
+                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-[#E3000F]' : (m.time === 'Flexibel' ? 'text-gray-500 text-xs tracking-widest' : 'text-[#222222]')}`}>{m.time || 'Nicht angesetzt'}</td>
+                                  <td className="p-3">{m.court ? <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-sm text-xs font-bold">Platz {m.court}</span> : '-'}</td>
+                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-[#E3000F]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-gray-500 font-medium">{formatStageGroupName(m.stage, m.groupName)}</span></td>
+                                  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-green-700' : 'font-medium text-[#222222]'}`}>
+                                    {m.team1?.isBye ? <span className="text-[#E3000F] font-bold italic">Kommt weiter (Freilos)</span> : (m.team1?.name || 'Offen')}
                                   </td>
-                                  <td className="p-3 text-center bg-slate-50/50 border-x border-slate-100">
-                                     {isBye ? <span className="text-slate-400 italic text-xs font-bold">KEIN SPIEL</span> : renderScore(m.score)}
+                                  <td className="p-3 text-center bg-gray-50/50 border-x border-gray-100">
+                                     {isBye ? <span className="text-gray-400 italic text-xs font-bold">KEIN SPIEL</span> : renderScore(m.score)}
                                   </td>
-                                  <td className={`p-3 text-left truncate ${isT2Winner ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'}`}>
-                                    {m.team2?.isBye ? <span className="text-red-500 font-bold italic">Kommt weiter (Freilos)</span> : (m.team2?.name || 'Offen')}
+                                  <td className={`p-3 text-left truncate ${isT2Winner ? 'font-bold text-green-700' : 'font-medium text-[#222222]'}`}>
+                                    {m.team2?.isBye ? <span className="text-[#E3000F] font-bold italic">Kommt weiter (Freilos)</span> : (m.team2?.name || 'Offen')}
                                   </td>
                                 </tr>
                               )})}
@@ -1607,18 +1614,18 @@ export default function App() {
                  
                  const MatchBox = ({ match, title }) => {
                    let displayTitle = formatStageGroupName(match ? match.stage : null, title || (match ? match.groupName : 'Offen'));
-                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-sm font-bold m-2 break-inside-avoid">Offen</div>;
+                   if (!match) return <div className="w-64 h-24 border-2 border-dashed border-gray-300 rounded-md bg-gray-50 flex items-center justify-center text-gray-400 text-sm font-bold m-2 break-inside-avoid">Offen</div>;
                    const t1IsBye = match.team1?.isBye; const t2IsBye = match.team2?.isBye;
                    if (t1IsBye && t2IsBye) return null;
                    return (
-                     <div className="w-64 border border-slate-300 rounded-xl bg-white shadow-sm overflow-hidden m-2 print:border-slate-400 print:shadow-none break-inside-avoid">
-                        <div className="bg-slate-100 text-xs text-center py-1 font-extrabold text-slate-600 border-b border-slate-200 uppercase tracking-wider">{displayTitle}</div>
-                        <div className={`p-2 border-b border-slate-100 flex justify-between ${match.winnerId === match.team1?.id ? 'bg-emerald-50 font-bold text-emerald-900' : 'text-slate-700'}`}>
-                          <span className={`truncate pr-2 ${t1IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t1IsBye ? 'Kommt weiter (Freilos)' : (match.team1?.name || 'Offen')}</span>
+                     <div className="w-64 border border-gray-300 rounded-md bg-white shadow-sm overflow-hidden m-2 print:border-gray-400 print:shadow-none break-inside-avoid">
+                        <div className="heading-font bg-gray-100 text-xs text-center py-1 font-extrabold text-gray-600 border-b border-gray-200 uppercase tracking-wider">{displayTitle}</div>
+                        <div className={`p-2 border-b border-gray-100 flex justify-between ${match.winnerId === match.team1?.id ? 'bg-green-50 font-bold text-green-900' : 'text-[#222222]'}`}>
+                          <span className={`truncate pr-2 ${t1IsBye ? 'text-[#E3000F] italic font-bold text-xs' : 'font-medium'}`}>{t1IsBye ? 'Kommt weiter (Freilos)' : (match.team1?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
                         </div>
-                        <div className={`p-2 flex justify-between ${match.winnerId === match.team2?.id ? 'bg-emerald-50 font-bold text-emerald-900' : 'text-slate-700'}`}>
-                          <span className={`truncate pr-2 ${t2IsBye ? 'text-red-500 italic font-bold text-xs' : 'font-medium'}`}>{t2IsBye ? 'Kommt weiter (Freilos)' : (match.team2?.name || 'Offen')}</span>
+                        <div className={`p-2 flex justify-between ${match.winnerId === match.team2?.id ? 'bg-green-50 font-bold text-green-900' : 'text-[#222222]'}`}>
+                          <span className={`truncate pr-2 ${t2IsBye ? 'text-[#E3000F] italic font-bold text-xs' : 'font-medium'}`}>{t2IsBye ? 'Kommt weiter (Freilos)' : (match.team2?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
                         </div>
                      </div>
@@ -1627,22 +1634,22 @@ export default function App() {
 
                  return (
                    <div key={cat} className="mb-16 page-break-after">
-                      <h2 className="text-2xl font-extrabold text-slate-800 mb-8 border-b-2 border-slate-200 pb-2 flex items-center">
-                         <Trophy className="text-yellow-500 mr-3"/> Hauptrunde: {CATEGORIES[cat]}
+                      <h2 className="heading-font text-2xl font-extrabold text-[#222222] mb-8 border-b-2 border-gray-200 pb-2 flex items-center uppercase">
+                         <Trophy className="text-[#E3000F] mr-3"/> Hauptrunde: {CATEGORIES[cat]}
                       </h2>
                       <div className="flex items-center space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-4 h-[600px]">
-                           {brackets[cat].qf.map((qf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-300"></div></div> ))}
+                           {brackets[cat].qf.map((qf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-gray-300"></div></div> ))}
                         </div>
                         <div className="flex flex-col justify-around h-[600px]">
-                           {brackets[cat].sf.map((sf, i) => ( <div key={i} className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-slate-300 rounded-tl-lg"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-slate-300 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-300"></div><MatchBox match={getMatchData(sf.id)} title={sf.title} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-slate-300"></div></div> ))}
+                           {brackets[cat].sf.map((sf, i) => ( <div key={i} className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-gray-300 rounded-tl-md"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-gray-300 rounded-bl-md"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-gray-300"></div><MatchBox match={getMatchData(sf.id)} title={sf.title} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-gray-300"></div></div> ))}
                         </div>
                         <div className="flex flex-col justify-center h-[600px]">
-                           <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-slate-300 rounded-tl-lg"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-slate-300 rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-slate-300"></div><MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" /></div>
+                           <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l-2 border-gray-300 rounded-tl-md"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l-2 border-gray-300 rounded-bl-md"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-gray-300"></div><MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" /></div>
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-bold text-slate-600 mt-12 mb-4 border-b border-slate-200 pb-2">Platzierungsspiele (Plätze 3-8)</h3>
+                      <h3 className="heading-font text-xl font-bold text-gray-600 mt-12 mb-4 border-b border-gray-200 pb-2 uppercase tracking-wider">Platzierungsspiele (Plätze 3-8)</h3>
                       <div className="flex items-start space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-4">
                            {brackets[cat].pSf.map((pSf, i) => ( <div key={i} className="relative"><MatchBox match={getMatchData(pSf.id)} title={pSf.title} /></div> ))}
@@ -1666,14 +1673,14 @@ export default function App() {
                  if (!finalRankings[cat] || finalRankings[cat].length === 0) return null;
                  return (
                    <div key={cat} className="page-break-after">
-                      <h2 className="text-2xl font-extrabold text-slate-800 mb-6 border-b-2 border-slate-200 pb-2 flex items-center">
-                        <Award className="mr-3 text-amber-500" /> Abschlussplatzierungen: {CATEGORIES[cat]}
+                      <h2 className="heading-font text-2xl font-extrabold text-[#222222] mb-6 border-b-2 border-gray-200 pb-2 flex items-center uppercase">
+                        <Award className="mr-3 text-[#E3000F]" /> Abschlussplatzierungen: {CATEGORIES[cat]}
                       </h2>
-                      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                      <div className="border border-gray-200 rounded-md overflow-hidden shadow-sm">
                         <table className="w-full text-left text-sm table-fixed">
-                           <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+                           <thead className="heading-font bg-gray-50 text-gray-500 uppercase text-xs tracking-wider">
                              <tr>
-                               <th className="p-4 w-20 text-center border-r border-slate-200">Platz</th>
+                               <th className="p-4 w-20 text-center border-r border-gray-200">Platz</th>
                                <th className="p-4 w-1/3">Team</th>
                                <th className="p-4">Vereine</th>
                                <th className="p-4 w-32 text-center">Status</th>
@@ -1681,17 +1688,17 @@ export default function App() {
                            </thead>
                            <tbody>
                              {finalRankings[cat].map((item, idx) => (
-                               <tr key={item.team.id} className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 transition 
-                                 ${idx === 0 ? 'bg-yellow-50' : idx === 1 ? 'bg-slate-50' : idx === 2 ? 'bg-orange-50' : ''}`}>
-                                 <td className="p-4 text-center font-extrabold text-lg border-r border-slate-200 text-slate-600">
+                               <tr key={item.team.id} className={`border-b border-gray-100 last:border-0 hover:bg-gray-50 transition 
+                                 ${idx === 0 ? 'bg-yellow-50' : idx === 1 ? 'bg-gray-50' : idx === 2 ? 'bg-[#E3000F]/5' : ''}`}>
+                                 <td className="p-4 text-center font-extrabold text-lg border-r border-gray-200 text-[#222222]">
                                    {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : item.rank}
                                  </td>
-                                 <td className="p-4 font-bold text-slate-800 truncate">{item.team.name}</td>
-                                 <td className="p-4 text-slate-500 font-medium truncate">{item.team.clubs.join(' / ')}</td>
+                                 <td className="p-4 font-bold text-[#222222] truncate">{item.team.name}</td>
+                                 <td className="p-4 text-gray-500 font-medium truncate">{item.team.clubs.join(' / ')}</td>
                                  <td className="p-4 text-center">
                                    {idx < 8 
-                                     ? <span className="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold shadow-sm">K.O.-Phase</span> 
-                                     : <span className="bg-slate-200 text-slate-600 px-2 py-1 rounded text-xs font-bold shadow-sm">Gruppenphase</span>}
+                                     ? <span className="bg-gray-200 text-[#222222] px-2 py-1 rounded-sm text-xs font-bold shadow-sm">K.O.-Phase</span> 
+                                     : <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded-sm text-xs font-bold shadow-sm">Gruppenphase</span>}
                                  </td>
                                </tr>
                              ))}
@@ -1718,41 +1725,41 @@ export default function App() {
               return (
                 <div key={`${cat}-${groupName}`} className="page-break-after pb-10">
                    {/* Sheet Header */}
-                   <div className="flex justify-between items-end border-b-4 border-slate-800 pb-4 mb-6">
+                   <div className="flex justify-between items-end border-b-4 border-[#222222] pb-4 mb-6">
                       <div>
-                         <h1 className="text-4xl font-black uppercase text-slate-900">{BRAND.name}</h1>
-                         <div className="text-xl font-bold text-slate-500 mt-1">Offizieller Gruppen-Spielbericht</div>
+                         <h1 className="heading-font text-4xl font-black uppercase text-[#222222]">{BRAND.name}</h1>
+                         <div className="text-xl font-bold text-gray-500 mt-1">Offizieller Gruppen-Spielbericht</div>
                       </div>
                       <div className="text-right">
-                         <h2 className="text-3xl font-extrabold text-slate-900">{CATEGORIES[cat]}</h2>
-                         <h3 className="text-2xl font-bold text-red-700 mt-1">{groupName} • Zugewiesener Platz {courtNum}</h3>
+                         <h2 className="heading-font text-3xl font-extrabold text-[#222222] uppercase">{CATEGORIES[cat]}</h2>
+                         <h3 className="heading-font text-2xl font-bold text-[#E3000F] mt-1 uppercase tracking-wider">{groupName} • Zugewiesener Platz {courtNum}</h3>
                       </div>
                    </div>
                    
                    {/* Empty Score Table */}
-                   <table className="w-full text-left border-collapse border-2 border-slate-800 mb-6">
-                      <thead className="bg-slate-100">
+                   <table className="w-full text-left border-collapse border-2 border-[#222222] mb-6">
+                      <thead className="bg-gray-100 heading-font uppercase">
                         <tr>
-                          <th className="border-2 border-slate-800 p-4 text-lg w-1/3">Team 1</th>
-                          <th className="border-2 border-slate-800 p-4 text-lg w-1/3">Team 2</th>
-                          <th className="border-2 border-slate-800 p-4 text-center">Satz 1</th>
-                          <th className="border-2 border-slate-800 p-4 text-center">Satz 2</th>
-                          <th className="border-2 border-slate-800 p-4 text-center">Tiebreak</th>
+                          <th className="border-2 border-[#222222] p-4 text-lg w-1/3">Team 1</th>
+                          <th className="border-2 border-[#222222] p-4 text-lg w-1/3">Team 2</th>
+                          <th className="border-2 border-[#222222] p-4 text-center">Satz 1</th>
+                          <th className="border-2 border-[#222222] p-4 text-center">Satz 2</th>
+                          <th className="border-2 border-[#222222] p-4 text-center">Tiebreak</th>
                         </tr>
                       </thead>
                       <tbody>
                         {gMatches.map(m => (
                           <tr key={m.id}>
-                             <td className="border-2 border-slate-800 p-5 font-bold text-xl">{m.team1.name}</td>
-                             <td className="border-2 border-slate-800 p-5 font-bold text-xl">{m.team2.name}</td>
-                             <td className="border-2 border-slate-800 p-5"></td>
-                             <td className="border-2 border-slate-800 p-5"></td>
-                             <td className="border-2 border-slate-800 p-5"></td>
+                             <td className="border-2 border-[#222222] p-5 font-bold text-xl">{m.team1.name}</td>
+                             <td className="border-2 border-[#222222] p-5 font-bold text-xl">{m.team2.name}</td>
+                             <td className="border-2 border-[#222222] p-5"></td>
+                             <td className="border-2 border-[#222222] p-5"></td>
+                             <td className="border-2 border-[#222222] p-5"></td>
                           </tr>
                         ))}
                       </tbody>
                    </table>
-                   <div className="text-slate-600 italic font-medium text-lg text-center mt-8">Bitte füllen Sie die Ergebnisse leserlich aus und bringen Sie diesen Bogen nach Abschluss aller Spiele zur Turnierleitung.</div>
+                   <div className="text-gray-600 italic font-medium text-lg text-center mt-8">Bitte füllen Sie die Ergebnisse leserlich aus und bringen Sie diesen Bogen nach Abschluss aller Spiele zur Turnierleitung.</div>
                 </div>
               )
             })
@@ -1762,32 +1769,32 @@ export default function App() {
 
       {/* --- SCORE ENTRY MODAL --- */}
       {scoreModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
-            <div className="bg-red-700 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold">Spielergebnis eintragen</h3>
+        <div className="fixed inset-0 bg-[#222222]/80 flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+            <div className="bg-[#E3000F] p-4 flex justify-between items-center text-white">
+               <h3 className="heading-font font-bold uppercase tracking-wider">Spielergebnis eintragen</h3>
                <button onClick={() => setScoreModal(null)} className="hover:text-red-200 transition"><X size={20}/></button>
             </div>
             <form onSubmit={(e) => {
                e.preventDefault(); const fd = new FormData(e.target);
                handleSaveScore(scoreModal.id, [parseInt(fd.get('s1_t1')||0), parseInt(fd.get('s1_t2')||0)], [parseInt(fd.get('s2_t1')||0), parseInt(fd.get('s2_t2')||0)], [parseInt(fd.get('tb_t1')||0), parseInt(fd.get('tb_t2')||0)]);
             }} className="p-6">
-              <div className="flex justify-between items-end mb-4 font-bold text-sm text-slate-400 border-b border-slate-200 pb-2 uppercase tracking-wider">
+              <div className="heading-font flex justify-between items-end mb-4 font-bold text-sm text-gray-500 border-b border-gray-200 pb-2 uppercase tracking-wider">
                 <div className="w-1/2">Teams</div><div className="w-12 text-center">Satz 1</div><div className="w-12 text-center">Satz 2</div><div className="w-12 text-center text-orange-500">Tiebreak</div>
               </div>
               <div className="flex justify-between items-center mb-4">
-                <div className="w-1/2 font-bold text-slate-800 truncate pr-2">{scoreModal.team1?.name}</div>
-                <input name="s1_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[0]} className="w-12 p-2 border rounded text-center font-bold bg-slate-50 focus:border-red-500 focus:ring-0" required />
-                <input name="s2_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[0]} className="w-12 p-2 border rounded text-center font-bold bg-slate-50 focus:border-red-500 focus:ring-0" required />
-                <input name="tb_t1" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[0]} className="w-12 p-2 border rounded text-center font-bold bg-orange-50 text-orange-700 focus:border-orange-500 focus:ring-0" />
+                <div className="w-1/2 font-bold text-[#222222] truncate pr-2">{scoreModal.team1?.name}</div>
+                <input name="s1_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[0]} className="w-12 p-2 border rounded text-center font-bold bg-gray-50 focus:border-[#E3000F] focus:ring-0 outline-none" required />
+                <input name="s2_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[0]} className="w-12 p-2 border rounded text-center font-bold bg-gray-50 focus:border-[#E3000F] focus:ring-0 outline-none" required />
+                <input name="tb_t1" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[0]} className="w-12 p-2 border rounded text-center font-bold bg-orange-50 text-orange-700 focus:border-orange-500 focus:ring-0 outline-none" />
               </div>
               <div className="flex justify-between items-center mb-8">
-                <div className="w-1/2 font-bold text-slate-800 truncate pr-2">{scoreModal.team2?.name}</div>
-                <input name="s1_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[1]} className="w-12 p-2 border rounded text-center font-bold bg-slate-50 focus:border-red-500 focus:ring-0" required />
-                <input name="s2_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[1]} className="w-12 p-2 border rounded text-center font-bold bg-slate-50 focus:border-red-500 focus:ring-0" required />
-                <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[1]} className="w-12 p-2 border rounded text-center font-bold bg-orange-50 text-orange-700 focus:border-orange-500 focus:ring-0" />
+                <div className="w-1/2 font-bold text-[#222222] truncate pr-2">{scoreModal.team2?.name}</div>
+                <input name="s1_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[1]} className="w-12 p-2 border rounded text-center font-bold bg-gray-50 focus:border-[#E3000F] focus:ring-0 outline-none" required />
+                <input name="s2_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[1]} className="w-12 p-2 border rounded text-center font-bold bg-gray-50 focus:border-[#E3000F] focus:ring-0 outline-none" required />
+                <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[1]} className="w-12 p-2 border rounded text-center font-bold bg-orange-50 text-orange-700 focus:border-orange-500 focus:ring-0 outline-none" />
               </div>
-              <button type="submit" className="w-full bg-red-700 text-white py-3 rounded-lg font-bold hover:bg-red-800 flex items-center justify-center shadow-md transition">
+              <button type="submit" className="heading-font uppercase tracking-wider w-full bg-[#E3000F] text-white py-3 rounded font-bold hover:bg-[#C2000D] flex items-center justify-center shadow-md transition">
                  <CheckCircle size={18} className="mr-2" /> Ergebnis speichern
               </button>
             </form>
@@ -1797,24 +1804,24 @@ export default function App() {
 
       {/* --- SCHEDULE GENERATION PROMPT MODAL --- */}
       {schedulePrompt && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
-            <div className="bg-red-700 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold flex items-center"><Calendar size={20} className="mr-2"/> Tag 1 Spielplan-Methode</h3>
+        <div className="fixed inset-0 bg-[#222222]/80 flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
+            <div className="bg-[#E3000F] p-4 flex justify-between items-center text-white">
+               <h3 className="heading-font font-bold uppercase tracking-wider flex items-center"><Calendar size={20} className="mr-2"/> Tag 1 Spielplan-Methode</h3>
                <button onClick={() => setSchedulePrompt(false)} className="hover:text-red-200 transition"><X size={20}/></button>
             </div>
             <div className="p-6">
-              <p className="text-slate-700 mb-6 font-medium">
+              <p className="text-[#222222] mb-6 font-medium">
                 Wie möchten Sie die Spiele der Gruppenphase ansetzen?
               </p>
               <div className="flex flex-col space-y-3">
-                <button onClick={() => generateSchedule('traditional')} className="bg-slate-100 text-slate-800 p-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex flex-col border border-slate-200">
-                   <span className="text-lg mb-1">1. Klassische Zeitfenster</span> 
-                   <span className="text-sm font-medium text-slate-500">Weist jedem Spiel eine spezifische Startzeit und einen Platz zu.</span>
+                <button onClick={() => generateSchedule('traditional')} className="bg-gray-100 text-[#222222] p-4 rounded-md font-bold hover:bg-gray-200 transition text-left flex flex-col border border-gray-200">
+                   <span className="heading-font text-lg mb-1 uppercase tracking-wider">1. Klassische Zeitfenster</span> 
+                   <span className="text-sm font-medium text-gray-500">Weist jedem Spiel eine spezifische Startzeit und einen Platz zu.</span>
                 </button>
-                <button onClick={() => generateSchedule('courtPerGroup')} className="bg-red-50 text-red-800 border border-red-200 p-4 rounded-lg font-bold hover:bg-red-100 transition text-left flex flex-col shadow-sm">
-                   <span className="text-lg mb-1">2. Plätze an Gruppen zuweisen (Flexibel)</span> 
-                   <span className="text-sm font-medium text-red-600/80">Jede Gruppe bekommt einen festen Platz für den gesamten Tag. Zeiten sind flexibel. Erstellt druckbare Spielberichte.</span>
+                <button onClick={() => generateSchedule('courtPerGroup')} className="bg-red-50 text-[#E3000F] border border-red-200 p-4 rounded-md font-bold hover:bg-red-100 transition text-left flex flex-col shadow-sm">
+                   <span className="heading-font text-lg mb-1 uppercase tracking-wider">2. Plätze an Gruppen zuweisen (Flexibel)</span> 
+                   <span className="text-sm font-medium text-[#C2000D]">Jede Gruppe bekommt einen festen Platz für den gesamten Tag. Zeiten sind flexibel. Erstellt druckbare Spielberichte.</span>
                 </button>
               </div>
             </div>
@@ -1824,25 +1831,25 @@ export default function App() {
 
       {/* --- K.O. GENERATION PROMPT MODAL --- */}
       {koPrompt && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 print:hidden p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
-            <div className="bg-amber-500 p-4 flex justify-between items-center text-white">
-               <h3 className="font-bold flex items-center"><AlertTriangle size={20} className="mr-2"/> Turnierbaum-Einstellungen erforderlich</h3>
+        <div className="fixed inset-0 bg-[#222222]/80 flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-white rounded-md shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95">
+            <div className="bg-yellow-600 p-4 flex justify-between items-center text-white">
+               <h3 className="heading-font font-bold uppercase tracking-wider flex items-center"><AlertTriangle size={20} className="mr-2"/> Turnierbaum-Einstellungen erforderlich</h3>
                <button onClick={() => setKoPrompt(false)} className="hover:text-amber-100 transition"><X size={20}/></button>
             </div>
             <div className="p-6">
-              <p className="text-slate-700 mb-6 font-medium">
+              <p className="text-[#222222] mb-6 font-medium">
                 Sie haben nicht genügend Gruppen, um ein 8-Team-Viertelfinale nur mit den Top {koQualifyCount} Teams perfekt zu füllen. Wie möchten Sie die leeren Plätze auffüllen?
               </p>
               <div className="flex flex-col space-y-3">
-                <button onClick={() => generateKO(2, false)} className="bg-slate-100 text-slate-800 py-3 px-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex justify-between items-center">
-                   <span>1. Plätze leer lassen</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Verwendet Freilose</span>
+                <button onClick={() => generateKO(2, false)} className="bg-gray-100 text-[#222222] py-3 px-4 rounded-md font-bold hover:bg-gray-200 transition text-left flex justify-between items-center">
+                   <span className="heading-font uppercase tracking-wider text-sm">1. Plätze leer lassen</span> <span className="text-xs bg-gray-300 px-2 py-1 rounded-sm text-gray-700">Verwendet Freilose</span>
                 </button>
-                <button onClick={() => generateKO(2, true)} className="bg-red-50 text-red-800 border border-red-200 py-3 px-4 rounded-lg font-bold hover:bg-red-100 transition text-left flex justify-between items-center shadow-sm">
-                   <span>2. Beste verbleibende Teams nehmen</span> <span className="text-xs bg-red-700 text-white px-2 py-1 rounded">Empfohlene Wildcards</span>
+                <button onClick={() => generateKO(2, true)} className="bg-red-50 text-[#E3000F] border border-red-200 py-3 px-4 rounded-md font-bold hover:bg-red-100 transition text-left flex justify-between items-center shadow-sm">
+                   <span className="heading-font uppercase tracking-wider text-sm">2. Beste verbleibende Teams nehmen</span> <span className="text-xs bg-[#E3000F] text-white px-2 py-1 rounded-sm">Empfohlene Wildcards</span>
                 </button>
-                <button onClick={() => generateKO(3, false)} className="bg-slate-100 text-slate-800 py-3 px-4 rounded-lg font-bold hover:bg-slate-200 transition text-left flex justify-between items-center">
-                   <span>3. Top 3 aus allen Gruppen weiterlassen</span> <span className="text-xs bg-slate-300 px-2 py-1 rounded text-slate-600">Striktes Limit</span>
+                <button onClick={() => generateKO(3, false)} className="bg-gray-100 text-[#222222] py-3 px-4 rounded-md font-bold hover:bg-gray-200 transition text-left flex justify-between items-center">
+                   <span className="heading-font uppercase tracking-wider text-sm">3. Top 3 aus allen Gruppen weiterlassen</span> <span className="text-xs bg-gray-300 px-2 py-1 rounded-sm text-gray-700">Striktes Limit</span>
                 </button>
               </div>
             </div>
