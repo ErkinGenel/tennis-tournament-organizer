@@ -64,15 +64,23 @@ const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const formatStageGroupName = (stage, rawName) => {
     if (!rawName) return 'Offen';
-    if (stage === 'Placement') {
+    if (stage === 'Placement' || rawName.includes('Platzierungsspiel')) {
         if (rawName.includes('5-8') || rawName.includes('Halbfinale')) return 'Platzierungsspiel, 5-8';
         if (rawName.includes('Platz 3')) return 'Platzierungsspiel, Platz 3';
         if (rawName.includes('Platz 5')) return 'Platzierungsspiel, Platz 5';
         if (rawName.includes('Platz 7')) return 'Platzierungsspiel, Platz 7';
-        return rawName; 
+        return rawName.includes('Platzierungsspiel') ? rawName : `Platzierungsspiel, ${rawName}`; 
     }
     if (stage === 'Group') return rawName.includes('Gruppe') ? rawName : 'Gruppe ' + rawName;
     return rawName;
+};
+
+const getFormattedDate = (baseDateStr, dayOffset) => {
+  if (!baseDateStr) return '';
+  const d = new Date(baseDateStr);
+  if (isNaN(d.getTime())) return '';
+  d.setDate(d.getDate() + dayOffset);
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 const generateTimeSlots = (startTimeStr, numSlots = 8) => {
@@ -117,6 +125,7 @@ export default function App() {
   const [matches, setMatches] = useState([]);
   const [brackets, setBrackets] = useState({ U50: null, O50: null });
   
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [day1Start, setDay1Start] = useState('09:30');
   const [day2Start, setDay2Start] = useState('14:30');
   const [tournamentDays, setTournamentDays] = useState(2);
@@ -240,6 +249,7 @@ export default function App() {
         if (liveData.groups) setGroups(liveData.groups);
         if (liveData.matches) setMatches(liveData.matches);
         if (liveData.brackets) setBrackets(liveData.brackets);
+        if (liveData.startDate) setStartDate(liveData.startDate);
         if (liveData.day1Start) setDay1Start(liveData.day1Start);
         if (liveData.day2Start) setDay2Start(liveData.day2Start);
         if (liveData.tournamentDays) setTournamentDays(liveData.tournamentDays);
@@ -254,13 +264,13 @@ export default function App() {
       if (appMode === 'organizer' && user) {
         try {
           const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
-          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals, lastUpdated: new Date().toISOString() });
+          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, lastUpdated: new Date().toISOString() });
         } catch (error) { console.error("Failed to push updates to live server:", error); }
       }
     };
     const timeoutId = setTimeout(syncToCloud, 800);
     return () => clearTimeout(timeoutId);
-  }, [teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals, appMode, user, appId]);
+  }, [teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, appMode, user, appId]);
 
   useEffect(() => {
     if (appMode === 'monitor') {
@@ -273,13 +283,23 @@ export default function App() {
     if (appMode !== 'monitor') return;
 
     let newSlides = [];
-    const finals = matches.filter(m => m.id && m.id.startsWith('final_'));
-    const isEnded = finals.length > 0 && finals.every(m => m.winnerId !== null);
+    
+    const checkFinalStatus = (cat) => {
+        if (!brackets || !brackets[cat]) return false;
+        const finalMatchId = brackets[cat].finals[0].id;
+        const finalMatch = matches.find(m => m.id === finalMatchId);
+        return finalMatch && finalMatch.winnerId !== null;
+    };
+    
+    const u50Ended = checkFinalStatus('U50');
+    const o50Ended = checkFinalStatus('O50');
+    const allEnded = (brackets?.U50 ? u50Ended : true) && (brackets?.O50 ? o50Ended : true) && (brackets?.U50 || brackets?.O50);
+
     const hasBrackets = brackets && (brackets.U50 || brackets.O50);
 
-    if (!isEnded) {
+    if (!allEnded) {
         ['U50', 'O50'].forEach(cat => {
-            const grps = Object.entries(groups[cat] || {});
+            const grps = Object.entries(groups[cat] || {}).sort((a,b) => a[0].localeCompare(b[0]));
             if (grps.length > 0) {
                for(let i=0; i<grps.length; i+=4) {
                    newSlides.push({ type: 'groups', cat, title: `Gruppen ${CATEGORIES[cat]}`, data: grps.slice(i, i+4), pageInfo: grps.length>4 ? `(Teil ${Math.floor(i/4)+1}/${Math.ceil(grps.length/4)})` : '' });
@@ -326,16 +346,17 @@ export default function App() {
         });
     }
 
-    if (isEnded) {
-        ['U50', 'O50'].forEach(cat => {
+    ['U50', 'O50'].forEach(cat => {
+        const isEnded = checkFinalStatus(cat);
+        if (isEnded) {
             const ranks = finalRankings[cat] || [];
             if (ranks.length > 0) {
                 for(let i=0; i<ranks.length; i+=12) {
                     newSlides.push({ type: 'rankings', cat, title: `Abschlussplatzierungen: ${CATEGORIES[cat]}`, data: ranks.slice(i, i+12), pageInfo: ranks.length>12 ? `(Plätze ${i+1}-${Math.min(i+12, ranks.length)})` : '' });
                 }
             }
-        });
-    }
+        }
+    });
 
     if (newSlides.length === 0) newSlides.push({ type: 'idle', title: 'Willkommen beim Turnier' });
 
@@ -446,7 +467,7 @@ export default function App() {
   };
 
   const handleExportTournament = () => {
-    const dataStr = JSON.stringify({ teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals });
+    const dataStr = JSON.stringify({ teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -471,6 +492,7 @@ export default function App() {
            if (data.groups) setGroups(data.groups);
            if (data.matches) setMatches(data.matches);
            if (data.brackets) setBrackets(data.brackets);
+           if (data.startDate) setStartDate(data.startDate);
            if (data.day1Start) setDay1Start(data.day1Start);
            if (data.day2Start) setDay2Start(data.day2Start);
            if (data.tournamentDays) setTournamentDays(data.tournamentDays);
@@ -648,7 +670,6 @@ export default function App() {
     
     const targetDay = tournamentDays;
     
-    // Wir generieren 12 Zeitslots für Tag 2 (ausreichend für 72 Spiele bei 6 Courts)
     const day2Slots = generateTimeSlots(day2Start, 12);
     const slotUsage = {};
     day2Slots.forEach(time => slotUsage[time] = 0);
@@ -736,7 +757,6 @@ export default function App() {
       newBrackets[cat] = { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes };
     });
 
-    // Warteschlangen-Logik: Spielt chronologisch die Phasen durch und belegt Courts
     let currentSlotIdx = 0;
     const scheduleBatch = (batch) => {
         if (batch.length === 0) return;
@@ -744,34 +764,28 @@ export default function App() {
         
         batch.forEach(match => {
             let assigned = false;
-            // Suche den nächsten Zeitslot, in dem noch ein Court frei ist
             for (let i = currentSlotIdx; i < day2Slots.length; i++) {
                 const time = day2Slots[i];
                 if (slotUsage[time] < COURTS) {
                     slotUsage[time]++;
                     match.time = time;
-                    match.court = slotUsage[time]; // Court-Nummer ist exakt die Belegung dieses Slots
+                    match.court = slotUsage[time]; 
                     if (i > maxSlotUsed) maxSlotUsed = i;
                     assigned = true;
                     break;
                 }
             }
-            // Fallback (tritt bei 12 Slots praktisch nie ein)
             if (!assigned) {
                 const lastTime = day2Slots[day2Slots.length - 1];
                 match.time = lastTime;
                 match.court = Math.floor(Math.random() * COURTS) + 1;
             }
         });
-        // Nächste K.O.-Phase beginnt garantiert erst im Slot NACH der vorherigen Phase
         currentSlotIdx = maxSlotUsed + 1;
     };
 
-    // 1. Alle Viertelfinals verteilen
     scheduleBatch(allQFs);
-    // 2. Alle Halbfinals verteilen (rutschen automatisch in freie spätere Zeitslots)
     scheduleBatch(allSFs);
-    // 3. Alle Finals verteilen
     if (isolateGrandFinals) {
         scheduleBatch(allPlacements);
         scheduleBatch(allGrandFinals);
@@ -836,7 +850,7 @@ export default function App() {
           break;
         case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
         case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Platzierungsspiel, 5-8'); setSimState('ko_final_scores'); break;
-        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Platzierungsspiel, Platz'); setSimState('idle'); break;
+        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Platzierungsspiel'); setSimState('idle'); break;
         default: setSimState('idle');
       }
     }, delay);
@@ -878,7 +892,7 @@ export default function App() {
     if (isFinal) {
       return (
          <div className="bg-[var(--contrast)] border-2 border-[var(--tcw-orange)] rounded shadow-xl overflow-hidden scale-110">
-           <div className="bg-[var(--tcw-orange)] text-[var(--base-3)] text-lg text-center py-3 font-extrabold uppercase tracking-widest">{title}</div>
+           <div className="bg-[var(--tcw-orange)] text-[var(--base-3)] text-lg text-center py-3 font-extrabold uppercase tracking-widest">{title || formatStageGroupName(match.stage, match.groupName)}</div>
            <div className={`p-5 flex justify-between border-b border-[var(--contrast-2)] text-2xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
              <span className="truncate pr-2">{match.team1?.name || 'Offen'}</span>
              <span className="text-[var(--tcw-yellow)] font-black">{match.score?.s1[0]} {match.score?.s2[0]} {match.score?.tb && `[${match.score?.tb[0]}]`}</span>
@@ -913,10 +927,10 @@ export default function App() {
         <div className="absolute inset-0 z-0 opacity-10" style={{backgroundImage: `url(${BRAND.banner})`, backgroundSize: 'cover'}}></div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-28 w-28 rounded full flex items-center justify-center p-2 shadow-xl border-2 mb-6">
+          <div className="h-32 w-32 flex items-center justify-center mb-6 drop-shadow-md">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
           </div>
-          <div className="p-8 rounded full shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
+          <div className="p-8 rounded shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden bg-[var(--base-3)]">
             {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
             <h2 className="heading-font text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2">{BRAND.name} Portal</h2>
             <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
@@ -968,7 +982,7 @@ export default function App() {
           <header className="relative bg-[var(--tcw-green)] text-[var(--base-3)] pt-10 pb-6 px-5 rounded-b shadow-md z-10">
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-4">
-                <div className="h-14 w-14 rounded full flex items-center justify-center p-1 shadow">
+                <div className="h-16 w-16 flex items-center justify-center drop-shadow-md">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <button onClick={handleLogout} className="text-[var(--base-3)] p-2 bg-[var(--tcw-green-dark)] rounded">
@@ -996,7 +1010,7 @@ export default function App() {
                     return (
                       <div key={m.id} className={`bg-[var(--base-3)] rounded p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-[var(--tcw-green)]' : isLoser ? 'border-l-[var(--tcw-orange)]' : 'border-l-[var(--contrast-3)]'}`}>
                         <div className="flex justify-between items-center text-xs font-bold text-[var(--contrast-2)] uppercase tracking-wider mb-3 pb-2 border-b border-[var(--base)]">
-                          <span>Tag {m.day} • {m.time} • Platz {m.court}</span>
+                          <span>{getFormattedDate(startDate, m.day - 1)} • {m.time} • Platz {m.court}</span>
                           <span className="text-[var(--tcw-green-dark)] bg-[var(--base-2)] px-2 py-0.5 rounded">{formatStageGroupName(m.stage, m.groupName)}</span>
                         </div>
                         <div className="flex justify-between items-center">
@@ -1046,13 +1060,14 @@ export default function App() {
 			  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
 				<h2 className="heading-font text-lg font-bold text-[var(--contrast)] flex items-center"><Award className="mr-2 text-[var(--tcw-yellow)]" size={20}/> Rangliste</h2>
 				{(() => {
-				  const finals = matches.filter(m => m.id && m.id.startsWith('final_'));
-				  const isEnded = finals.length > 0 && finals.every(m => m.winnerId !== null);
+				  const finalMatchId = brackets[myTeam.category]?.finals?.[0]?.id;
+				  const finalMatch = matches.find(m => m.id === finalMatchId);
+				  const isEnded = finalMatch && finalMatch.winnerId !== null;
 
 				  if (!isEnded) {
 					return (
 					  <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">
-						Die endgültige Rangliste ist erst nach Abschluss aller Finalspiele verfügbar.
+						Die endgültige Rangliste für {CATEGORIES[myTeam.category]} wird nach Abschluss des Finales veröffentlicht.
 					  </div>
 					);
 				  }
@@ -1060,7 +1075,7 @@ export default function App() {
 				  const myRanks = finalRankings[myTeam.category];
 				  if (!myRanks || myRanks.length === 0) {
 					return (
-					   <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Die Rangliste wird nach Beginn der K.O.-Phase angezeigt.</div>
+					   <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Warte auf K.O.-Phase...</div>
 					);
 				  }
 
@@ -1112,7 +1127,7 @@ export default function App() {
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded border border-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
               <div className="flex items-center space-x-6">
-                <div className="h-20 w-20 rounded full flex items-center justify-center p-1 border-2 ">
+                <div className="h-20 w-20 flex items-center justify-center drop-shadow-md">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
@@ -1140,7 +1155,9 @@ export default function App() {
                  {(slide.data || []).slice(0, 5).map(m => (
                     <div key={m.id} className="bg-[var(--contrast)] rounded border border-[var(--contrast-2)] p-4">
                        <div className="text-[var(--contrast-3)] font-bold mb-3 flex justify-between text-lg border-b border-[var(--contrast-2)] pb-2">
-                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>{m.time} • Platz {m.court}</span>
+                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>
+                            {getFormattedDate(startDate, m.day - 1)} • {m.time} • Platz {m.court}
+                          </span>
                           <span className="text-[var(--contrast-3)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
@@ -1155,7 +1172,9 @@ export default function App() {
                  {(slide.data || []).slice(5, 10).map(m => (
                     <div key={m.id} className="bg-[var(--contrast)] rounded border border-[var(--contrast-2)] p-4">
                        <div className="text-[var(--contrast-3)] font-bold mb-3 flex justify-between text-lg border-b border-[var(--contrast-2)] pb-2">
-                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>{m.time} • Platz {m.court}</span>
+                          <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>
+                            {getFormattedDate(startDate, m.day - 1)} • {m.time} • Platz {m.court}
+                          </span>
                           <span className="text-[var(--contrast-3)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl">
@@ -1196,16 +1215,16 @@ export default function App() {
                  <div className="flex justify-between items-stretch h-[65vh] px-12 relative">
                      <div className="flex flex-col justify-around w-[22rem] z-10">
                         {brackets[slide.cat].qf.map((qfRef, i) => (
-                            <div key={i} className="relative"><MonitorMatchBox matchId={qfRef.id} title={`Viertelfinale ${i+1}`} /></div>
+                            <div key={i} className="relative"><MonitorMatchBox matchId={qfRef.id} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b border-[var(--contrast-3)]"></div></div>
                         ))}
                      </div>
                      <div className="flex flex-col justify-around w-[22rem] z-10">
                         {brackets[slide.cat].sf.map((sfRef, i) => (
-                            <div key={i} className="relative"><MonitorMatchBox matchId={sfRef.id} title={sfRef.title} /></div>
+                            <div key={i} className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l border-[var(--contrast-3)]"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l border-[var(--contrast-3)]"></div><div className="absolute top-1/2 -left-6 w-6 border-b border-[var(--contrast-3)]"></div><MonitorMatchBox matchId={sfRef.id} title={sfRef.title} /><div className="absolute top-1/2 -right-6 w-6 border-b border-[var(--contrast-3)]"></div></div>
                         ))}
                      </div>
                      <div className="flex flex-col justify-center w-[25rem] z-10">
-                        <MonitorMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" isFinal={true} />
+                        <div className="relative"><div className="absolute top-[-150px] -left-6 bottom-[50%] border-l border-[var(--contrast-3)]"></div><div className="absolute bottom-[-150px] -left-6 top-[50%] border-l border-[var(--contrast-3)]"></div><div className="absolute top-1/2 -left-6 w-6 border-b border-[var(--contrast-3)]"></div><MonitorMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" isFinal={true} /></div>
                      </div>
                  </div>
              </div>
@@ -1271,8 +1290,8 @@ export default function App() {
       <header className={`relative bg-[var(--tcw-green-dark)] text-[var(--base-3)] shadow-md ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="h-12 w-12 rounded full flex items-center justify-center p-1">
-               <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
+            <div className="h-14 w-14 flex items-center justify-center">
+               <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain drop-shadow" />
             </div>
             <div>
               <h1 className="heading-font text-xl font-bold hidden md:block tracking-tight">{BRAND.name}</h1>
@@ -1343,10 +1362,15 @@ export default function App() {
 
               <div className="bg-[var(--base-2)] p-4 rounded border border-[var(--base)]">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-[var(--contrast-3)]">
-                   <div className="flex items-center space-x-3 col-span-1 md:col-span-3">
+                   <div className="flex items-center space-x-3 col-span-1 md:col-span-1">
                      <Calendar className="text-[var(--contrast-2)]" />
+                     <div className="font-bold text-[var(--contrast)]">Startdatum:</div>
+                     <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)]" />
+                   </div>
+                   <div className="flex items-center space-x-3 col-span-1 md:col-span-2">
+                     <Clock className="text-[var(--contrast-2)]" />
                      <div className="font-bold text-[var(--contrast)]">Turnierdauer:</div>
-                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)]">
+                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-full">
                        <option value={1}>1-Tages-Turnier (Alle Spiele an Tag 1)</option>
                        <option value={2}>2-Tages-Turnier (K.O.-Spiele an Tag 2)</option>
                      </select>
@@ -1473,7 +1497,7 @@ export default function App() {
                        {CATEGORIES[cat]} <span className="ml-3 text-sm border border-[var(--contrast-3)] px-3 py-1 rounded text-[var(--contrast-2)]">{Object.keys(groups[cat]).length} Gruppen</span>
                      </h2>
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {Object.entries(groups[cat]).map(([groupName, groupTeams]) => (
+                        {Object.entries(groups[cat]).sort((a,b) => a[0].localeCompare(b[0])).map(([groupName, groupTeams]) => (
                           <div key={groupName} className="border border-[var(--contrast-3)] rounded overflow-hidden">
                             <div className="bg-[var(--base)] p-3 font-bold text-[var(--contrast)] border-b border-[var(--contrast-3)]">{groupName}</div>
                             <table className="w-full text-sm text-left table-fixed">
@@ -1547,7 +1571,7 @@ export default function App() {
                     return (
                       <div key={day} className="mb-8">
                         <h3 className="heading-font text-lg font-bold bg-[var(--tcw-green)] text-[var(--base-3)] p-4 rounded-t flex justify-between items-center">
-                          <span>{tournamentDays === 1 ? 'Alle Spiele (1-Tages-Turnier)' : `Tag ${day} ${day===1 ? '(Gruppenphase)' : '(Finals & Platzierungen)'}`}</span>
+                          <span>{tournamentDays === 1 ? `Alle Spiele (${getFormattedDate(startDate, 0)})` : `Tag ${day} (${getFormattedDate(startDate, day - 1)}) ${day===1 ? '(Gruppenphase)' : '(Finals & Platzierungen)'}`}</span>
                           <span className="text-sm border border-[var(--base-3)] px-3 py-1 rounded">
                             {tournamentDays === 1 ? `Gruppen: ${day1Start} | K.O.: ${day2Start}` : `Start: ${day===1 ? day1Start : day2Start}`}
                           </span>
@@ -1662,7 +1686,25 @@ export default function App() {
           {activeTab === 'rankings' && (
              <div className="space-y-12">
                {['U50', 'O50'].map(cat => {
+                 const finalMatchId = brackets[cat]?.finals?.[0]?.id;
+                 const finalMatch = matches.find(m => m.id === finalMatchId);
+                 const isEnded = finalMatch && finalMatch.winnerId !== null;
+
+                 if (!isEnded) {
+                   return (
+                     <div key={cat} className="page-break-after">
+                        <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center">
+                          <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {CATEGORIES[cat]}
+                        </h2>
+                        <div className="bg-[var(--base-2)] p-6 rounded text-center border border-[var(--contrast-3)] text-[var(--contrast-2)] font-bold">
+                           Die finale Rangliste wird erst nach Abschluss des Finales veröffentlicht.
+                        </div>
+                     </div>
+                   );
+                 }
+
                  if (!finalRankings[cat] || finalRankings[cat].length === 0) return null;
+                 
                  return (
                    <div key={cat} className="page-break-after">
                       <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center">
@@ -1709,7 +1751,7 @@ export default function App() {
         <div className="hidden print:block w-full bg-[var(--base-3)] text-[var(--contrast)] p-8">
           {['U50', 'O50'].map(cat => {
             if (!groups[cat] || Object.keys(groups[cat]).length === 0) return null;
-            return Object.entries(groups[cat]).map(([groupName, groupTeams]) => {
+            return Object.entries(groups[cat]).sort((a,b) => a[0].localeCompare(b[0])).map(([groupName, groupTeams]) => {
               const gMatches = matches.filter(m => m.category === cat && m.groupName === groupName && m.stage === 'Group').sort((a,b) => (a.matchOrder || 0) - (b.matchOrder || 0));
               if (gMatches.length === 0) return null;
               const courtNum = gMatches[0].court;
@@ -1719,6 +1761,7 @@ export default function App() {
                       <div>
                          <h1 className="heading-font text-4xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
                          <div className="text-xl font-bold text-[var(--contrast-2)] mt-1">Offizieller Gruppen-Spielbericht</div>
+                         <div className="text-md font-bold text-[var(--contrast-3)] mt-1">Tag 1 ({getFormattedDate(startDate, 0)})</div>
                       </div>
                       <div className="text-right">
                          <h2 className="heading-font text-3xl font-extrabold text-[var(--contrast)]">{CATEGORIES[cat]}</h2>
