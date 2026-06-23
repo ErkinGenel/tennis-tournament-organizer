@@ -647,18 +647,16 @@ export default function App() {
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
     const targetDay = tournamentDays;
-    const numSlots = isolateGrandFinals ? 4 : 3;
-    const day2Slots = generateTimeSlots(day2Start, numSlots);
-    const timeQF = day2Slots[0]; 
-    const timeSF = day2Slots[1]; 
-    const timePlacements = day2Slots[2];
-    const timeGrandFinal = isolateGrandFinals ? day2Slots[3] : day2Slots[2];
+    
+    // Wir generieren 12 Zeitslots für Tag 2 (ausreichend für 72 Spiele bei 6 Courts)
+    const day2Slots = generateTimeSlots(day2Start, 12);
+    const slotUsage = {};
+    day2Slots.forEach(time => slotUsage[time] = 0);
 
-    const getAvailableCourt = (time) => {
-      const courtsInUse = newMatches.filter(m => m.day === targetDay && m.time === time).map(m => m.court);
-      for (let i = 1; i <= COURTS; i++) if (!courtsInUse.includes(i)) return i;
-      return Math.floor(Math.random() * COURTS) + 1;
-    };
+    const allQFs = [];
+    const allSFs = [];
+    const allPlacements = [];
+    const allGrandFinals = [];
 
     ['U50', 'O50'].forEach(cat => {
       if (!standings[cat] || Object.keys(standings[cat]).length === 0) return;
@@ -713,31 +711,76 @@ export default function App() {
       ];
 
       const finalNodes = [
-        { id: `final_${cat}`, title: 'Finale', team1: null, team2: null, time: timeGrandFinal },
-        { id: `place_3_${cat}`, title: 'Platzierungsspiel, Platz 3', team1: null, team2: null, time: timePlacements },
-        { id: `place_5_${cat}`, title: 'Platzierungsspiel, Platz 5', team1: null, team2: null, time: timePlacements },
-        { id: `place_7_${cat}`, title: 'Platzierungsspiel, Platz 7', team1: null, team2: null, time: timePlacements }
+        { id: `final_${cat}`, title: 'Finale', team1: null, team2: null },
+        { id: `place_3_${cat}`, title: 'Platzierungsspiel, Platz 3', team1: null, team2: null },
+        { id: `place_5_${cat}`, title: 'Platzierungsspiel, Platz 5', team1: null, team2: null },
+        { id: `place_7_${cat}`, title: 'Platzierungsspiel, Platz 7', team1: null, team2: null }
       ];
 
       qfNodes.forEach(node => {
         if (!node.team1.isBye && !node.team2.isBye) {
-           newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Viertelfinale', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeQF, court: getAvailableCourt(timeQF) });
+           allQFs.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Viertelfinale', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay });
         }
       });
 
       [...sfNodes, ...pSfNodes].forEach(node => {
-         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay, time: timeSF, court: getAvailableCourt(timeSF) });
+         allSFs.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: targetDay });
       });
 
       finalNodes.forEach(node => {
-         newMatches.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay, time: node.time, court: getAvailableCourt(node.time) });
+         const match = { id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: targetDay };
+         if (node.id.includes('final_')) allGrandFinals.push(match);
+         else allPlacements.push(match);
       });
 
       newBrackets[cat] = { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes };
     });
 
+    // Warteschlangen-Logik: Spielt chronologisch die Phasen durch und belegt Courts
+    let currentSlotIdx = 0;
+    const scheduleBatch = (batch) => {
+        if (batch.length === 0) return;
+        let maxSlotUsed = currentSlotIdx;
+        
+        batch.forEach(match => {
+            let assigned = false;
+            // Suche den nächsten Zeitslot, in dem noch ein Court frei ist
+            for (let i = currentSlotIdx; i < day2Slots.length; i++) {
+                const time = day2Slots[i];
+                if (slotUsage[time] < COURTS) {
+                    slotUsage[time]++;
+                    match.time = time;
+                    match.court = slotUsage[time]; // Court-Nummer ist exakt die Belegung dieses Slots
+                    if (i > maxSlotUsed) maxSlotUsed = i;
+                    assigned = true;
+                    break;
+                }
+            }
+            // Fallback (tritt bei 12 Slots praktisch nie ein)
+            if (!assigned) {
+                const lastTime = day2Slots[day2Slots.length - 1];
+                match.time = lastTime;
+                match.court = Math.floor(Math.random() * COURTS) + 1;
+            }
+        });
+        // Nächste K.O.-Phase beginnt garantiert erst im Slot NACH der vorherigen Phase
+        currentSlotIdx = maxSlotUsed + 1;
+    };
+
+    // 1. Alle Viertelfinals verteilen
+    scheduleBatch(allQFs);
+    // 2. Alle Halbfinals verteilen (rutschen automatisch in freie spätere Zeitslots)
+    scheduleBatch(allSFs);
+    // 3. Alle Finals verteilen
+    if (isolateGrandFinals) {
+        scheduleBatch(allPlacements);
+        scheduleBatch(allGrandFinals);
+    } else {
+        scheduleBatch([...allPlacements, ...allGrandFinals]);
+    }
+
     setBrackets(newBrackets);
-    setMatches(newMatches);
+    setMatches([...newMatches, ...allQFs, ...allSFs, ...allPlacements, ...allGrandFinals]);
     setKoPrompt(false);
   };
 
