@@ -893,13 +893,25 @@ export default function App() {
       return (
          <div className="bg-[var(--contrast)] border-2 border-[var(--tcw-orange)] rounded shadow-xl overflow-hidden w-full">
            <div className="bg-[var(--tcw-orange)] text-[var(--base-3)] text-lg text-center py-3 font-extrabold uppercase tracking-widest">{title || formatStageGroupName(match.stage, match.groupName)}</div>
-           <div className={`p-4 xl:p-5 flex justify-between border-b border-[var(--contrast-2)] text-xl xl:text-2xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-             <span className="truncate pr-2">{match.team1?.name || 'Offen'}</span>
-             <span className="text-[var(--tcw-yellow)] font-black">{match.score?.s1[0]} {match.score?.s2[0]} {match.score?.tb && `[${match.score?.tb[0]}]`}</span>
+           <div className={`p-4 xl:p-5 flex justify-between items-center border-b border-[var(--contrast-2)] text-xl xl:text-2xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
+             <span className="truncate pr-2 flex-1 min-w-0">{match.team1?.name || 'Offen'}</span>
+             {match.score && (
+                 <div className="flex space-x-2 shrink-0 text-[var(--tcw-yellow)] font-black whitespace-nowrap">
+                   <span className="w-8 text-center">{match.score.s1[0]}</span>
+                   <span className="w-8 text-center">{match.score.s2[0]}</span>
+                   <span className="w-12 text-center">{match.score.tb ? `[${match.score.tb[0]}]` : ''}</span>
+                 </div>
+             )}
            </div>
-           <div className={`p-4 xl:p-5 flex justify-between text-xl xl:text-2xl ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-             <span className="truncate pr-2">{match.team2?.name || 'Offen'}</span>
-             <span className="text-[var(--tcw-yellow)] font-black">{match.score?.s1[1]} {match.score?.s2[1]} {match.score?.tb && `[${match.score?.tb[1]}]`}</span>
+           <div className={`p-4 xl:p-5 flex justify-between items-center text-xl xl:text-2xl ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
+             <span className="truncate pr-2 flex-1 min-w-0">{match.team2?.name || 'Offen'}</span>
+             {match.score && (
+                 <div className="flex space-x-2 shrink-0 text-[var(--tcw-yellow)] font-black whitespace-nowrap">
+                   <span className="w-8 text-center">{match.score.s1[1]}</span>
+                   <span className="w-8 text-center">{match.score.s2[1]}</span>
+                   <span className="w-12 text-center">{match.score.tb ? `[${match.score.tb[1]}]` : ''}</span>
+                 </div>
+             )}
            </div>
          </div>
       );
@@ -908,13 +920,25 @@ export default function App() {
     return (
        <div className={`bg-[var(--contrast)] border border-[var(--contrast-2)] rounded shadow-lg overflow-hidden w-full`}>
          <div className="bg-[var(--contrast-2)] text-sm text-center py-2 font-bold text-[var(--base-3)] uppercase tracking-widest">{title || formatStageGroupName(match.stage, match.groupName)}</div>
-         <div className={`p-3 xl:p-4 flex justify-between border-b border-[var(--contrast-2)] text-lg xl:text-xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-           <span className="truncate pr-2">{t1IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team1?.name || 'Offen')}</span>
-           {!t1IsBye && !t2IsBye && <span className="text-[var(--tcw-green-light)] font-bold tracking-widest">{match.score?.s1[0]} {match.score?.s2[0]} {match.score?.tb && `[${match.score?.tb[0]}]`}</span>}
+         <div className={`p-3 xl:p-4 flex justify-between items-center border-b border-[var(--contrast-2)] text-lg xl:text-xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
+           <span className="truncate pr-2 flex-1 min-w-0">{t1IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team1?.name || 'Offen')}</span>
+           {!t1IsBye && !t2IsBye && match.score && (
+               <div className="flex space-x-2 shrink-0 text-[var(--tcw-green-light)] font-bold whitespace-nowrap">
+                 <span className="w-6 text-center">{match.score.s1[0]}</span>
+                 <span className="w-6 text-center">{match.score.s2[0]}</span>
+                 <span className="w-10 text-center">{match.score.tb ? `[${match.score.tb[0]}]` : ''}</span>
+               </div>
+           )}
          </div>
-         <div className={`p-3 xl:p-4 flex justify-between text-lg xl:text-xl ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-           <span className="truncate pr-2">{t2IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team2?.name || 'Offen')}</span>
-           {!t1IsBye && !t2IsBye && <span className="text-[var(--tcw-green-light)] font-bold tracking-widest">{match.score?.s1[1]} {match.score?.s2[1]} {match.score?.tb && `[${match.score?.tb[1]}]`}</span>}
+         <div className={`p-3 xl:p-4 flex justify-between items-center text-lg xl:text-xl ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
+           <span className="truncate pr-2 flex-1 min-w-0">{t2IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team2?.name || 'Offen')}</span>
+           {!t1IsBye && !t2IsBye && match.score && (
+               <div className="flex space-x-2 shrink-0 text-[var(--tcw-green-light)] font-bold whitespace-nowrap">
+                 <span className="w-6 text-center">{match.score.s1[1]}</span>
+                 <span className="w-6 text-center">{match.score.s2[1]}</span>
+                 <span className="w-10 text-center">{match.score.tb ? `[${match.score.tb[1]}]` : ''}</span>
+               </div>
+           )}
          </div>
        </div>
     );
@@ -1116,7 +1140,7 @@ export default function App() {
       if (!score) return <span className="text-[var(--contrast-3)] font-normal">vs</span>;
       let text = `${score.s1[0]}:${score.s1[1]}   ${score.s2[0]}:${score.s2[1]}`;
       if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += `   [${score.tb[0]}:${score.tb[1]}]`;
-      return <span className="font-bold text-[var(--tcw-green-light)]">{text}</span>;
+      return <span className="font-bold text-[var(--tcw-green-light)] whitespace-nowrap">{text}</span>;
     };
 
     const slide = monitorSlides[monitorSlideIdx] || { type: 'loading', title: 'Lade Daten...' };
