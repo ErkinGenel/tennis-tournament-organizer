@@ -894,7 +894,7 @@ export default function App() {
          <div className="bg-[var(--contrast)] border-2 border-[var(--tcw-orange)] rounded shadow-xl overflow-hidden w-full">
            <div className="bg-[var(--tcw-orange)] text-[var(--base-3)] text-lg text-center py-3 font-extrabold uppercase tracking-widest">{title || formatStageGroupName(match.stage, match.groupName)}</div>
            <div className={`p-4 xl:p-5 flex justify-between items-center border-b border-[var(--contrast-2)] text-xl xl:text-2xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-             <span className="truncate pr-2 flex-1 min-w-0">{match.team1?.name || 'Offen'}</span>
+             <span className="pr-2 flex-1 min-w-0 break-words">{match.team1?.name || 'Offen'}</span>
              {match.score && (
                  <div className="flex space-x-2 shrink-0 text-[var(--tcw-yellow)] font-black whitespace-nowrap">
                    <span className="w-8 text-center">{match.score.s1[0]}</span>
@@ -904,7 +904,7 @@ export default function App() {
              )}
            </div>
            <div className={`p-4 xl:p-5 flex justify-between items-center text-xl xl:text-2xl ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-             <span className="truncate pr-2 flex-1 min-w-0">{match.team2?.name || 'Offen'}</span>
+             <span className="pr-2 flex-1 min-w-0 break-words">{match.team2?.name || 'Offen'}</span>
              {match.score && (
                  <div className="flex space-x-2 shrink-0 text-[var(--tcw-yellow)] font-black whitespace-nowrap">
                    <span className="w-8 text-center">{match.score.s1[1]}</span>
@@ -921,7 +921,7 @@ export default function App() {
        <div className={`bg-[var(--contrast)] border border-[var(--contrast-2)] rounded shadow-lg overflow-hidden w-full`}>
          <div className="bg-[var(--contrast-2)] text-sm text-center py-2 font-bold text-[var(--base-3)] uppercase tracking-widest">{title || formatStageGroupName(match.stage, match.groupName)}</div>
          <div className={`p-3 xl:p-4 flex justify-between items-center border-b border-[var(--contrast-2)] text-lg xl:text-xl ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-           <span className="truncate pr-2 flex-1 min-w-0">{t1IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team1?.name || 'Offen')}</span>
+           <span className="pr-2 flex-1 min-w-0 break-words">{t1IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team1?.name || 'Offen')}</span>
            {!t1IsBye && !t2IsBye && match.score && (
                <div className="flex space-x-2 shrink-0 text-[var(--tcw-green-light)] font-bold whitespace-nowrap">
                  <span className="w-6 text-center">{match.score.s1[0]}</span>
@@ -931,7 +931,7 @@ export default function App() {
            )}
          </div>
          <div className={`p-3 xl:p-4 flex justify-between items-center text-lg xl:text-xl ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green-dark)] text-[var(--base-3)] font-bold' : 'text-[var(--base)]'}`}>
-           <span className="truncate pr-2 flex-1 min-w-0">{t2IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team2?.name || 'Offen')}</span>
+           <span className="pr-2 flex-1 min-w-0 break-words">{t2IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team2?.name || 'Offen')}</span>
            {!t1IsBye && !t2IsBye && match.score && (
                <div className="flex space-x-2 shrink-0 text-[var(--tcw-green-light)] font-bold whitespace-nowrap">
                  <span className="w-6 text-center">{match.score.s1[1]}</span>
@@ -1685,13 +1685,13 @@ export default function App() {
                    return (
                      <div className={`w-64 border ${isFinal ? 'border-[var(--tcw-orange)]' : 'border-[var(--contrast-3)]'} rounded bg-[var(--base-3)] overflow-hidden m-2 print:border-[var(--contrast-3)] break-inside-avoid`}>
                         <div className={`text-xs text-center py-1 font-bold border-b border-[var(--contrast-3)] uppercase tracking-wider ${isFinal ? 'bg-[var(--tcw-orange)] text-[var(--base-3)]' : 'bg-[var(--base)] text-[var(--contrast-2)]'}`}>{title || formatStageGroupName(match.stage, match.groupName)}</div>
-                        <div className={`p-2 border-b border-[var(--base)] flex justify-between ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green)] text-[var(--base-3)] font-bold' : 'text-[var(--contrast)]'}`}>
-                          <span className={`truncate pr-2 ${t1IsBye ? 'text-[var(--tcw-orange)] italic font-bold text-xs' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
-                          {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
+                        <div className={`p-2 border-b border-[var(--base)] flex justify-between items-center ${match.winnerId === match.team1?.id ? 'bg-[var(--tcw-green)] text-[var(--base-3)] font-bold' : 'text-[var(--contrast)]'}`}>
+                          <span className={`pr-2 flex-1 min-w-0 break-words ${t1IsBye ? 'text-[var(--tcw-orange)] italic font-bold text-xs' : ''}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
+                          {!t1IsBye && !t2IsBye && <span className="font-bold shrink-0 ml-2">{match.score?.s1[0]} {match.score?.s2[0]}</span>}
                         </div>
-                        <div className={`p-2 flex justify-between ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green)] text-[var(--base-3)] font-bold' : 'text-[var(--contrast)]'}`}>
-                          <span className={`truncate pr-2 ${t2IsBye ? 'text-[var(--tcw-orange)] italic font-bold text-xs' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
-                          {!t1IsBye && !t2IsBye && <span className="font-bold">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
+                        <div className={`p-2 flex justify-between items-center ${match.winnerId === match.team2?.id ? 'bg-[var(--tcw-green)] text-[var(--base-3)] font-bold' : 'text-[var(--contrast)]'}`}>
+                          <span className={`pr-2 flex-1 min-w-0 break-words ${t2IsBye ? 'text-[var(--tcw-orange)] italic font-bold text-xs' : ''}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
+                          {!t1IsBye && !t2IsBye && <span className="font-bold shrink-0 ml-2">{match.score?.s1[1]} {match.score?.s2[1]}</span>}
                         </div>
                      </div>
                    );
