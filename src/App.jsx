@@ -67,7 +67,6 @@ const generateTimeSlots = (startTimeStr, numSlots = 8) => {
 };
 
 export default function App() {
-  // Behält den Organizer-Modus auch bei einem Seiten-Refresh (F5) bei!
   const [appMode, setAppMode] = useState(() => {
     return sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login';
   });
@@ -156,7 +155,7 @@ export default function App() {
 
     ['U50', 'O50'].forEach(cat => {
       const b = brackets[cat];
-      if (!b || !b.finals) return; // Crash-Schutz bei alten Daten
+      if (!b || !b.finals) return;
       const finalMatch = matches.find(m => m.id === b.finals[0]?.id);
       if (!finalMatch || !finalMatch.winnerId) return;
 
@@ -334,6 +333,15 @@ export default function App() {
   };
 
   const handleLogout = () => { sessionStorage.removeItem('tennis_auth'); setPasswordInput(''); setAppMode('login'); };
+
+  // DUMMY FUNCTION TO PREVENT CRASH
+  const handleSimulateTournament = () => {
+    setSimState('running');
+    setTimeout(() => {
+        setSimState('idle');
+        alert("Simulation gestartet (Platzhalter).");
+    }, 1000);
+  };
 
   const handleRegister = (e) => {
     e.preventDefault();
