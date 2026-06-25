@@ -67,7 +67,10 @@ const generateTimeSlots = (startTimeStr, numSlots = 8) => {
 };
 
 export default function App() {
-  const [appMode, setAppMode] = useState('login');
+  // Behält den Organizer-Modus auch bei einem Seiten-Refresh (F5) bei!
+  const [appMode, setAppMode] = useState(() => {
+    return sessionStorage.getItem('tennis_auth') === 'true' ? 'organizer' : 'login';
+  });
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [user, setUser] = useState(null);
@@ -153,18 +156,18 @@ export default function App() {
 
     ['U50', 'O50'].forEach(cat => {
       const b = brackets[cat];
-      if (!b) return;
-      const finalMatch = matches.find(m => m.id === b.finals[0].id);
+      if (!b || !b.finals) return; // Crash-Schutz bei alten Daten
+      const finalMatch = matches.find(m => m.id === b.finals[0]?.id);
       if (!finalMatch || !finalMatch.winnerId) return;
 
       const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team1 : m.team2) : null; };
       const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team2 : m.team1) : null; };
 
       const top8 = [
-        getWinner(b.finals[0].id), getLoser(b.finals[0].id),
-        getWinner(b.finals[1].id), getLoser(b.finals[1].id),
-        getWinner(b.finals[2].id), getLoser(b.finals[2].id),
-        getWinner(b.finals[3].id), getLoser(b.finals[3].id)
+        getWinner(b.finals[0]?.id), getLoser(b.finals[0]?.id),
+        getWinner(b.finals[1]?.id), getLoser(b.finals[1]?.id),
+        getWinner(b.finals[2]?.id), getLoser(b.finals[2]?.id),
+        getWinner(b.finals[3]?.id), getLoser(b.finals[3]?.id)
       ];
 
       top8.forEach((team, idx) => { if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team }); });
@@ -608,7 +611,7 @@ export default function App() {
 
     ['U50', 'O50'].forEach(cat => {
       if(brackets[cat]) {
-        brackets[cat].qf.forEach(qf => {
+        brackets[cat].qf?.forEach(qf => {
           if (qf.team1?.isBye) pushToNode(qf.next, qf.team2);
           if (qf.team2?.isBye) pushToNode(qf.next, qf.team1);
         });
@@ -618,11 +621,10 @@ export default function App() {
     if (changesMade) setMatches(updatedMatches);
   }, [matches, brackets]);
 
-  // --- REUSABLE MATCH BOX FOR KO TREE (No Wrapping, Aligned Scores) ---
+  // --- REUSABLE MATCH BOX FOR KO TREE ---
   const BracketMatchBox = ({ matchId, title, fallbackNode, isMonitor = false }) => {
     const match = matches.find(m => m.id === matchId) || fallbackNode;
     
-    // Theme colors dynamically applied based on view mode (TV vs Organizer)
     const cardBg = isMonitor ? 'bg-white/10' : 'bg-[var(--base-3)]';
     const cardBorder = isMonitor ? 'border-white/10' : 'border-[var(--base)]';
     const headerBg = isMonitor ? 'bg-black/20' : 'bg-[var(--base)]';
@@ -630,7 +632,6 @@ export default function App() {
     const textColor = isMonitor ? 'text-white' : 'text-[var(--contrast)]';
     const activeBg = isMonitor ? 'bg-[var(--tcw-green-light)]/20' : 'bg-[var(--tcw-green)]/10';
     const activeText = isMonitor ? 'text-[var(--tcw-green-light)]' : 'text-[var(--tcw-green-dark)]';
-    const mutedText = isMonitor ? 'text-white/50' : 'text-[var(--contrast-3)]';
 
     if (!match) return <div className={`min-w-[20rem] h-24 border-2 border-dashed ${cardBorder} rounded-md ${cardBg} flex items-center justify-center ${headerText} text-sm font-bold m-2 backdrop-blur-sm`}>Offen</div>;
     
@@ -929,13 +930,13 @@ export default function App() {
              <div className="h-full flex items-center justify-center pb-8 overflow-x-auto">
                  <div className="flex items-center space-x-12 min-w-max relative px-12">
                      <div className="flex flex-col justify-around space-y-6 h-[75vh]">
-                        {brackets[slide.cat].qf.map((qfRef, i) => <div key={i} className="relative"><BracketMatchBox matchId={qfRef.id} title={`Viertelfinale ${i+1}`} fallbackNode={qfRef} isMonitor={true} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-white/20"></div></div>)}
+                        {brackets[slide.cat]?.qf?.map((qfRef, i) => <div key={i} className="relative"><BracketMatchBox matchId={qfRef.id} title={`Viertelfinale ${i+1}`} fallbackNode={qfRef} isMonitor={true} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-white/20"></div></div>)}
                      </div>
                      <div className="flex flex-col justify-around h-[75vh]">
-                        {brackets[slide.cat].sf.map((sfRef, i) => <div key={i} className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-white/20 rounded-tl-xl"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-white/20 rounded-bl-xl"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-white/20"></div><BracketMatchBox matchId={sfRef.id} title={sfRef.title} fallbackNode={sfRef} isMonitor={true} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-white/20"></div></div>)}
+                        {brackets[slide.cat]?.sf?.map((sfRef, i) => <div key={i} className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-white/20 rounded-tl-xl"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-white/20 rounded-bl-xl"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-white/20"></div><BracketMatchBox matchId={sfRef.id} title={sfRef.title} fallbackNode={sfRef} isMonitor={true} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-white/20"></div></div>)}
                      </div>
                      <div className="flex flex-col justify-center h-[75vh]">
-                        <div className="relative"><div className="absolute top-[-180px] -left-6 bottom-[50%] border-l-2 border-white/20 rounded-tl-xl"></div><div className="absolute bottom-[-180px] -left-6 top-[50%] border-l-2 border-white/20 rounded-bl-xl"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-white/20"></div><BracketMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" fallbackNode={brackets[slide.cat].finals[0]} isMonitor={true} /></div>
+                        <div className="relative"><div className="absolute top-[-180px] -left-6 bottom-[50%] border-l-2 border-white/20 rounded-tl-xl"></div><div className="absolute bottom-[-180px] -left-6 top-[50%] border-l-2 border-white/20 rounded-bl-xl"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-white/20"></div>{brackets[slide.cat]?.finals?.[0] && <BracketMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" fallbackNode={brackets[slide.cat].finals[0]} isMonitor={true} />}</div>
                      </div>
                  </div>
              </div>
@@ -945,12 +946,12 @@ export default function App() {
              <div className="h-full flex justify-center items-center pb-12 overflow-x-auto">
                  <div className="flex items-start space-x-16 min-w-max">
                      <div className="flex flex-col justify-around space-y-10">
-                        {brackets[slide.cat].pSf.map((pSfRef, i) => <BracketMatchBox key={i} matchId={pSfRef.id} title={pSfRef.title} fallbackNode={pSfRef} isMonitor={true} />)}
-                        <BracketMatchBox matchId={brackets[slide.cat].finals[1].id} title="Spiel um Platz 3" fallbackNode={brackets[slide.cat].finals[1]} isMonitor={true} />
+                        {brackets[slide.cat]?.pSf?.map((pSfRef, i) => <BracketMatchBox key={i} matchId={pSfRef.id} title={pSfRef.title} fallbackNode={pSfRef} isMonitor={true} />)}
+                        {brackets[slide.cat]?.finals?.[1] && <BracketMatchBox matchId={brackets[slide.cat].finals[1].id} title="Spiel um Platz 3" fallbackNode={brackets[slide.cat].finals[1]} isMonitor={true} />}
                      </div>
                      <div className="flex flex-col justify-around space-y-10">
-                        <BracketMatchBox matchId={brackets[slide.cat].finals[2].id} title="Spiel um Platz 5" fallbackNode={brackets[slide.cat].finals[2]} isMonitor={true} />
-                        <BracketMatchBox matchId={brackets[slide.cat].finals[3].id} title="Spiel um Platz 7" fallbackNode={brackets[slide.cat].finals[3]} isMonitor={true} />
+                        {brackets[slide.cat]?.finals?.[2] && <BracketMatchBox matchId={brackets[slide.cat].finals[2].id} title="Spiel um Platz 5" fallbackNode={brackets[slide.cat].finals[2]} isMonitor={true} />}
+                        {brackets[slide.cat]?.finals?.[3] && <BracketMatchBox matchId={brackets[slide.cat].finals[3].id} title="Spiel um Platz 7" fallbackNode={brackets[slide.cat].finals[3]} isMonitor={true} />}
                      </div>
                  </div>
              </div>
@@ -964,8 +965,8 @@ export default function App() {
                          <div className={`text-5xl font-black w-24 text-center font-heading ${item.rank === 1 ? 'text-[var(--tcw-yellow)]' : item.rank === 2 ? 'text-white' : item.rank === 3 ? 'text-[var(--global-color-12)]' : 'text-white/30'}`}>
                             {item.rank === 1 ? '🏆' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : item.rank}
                          </div>
-                         <div className="flex-1 text-4xl font-bold text-white truncate pl-6 pr-2 font-heading">{item.team.name}</div>
-                         <div className="text-white/50 text-2xl truncate max-w-[250px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="flex-1 text-4xl font-bold text-white whitespace-nowrap pl-6 pr-4 font-heading">{item.team.name}</div>
+                         <div className="text-white/50 text-2xl whitespace-nowrap">{item.team.clubs.join(' / ')}</div>
                       </div>
                    ))}
                 </div>
@@ -973,8 +974,8 @@ export default function App() {
                    {(slide.data || []).slice(6, 12).map(item => (
                       <div key={item.team.id} className="bg-white/5 rounded-xl border border-white/10 flex items-center p-6 shadow-xl backdrop-blur-sm">
                          <div className="text-5xl font-black text-white/30 w-24 text-center font-heading">{item.rank}</div>
-                         <div className="flex-1 text-4xl font-bold text-white truncate pl-6 pr-2 font-heading">{item.team.name}</div>
-                         <div className="text-white/50 text-2xl truncate max-w-[250px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="flex-1 text-4xl font-bold text-white whitespace-nowrap pl-6 pr-4 font-heading">{item.team.name}</div>
+                         <div className="text-white/50 text-2xl whitespace-nowrap">{item.team.clubs.join(' / ')}</div>
                       </div>
                    ))}
                 </div>
@@ -1331,27 +1332,27 @@ export default function App() {
                       </h2>
                       <div className="flex items-center space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-6">
-                           {brackets[cat].qf.map((qf, i) => ( <div key={i} className="relative"><BracketMatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-[var(--contrast-3)]"></div></div> ))}
+                           {brackets[cat]?.qf?.map((qf, i) => ( <div key={i} className="relative"><BracketMatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-[var(--contrast-3)]"></div></div> ))}
                         </div>
                         <div className="flex flex-col justify-around">
-                           {brackets[cat].sf.map((sf, i) => ( <div key={i} className="relative"><div className="absolute top-[-50px] -left-6 bottom-[50%] border-l-2 border-[var(--contrast-3)] rounded-tl-lg"></div><div className="absolute bottom-[-50px] -left-6 top-[50%] border-l-2 border-[var(--contrast-3)] rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-[var(--contrast-3)]"></div><BracketMatchBox match={getMatchData(sf.id)} title={sf.title} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-[var(--contrast-3)]"></div></div> ))}
+                           {brackets[cat]?.sf?.map((sf, i) => ( <div key={i} className="relative"><div className="absolute top-[-50px] -left-6 bottom-[50%] border-l-2 border-[var(--contrast-3)] rounded-tl-lg"></div><div className="absolute bottom-[-50px] -left-6 top-[50%] border-l-2 border-[var(--contrast-3)] rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-[var(--contrast-3)]"></div><BracketMatchBox match={getMatchData(sf.id)} title={sf.title} /><div className="absolute top-1/2 -right-6 w-6 border-b-2 border-[var(--contrast-3)]"></div></div> ))}
                         </div>
                         <div className="flex flex-col justify-center">
-                           <div className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-[var(--contrast-3)] rounded-tl-lg"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-[var(--contrast-3)] rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-[var(--contrast-3)]"></div><BracketMatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" /></div>
+                           <div className="relative"><div className="absolute top-[-100px] -left-6 bottom-[50%] border-l-2 border-[var(--contrast-3)] rounded-tl-lg"></div><div className="absolute bottom-[-100px] -left-6 top-[50%] border-l-2 border-[var(--contrast-3)] rounded-bl-lg"></div><div className="absolute top-1/2 -left-6 w-6 border-b-2 border-[var(--contrast-3)]"></div>{brackets[cat]?.finals?.[0] && <BracketMatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" />}</div>
                         </div>
                       </div>
 
                       <h3 className="text-xl font-bold mt-12 mb-6 border-b border-[var(--base)] pb-3 font-heading text-[var(--contrast)]">Platzierungsspiele (Plätze 3-8)</h3>
                       <div className="flex items-start space-x-12 min-w-max">
                         <div className="flex flex-col justify-around space-y-6">
-                           {brackets[cat].pSf.map((pSf, i) => ( <div key={i} className="relative"><BracketMatchBox match={getMatchData(pSf.id)} title={pSf.title} /></div> ))}
+                           {brackets[cat]?.pSf?.map((pSf, i) => ( <div key={i} className="relative"><BracketMatchBox match={getMatchData(pSf.id)} title={pSf.title} /></div> ))}
                         </div>
                         <div className="flex flex-col justify-around space-y-6">
-                           <BracketMatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Spiel um Platz 5" />
-                           <BracketMatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Spiel um Platz 7" />
+                           {brackets[cat]?.finals?.[2] && <BracketMatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Spiel um Platz 5" />}
+                           {brackets[cat]?.finals?.[3] && <BracketMatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Spiel um Platz 7" />}
                         </div>
                       </div>
-                      <div className="mt-6"><BracketMatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Spiel um Platz 3" /></div>
+                      <div className="mt-6">{brackets[cat]?.finals?.[1] && <BracketMatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Spiel um Platz 3" />}</div>
                    </div>
                  )
                })}
@@ -1362,8 +1363,8 @@ export default function App() {
           {activeTab === 'rankings' && (
              <div className="space-y-12">
                {['U50', 'O50'].map(cat => {
-                 if (!brackets[cat]) return null;
-                 const finalMatch = matches.find(m => m.id === brackets[cat].finals[0].id);
+                 if (!brackets[cat] || !brackets[cat].finals) return null;
+                 const finalMatch = matches.find(m => m.id === brackets[cat].finals[0]?.id);
                  if (!finalMatch || !finalMatch.winnerId) return (
                     <div key={cat} className="mb-8">
                        <h2 className="text-2xl font-extrabold mb-6 border-b border-[var(--base)] pb-3 flex items-center font-heading text-[var(--tcw-green)]">
