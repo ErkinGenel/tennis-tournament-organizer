@@ -78,18 +78,10 @@ const generateRandomScore = () => {
 const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 const formatStageGroupName = (stage, groupName) => {
+  if (!groupName) return 'Offen';
   if (stage === 'Group') return groupName.replace('Gruppe ', 'Gr. ');
   if (groupName.includes('Halbfinale 2') && stage === 'Placement') return 'Platzierungsspiel, 5-8';
   return groupName;
-};
-
-const formatDateObj = (dateString) => {
-    if (!dateString) return new Date();
-    return new Date(dateString);
-};
-
-const formatGermanDate = (dateObj) => {
-    return dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 // --- Main Application Component ---
@@ -129,6 +121,15 @@ export default function App() {
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
 
+  // --- Safe Date Formatter ---
+  const getMatchDateStr = (dayOffset) => {
+    if (!tournamentStartDate) return 'Datum offen';
+    const mDate = new Date(tournamentStartDate);
+    if (isNaN(mDate.getTime())) return 'Datum offen';
+    mDate.setDate(mDate.getDate() + (dayOffset - 1));
+    return mDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   // --- 2. DERIVED STATE ---
   const standings = useMemo(() => {
     const stats = {};
@@ -158,7 +159,6 @@ export default function App() {
     const calculatedStandings = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
       if (!groups[cat]) return; 
-      // Sort groups alphabetically (A, B, C...)
       const sortedGroupNames = Object.keys(groups[cat]).sort();
       
       sortedGroupNames.forEach((gName) => {
@@ -417,7 +417,7 @@ export default function App() {
     const names = team.name.split(' / ');
     setRegForm({
       p1Name: names[0] || '', p2Name: names[1] || '',
-      p1Club: team.p1Club || team.clubs[0] || '', p2Club: team.p2Club || team.clubs[1] || team.clubs[0] || '',
+      p1Club: team.p1Club || (team.clubs || [])[0] || '', p2Club: team.p2Club || (team.clubs || [])[1] || (team.clubs || [])[0] || '',
       level: team.level.toString(), category: team.category
     });
     setEditingTeam(team);
@@ -510,8 +510,8 @@ export default function App() {
       
       while (unassigned.length > 0) {
         let selectedIdx = 0;
-        const currentGroupClubs = groupArrays[gIndex].flatMap(t => t.clubs);
-        const safeIdx = unassigned.findIndex(t => !t.clubs.some(c => currentGroupClubs.includes(c)));
+        const currentGroupClubs = groupArrays[gIndex].flatMap(t => t.clubs || []);
+        const safeIdx = unassigned.findIndex(t => !(t.clubs || []).some(c => currentGroupClubs.includes(c)));
         if (safeIdx !== -1) selectedIdx = safeIdx;
         
         const team = unassigned.splice(selectedIdx, 1)[0];
@@ -804,7 +804,7 @@ export default function App() {
 
     ['U50', 'O50'].forEach(cat => {
       if(brackets[cat]) {
-        brackets[cat].qf.forEach(qf => {
+        brackets[cat].qf?.forEach(qf => {
           if (qf.team1?.isBye) pushToNode(qf.next, qf.team2);
           if (qf.team2?.isBye) pushToNode(qf.next, qf.team1);
         });
@@ -865,7 +865,7 @@ export default function App() {
 
   const renderScore = (score) => {
     if (!score) return <span className="text-[var(--contrast-3)]">vs</span>;
-    let text = `${score.s1[0]}:${score.s1[1]} | ${score.s2[0]}:${score.s2[1]}`;
+    let text = `${score.s1?.[0] ?? '-'}:${score.s1?.[1] ?? '-'} | ${score.s2?.[0] ?? '-'}:${score.s2?.[1] ?? '-'}`;
     if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += ` | [${score.tb[0]}:${score.tb[1]}]`;
     return <span className="font-semibold text-[var(--contrast)]">{text}</span>;
   };
@@ -874,9 +874,39 @@ export default function App() {
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
 
+  // --- GLOBAL STYLES (Crucial for Layout to prevent White Screen) ---
+  const globalStyles = `
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap');
+    :root {
+      --contrast: #222222;
+      --contrast-2: #575760;
+      --contrast-3: #b2b2be;
+      --base: #f0f0f0;
+      --base-2: #f7f8f9;
+      --base-3: #ffffff;
+      --tcw-green: #008236;
+      --tcw-orange: #CC4E00;
+      --tcw-yellow: #ECF241;
+      --tcw-green-dark: #003616;
+      --tcw-green-light: #00D95A;
+      --global-color-12: #ffa347;
+      --global-color-13: #db7833;
+    }
+    body { font-family: 'Open Sans', sans-serif; background-color: var(--base); color: var(--contrast); }
+    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Montserrat', sans-serif; }
+    @media print { 
+      body { background: white; -webkit-print-color-adjust: exact; } 
+      .page-break-after { page-break-after: always; } 
+      .break-inside-avoid { break-inside: avoid; } 
+      @page { size: A3 landscape; margin: 1cm; } 
+    }
+  `;
+
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
     return (
+      <>
+      <style dangerouslySetInnerHTML={{__html: globalStyles}} />
       <div className="min-h-screen flex flex-col items-center justify-center p-4 relative bg-[var(--contrast)]">
         <div className="absolute inset-0 z-0">
           <img src={BRAND.banner} alt="Background" className="w-full h-full object-cover opacity-20" />
@@ -891,12 +921,12 @@ export default function App() {
             <h2 className="text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2 font-['Montserrat'] uppercase tracking-wide">{BRAND.name} Portal</h2>
             <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-[var(--base)] rounded-md text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition" placeholder="Passwort oder PIN" required />
+              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-[var(--base)] rounded-md text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition outline-none" placeholder="Passwort oder PIN" required />
               <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
             </form>
             <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
               <p className="text-xs text-[var(--contrast-3)] mb-2 font-medium">Haben Sie eine Offline-Turnierdatei?</p>
-              <label className="text-xs bg-[var(--base-2)] hover:bg-[var(--base)] text-[var(--contrast-2)] px-4 py-2 rounded-md cursor-pointer transition font-bold uppercase">
+              <label className="text-xs bg-[var(--base-2)] hover:bg-[var(--base)] text-[var(--contrast-2)] px-4 py-2 rounded-md cursor-pointer transition font-bold uppercase inline-block">
                  Datei laden
                  <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
               </label>
@@ -913,6 +943,7 @@ export default function App() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -923,15 +954,17 @@ export default function App() {
     let myGroupTeams = []; let myGroupName = 'Offen';
     if (groups[myTeam.category]) {
       Object.entries(groups[myTeam.category]).forEach(([name, gTeams]) => {
-        if (gTeams.find(t => t.id === myTeam.id)) { myGroupTeams = standings[myTeam.category][name] || gTeams; myGroupName = name; }
+        if (gTeams.find(t => t.id === myTeam.id)) { myGroupTeams = standings[myTeam.category]?.[name] || gTeams; myGroupName = name; }
       });
     }
     const myMatches = matches.filter(m => m.team1?.id === myTeam.id || m.team2?.id === myTeam.id);
     const scheduledMatches = myMatches.filter(m => m.time !== null && !m.team1?.isBye && !m.team2?.isBye).sort((a,b) => {
-      if(a.day !== b.day) return a.day - b.day; return a.time.localeCompare(b.time);
+      if(a.day !== b.day) return a.day - b.day; return (a.time || '').localeCompare(b.time || '');
     });
 
     return (
+      <>
+      <style dangerouslySetInnerHTML={{__html: globalStyles}} />
       <div className="bg-[var(--contrast)] min-h-screen flex justify-center font-['Open_Sans']">
         <div className="w-full max-w-[400px] bg-[var(--base-2)] min-h-screen flex flex-col shadow-2xl relative">
           
@@ -953,7 +986,7 @@ export default function App() {
               <div className="flex items-center space-x-2 text-[var(--contrast-3)] text-sm font-medium drop-shadow-sm">
                  <span>{CATEGORIES[myTeam.category]}</span>
                  <span>•</span>
-                 <span className="truncate">{myTeam.clubs.join(' / ')}</span>
+                 <span className="truncate">{(myTeam.clubs || []).join(' / ') || 'Kein Verein'}</span>
               </div>
             </div>
           </header>
@@ -968,10 +1001,7 @@ export default function App() {
                   scheduledMatches.map(m => {
                     const isWinner = m.winnerId === myTeam.id; const isLoser = m.winnerId && m.winnerId !== myTeam.id;
                     const opp = m.team1.id === myTeam.id ? m.team2 : m.team1;
-                    
-                    const mDate = new Date(tournamentStartDate);
-                    mDate.setDate(mDate.getDate() + (m.day - 1));
-                    const dateStr = formatGermanDate(mDate);
+                    const dateStr = getMatchDateStr(m.day);
                     
                     return (
                       <div key={m.id} className={`bg-[var(--base-3)] rounded-md p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-[var(--tcw-green-light)]' : isLoser ? 'border-l-[var(--tcw-orange)]' : 'border-l-[var(--contrast-3)]'}`}>
@@ -987,7 +1017,7 @@ export default function App() {
                           <div className="text-right pl-4">
                             {m.score ? (
                                <div className={`font-black text-lg ${isWinner ? 'text-[var(--tcw-green)]' : 'text-[var(--tcw-orange)]'}`}>
-                                  {m.score.s1[0]}:{m.score.s1[1]} <br/> {m.score.s2[0]}:{m.score.s2[1]}
+                                  {m.score.s1?.[0] ?? '-'}:{m.score.s1?.[1] ?? '-'} <br/> {m.score.s2?.[0] ?? '-'}:{m.score.s2?.[1] ?? '-'}
                                   {m.score.tb && <span><br/>[{m.score.tb[0]}:{m.score.tb[1]}]</span>}
                                </div>
                             ) : (<span className="text-[var(--contrast-3)] font-bold text-sm">VS</span>)}
@@ -1054,6 +1084,7 @@ export default function App() {
           </nav>
         </div>
       </div>
+      </>
     );
   }
 
@@ -1061,7 +1092,7 @@ export default function App() {
   if (appMode === 'monitor') {
     const renderMonitorScore = (score) => {
       if (!score) return <span className="text-[var(--contrast-2)] font-normal">vs</span>;
-      let text = `${score.s1[0]}:${score.s1[1]}   ${score.s2[0]}:${score.s2[1]}`;
+      let text = `${score.s1?.[0] ?? '-'}:${score.s1?.[1] ?? '-'}   ${score.s2?.[0] ?? '-'}:${score.s2?.[1] ?? '-'}`;
       if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += `   [${score.tb[0]}:${score.tb[1]}]`;
       return <span className="font-bold text-[var(--tcw-green-light)]">{text}</span>;
     };
@@ -1088,8 +1119,8 @@ export default function App() {
                <span className="pr-6 whitespace-nowrap">{match.team1?.name || 'Offen'}</span>
                {match.score && (
                    <div className="flex space-x-2 shrink-0 text-[var(--tcw-yellow)] font-black whitespace-nowrap">
-                     <span className="w-8 text-center">{match.score.s1[0]}</span>
-                     <span className="w-8 text-center">{match.score.s2[0]}</span>
+                     <span className="w-8 text-center">{match.score.s1?.[0] ?? '-'}</span>
+                     <span className="w-8 text-center">{match.score.s2?.[0] ?? '-'}</span>
                      <span className="w-12 text-center">{match.score.tb ? `[${match.score.tb[0]}]` : ''}</span>
                    </div>
                )}
@@ -1098,8 +1129,8 @@ export default function App() {
                <span className="pr-6 whitespace-nowrap">{match.team2?.name || 'Offen'}</span>
                {match.score && (
                    <div className="flex space-x-2 shrink-0 text-[var(--tcw-yellow)] font-black whitespace-nowrap">
-                     <span className="w-8 text-center">{match.score.s1[1]}</span>
-                     <span className="w-8 text-center">{match.score.s2[1]}</span>
+                     <span className="w-8 text-center">{match.score.s1?.[1] ?? '-'}</span>
+                     <span className="w-8 text-center">{match.score.s2?.[1] ?? '-'}</span>
                      <span className="w-12 text-center">{match.score.tb ? `[${match.score.tb[1]}]` : ''}</span>
                    </div>
                )}
@@ -1115,8 +1146,8 @@ export default function App() {
              <span className="pr-6 whitespace-nowrap">{t1IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team1?.name || 'Offen')}</span>
              {!t1IsBye && !t2IsBye && match.score && (
                  <div className="flex space-x-2 shrink-0 text-[var(--tcw-green-light)] font-bold whitespace-nowrap">
-                   <span className="w-6 text-center">{match.score.s1[0]}</span>
-                   <span className="w-6 text-center">{match.score.s2[0]}</span>
+                   <span className="w-6 text-center">{match.score.s1?.[0] ?? '-'}</span>
+                   <span className="w-6 text-center">{match.score.s2?.[0] ?? '-'}</span>
                    <span className="w-10 text-center">{match.score.tb ? `[${match.score.tb[0]}]` : ''}</span>
                  </div>
              )}
@@ -1125,8 +1156,8 @@ export default function App() {
              <span className="pr-6 whitespace-nowrap">{t2IsBye ? <span className="text-[var(--tcw-orange)] italic font-bold text-sm">Freilos</span> : (match.team2?.name || 'Offen')}</span>
              {!t1IsBye && !t2IsBye && match.score && (
                  <div className="flex space-x-2 shrink-0 text-[var(--tcw-green-light)] font-bold whitespace-nowrap">
-                   <span className="w-6 text-center">{match.score.s1[1]}</span>
-                   <span className="w-6 text-center">{match.score.s2[1]}</span>
+                   <span className="w-6 text-center">{match.score.s1?.[1] ?? '-'}</span>
+                   <span className="w-6 text-center">{match.score.s2?.[1] ?? '-'}</span>
                    <span className="w-10 text-center">{match.score.tb ? `[${match.score.tb[1]}]` : ''}</span>
                  </div>
              )}
@@ -1136,6 +1167,8 @@ export default function App() {
     };
 
     return (
+      <>
+      <style dangerouslySetInnerHTML={{__html: globalStyles}} />
       <div className="h-screen w-screen overflow-hidden bg-[var(--contrast)] text-[var(--base)] font-['Open_Sans'] p-6 flex flex-col">
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-md shadow-2xl border border-[var(--contrast-2)] shrink-0">
           <div className="absolute inset-0 z-0">
@@ -1170,9 +1203,7 @@ export default function App() {
             <div className="grid grid-cols-2 gap-6 h-full content-start">
               <div className="flex flex-col space-y-4">
                  {(slide.data || []).slice(0, 5).map(m => {
-                    const mDate = new Date(tournamentStartDate);
-                    mDate.setDate(mDate.getDate() + (m.day - 1));
-                    const dateStr = formatGermanDate(mDate);
+                    const dateStr = getMatchDateStr(m.day);
                     
                     return (
                     <div key={m.id} className="bg-[var(--contrast)] rounded-md overflow-hidden shadow-lg border border-[var(--contrast-2)] p-4">
@@ -1190,9 +1221,7 @@ export default function App() {
               </div>
               <div className="flex flex-col space-y-4">
                  {(slide.data || []).slice(5, 10).map(m => {
-                    const mDate = new Date(tournamentStartDate);
-                    mDate.setDate(mDate.getDate() + (m.day - 1));
-                    const dateStr = formatGermanDate(mDate);
+                    const dateStr = getMatchDateStr(m.day);
                     
                     return (
                     <div key={m.id} className="bg-[var(--contrast)] rounded-md overflow-hidden shadow-lg border border-[var(--contrast-2)] p-4">
@@ -1239,7 +1268,7 @@ export default function App() {
                      
                      {/* Quarter-Finals */}
                      <div className="flex flex-col justify-around w-1/3 z-10 min-w-max">
-                        {brackets[slide.cat].qf.map((qfRef, i) => (
+                        {brackets[slide.cat]?.qf?.map((qfRef, i) => (
                             <div key={i} className="relative w-full flex items-center justify-end">
                                 <MonitorMatchBox matchId={qfRef.id} title={`Viertelfinale ${i+1}`} />
                                 <div className="absolute -right-4 xl:-right-8 w-4 xl:w-8 border-b-2 border-[var(--contrast-2)]"></div>
@@ -1252,7 +1281,7 @@ export default function App() {
                         <div className="absolute left-[-1rem] xl:left-[-2rem] top-[25%] bottom-[25%] w-px border-l-2 border-[var(--contrast-2)] -z-10"></div>
                         <div className="absolute right-[-1rem] xl:right-[-2rem] top-[25%] bottom-[25%] w-px border-r-2 border-[var(--contrast-2)] -z-10"></div>
                         
-                        {brackets[slide.cat].sf.map((sfRef, i) => (
+                        {brackets[slide.cat]?.sf?.map((sfRef, i) => (
                             <div key={i} className="relative w-full flex items-center justify-center">
                                 <div className="absolute -left-4 xl:-left-8 w-4 xl:w-8 border-b-2 border-[var(--contrast-2)]"></div>
                                 <MonitorMatchBox matchId={sfRef.id} title={sfRef.title} />
@@ -1265,7 +1294,7 @@ export default function App() {
                      <div className="flex flex-col justify-center w-1/3 z-10 min-w-max">
                         <div className="relative w-full flex items-center justify-start">
                             <div className="absolute -left-4 xl:-left-8 w-4 xl:w-8 border-b-2 border-[var(--contrast-2)]"></div>
-                            <MonitorMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" isFinal={true} />
+                            {brackets[slide.cat]?.finals?.[0] && <MonitorMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" isFinal={true} />}
                         </div>
                      </div>
                  </div>
@@ -1277,18 +1306,18 @@ export default function App() {
                  <div className="flex items-stretch w-full max-w-[1200px] h-[75vh] gap-8 xl:gap-24 relative">
                      {/* Halbfinals für Plätze 5-8 */}
                      <div className="flex flex-col justify-around w-1/2 z-10 min-w-max py-8">
-                        {brackets[slide.cat].pSf.map((pSfRef, i) => (
+                        {brackets[slide.cat]?.pSf?.map((pSfRef, i) => (
                             <MonitorMatchBox key={i} matchId={pSfRef.id} title={pSfRef.title} isPlacement={true} />
                         ))}
                      </div>
                      {/* Platzierungsspiele Endrunde */}
                      <div className="flex flex-col justify-between w-1/2 z-10 min-w-max">
                         <div className="relative">
-                            <div className="absolute -left-8 -top-6 text-[var(--tcw-orange)] font-bold text-sm tracking-widest uppercase font-['Montserrat']">Aus Hauptrunde:</div>
-                            <MonitorMatchBox matchId={brackets[slide.cat].finals[1].id} title={brackets[slide.cat].finals[1].title} isPlacement={true} />
+                            <div className="absolute -top-5 left-2 text-[var(--tcw-orange)] font-bold text-xs uppercase tracking-widest font-['Montserrat']">Aus Hauptrunde:</div>
+                            {brackets[slide.cat]?.finals?.[1] && <MonitorMatchBox matchId={brackets[slide.cat].finals[1].id} title={brackets[slide.cat].finals[1].title} isPlacement={true} />}
                         </div>
-                        <MonitorMatchBox matchId={brackets[slide.cat].finals[2].id} title={brackets[slide.cat].finals[2].title} isPlacement={true} />
-                        <MonitorMatchBox matchId={brackets[slide.cat].finals[3].id} title={brackets[slide.cat].finals[3].title} isPlacement={true} />
+                        {brackets[slide.cat]?.finals?.[2] && <MonitorMatchBox matchId={brackets[slide.cat].finals[2].id} title={brackets[slide.cat].finals[2].title} isPlacement={true} />}
+                        {brackets[slide.cat]?.finals?.[3] && <MonitorMatchBox matchId={brackets[slide.cat].finals[3].id} title={brackets[slide.cat].finals[3].title} isPlacement={true} />}
                      </div>
                  </div>
              </div>
@@ -1303,7 +1332,7 @@ export default function App() {
                             {item.rank === 1 ? '🏆' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : item.rank}
                          </div>
                          <div className="flex-1 text-3xl font-bold text-[var(--base-3)] truncate pl-4 pr-2">{item.team.name}</div>
-                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{(item.team.clubs || []).join(' / ')}</div>
                       </div>
                    ))}
                 </div>
@@ -1312,7 +1341,7 @@ export default function App() {
                       <div key={item.team.id} className="bg-[var(--contrast)] rounded-md border border-[var(--contrast-2)] flex items-center p-5 shadow-lg">
                          <div className="text-4xl font-black text-[var(--contrast-2)] w-20 text-center">{item.rank}</div>
                          <div className="flex-1 text-3xl font-bold text-[var(--base-3)] truncate pl-4 pr-2">{item.team.name}</div>
-                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{(item.team.clubs || []).join(' / ')}</div>
                       </div>
                    ))}
                 </div>
@@ -1328,11 +1357,14 @@ export default function App() {
           )}
         </main>
       </div>
+      </>
     );
   }
 
   // --- UI RENDER: ORGANIZER MODE ---
   return (
+    <>
+    <style dangerouslySetInnerHTML={{__html: globalStyles}} />
     <div className={`min-h-screen bg-[var(--base)] text-[var(--contrast)] font-['Open_Sans'] pb-12 relative ${printView === 'sheets' ? 'bg-[var(--base-3)]' : ''}`}>
       
       <header className={`relative bg-[var(--contrast)] text-[var(--base-3)] shadow-xl overflow-hidden ${printView === 'sheets' ? 'hidden' : 'print:hidden'}`}>
@@ -1417,12 +1449,12 @@ export default function App() {
                    <div className="flex items-center space-x-3 col-span-1 md:col-span-2">
                      <Calendar className="text-[var(--contrast-2)]" />
                      <div className="font-bold text-[var(--contrast)]">Startdatum:</div>
-                     <input type="date" value={tournamentStartDate} onChange={(e) => setTournamentStartDate(e.target.value)} className="p-2 border rounded-md font-bold text-[var(--contrast)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] bg-[var(--base-3)] shadow-sm" />
+                     <input type="date" value={tournamentStartDate || ''} onChange={(e) => setTournamentStartDate(e.target.value)} className="p-2 border rounded-md font-bold text-[var(--contrast)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] bg-[var(--base-3)] shadow-sm outline-none" />
                    </div>
                    <div className="flex items-center space-x-3 col-span-1">
                      <Calendar className="text-[var(--contrast-2)]" />
                      <div className="font-bold text-[var(--contrast)]">Dauer:</div>
-                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border rounded-md font-bold text-[var(--contrast)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] bg-[var(--base-3)] shadow-sm">
+                     <select value={tournamentDays} onChange={(e) => setTournamentDays(Number(e.target.value))} className="p-2 border rounded-md font-bold text-[var(--contrast)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] bg-[var(--base-3)] shadow-sm outline-none">
                        <option value={1}>1 Tag (Kompakt)</option>
                        <option value={2}>2 Tage (Standard)</option>
                      </select>
@@ -1432,18 +1464,18 @@ export default function App() {
                   <div className="flex items-center space-x-3">
                      <Clock className="text-[var(--contrast-2)]" />
                      <div className="font-bold text-[var(--contrast)]">{tournamentDays === 1 ? 'Turnier-Startzeit:' : 'Startzeit Tag 1:'}</div>
-                     <input type="time" value={day1Start} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-[var(--tcw-green)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] shadow-sm" />
+                     <input type="time" value={day1Start || ''} onChange={(e) => setDay1Start(e.target.value)} className="p-2 border rounded-md font-bold text-[var(--tcw-green)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] shadow-sm outline-none" />
                   </div>
                   {tournamentDays === 2 && (
                     <div className="flex items-center space-x-3">
                        <Clock className="text-[var(--contrast-2)]" />
                        <div className="font-bold text-[var(--contrast)]">Startzeit Tag 2 (K.O.):</div>
-                       <input type="time" value={day2Start} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-[var(--tcw-green)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] shadow-sm" />
+                       <input type="time" value={day2Start || ''} onChange={(e) => setDay2Start(e.target.value)} className="p-2 border rounded-md font-bold text-[var(--tcw-green)] focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] shadow-sm outline-none" />
                     </div>
                   )}
                 </div>
                 <div className="mt-4 pt-4 border-t border-[var(--base)] flex items-center space-x-3">
-                  <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-[var(--contrast-3)] text-[var(--tcw-green)] focus:ring-[var(--tcw-green)]" />
+                  <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-[var(--contrast-3)] text-[var(--tcw-green)] focus:ring-[var(--tcw-green)] outline-none" />
                   <label htmlFor="isolateFinals" className="font-bold text-[var(--contrast)]">Finale isolieren (Nach allen anderen Spielen ansetzen, um die Aufmerksamkeit zu fokussieren)</label>
                 </div>
               </div>
@@ -1457,30 +1489,30 @@ export default function App() {
                   <form onSubmit={handleRegister} className="space-y-4">
                     <div className="p-3 bg-[var(--base-3)] border border-[var(--base)] rounded-md space-y-3">
                       <div className="text-xs font-bold text-[var(--contrast-3)] uppercase tracking-wider font-['Montserrat']">Spieler 1</div>
-                      <div><input value={regForm.p1Name} onChange={e=>setRegForm({...regForm, p1Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)]" placeholder="Vollständiger Name" required /></div>
-                      <div><input value={regForm.p1Club} onChange={e=>setRegForm({...regForm, p1Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)]" placeholder="Verein (Optional)" /></div>
+                      <div><input value={regForm.p1Name} onChange={e=>setRegForm({...regForm, p1Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] outline-none" placeholder="Vollständiger Name" required /></div>
+                      <div><input value={regForm.p1Club} onChange={e=>setRegForm({...regForm, p1Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] outline-none" placeholder="Verein (Optional)" /></div>
                     </div>
                     <div className="p-3 bg-[var(--base-3)] border border-[var(--base)] rounded-md space-y-3">
                       <div className="text-xs font-bold text-[var(--contrast-3)] uppercase tracking-wider font-['Montserrat']">Spieler 2</div>
-                      <div><input value={regForm.p2Name} onChange={e=>setRegForm({...regForm, p2Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)]" placeholder="Vollständiger Name" required /></div>
-                      <div><input value={regForm.p2Club} onChange={e=>setRegForm({...regForm, p2Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)]" placeholder="Verein (Optional)" /></div>
+                      <div><input value={regForm.p2Name} onChange={e=>setRegForm({...regForm, p2Name: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] outline-none" placeholder="Vollständiger Name" required /></div>
+                      <div><input value={regForm.p2Club} onChange={e=>setRegForm({...regForm, p2Club: e.target.value})} className="w-full p-2 border rounded-md text-sm font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] outline-none" placeholder="Verein (Optional)" /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div><label className="block text-sm font-bold text-[var(--contrast)] mb-1">Spielstärke</label>
-                        <select value={regForm.level} onChange={e=>setRegForm({...regForm, level: e.target.value})} className="w-full p-2 border rounded-md font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)]">
+                        <select value={regForm.level} onChange={e=>setRegForm({...regForm, level: e.target.value})} className="w-full p-2 border rounded-md font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] outline-none">
                           <option value="3">3 - Fortgeschritten</option><option value="2">2 - Mittel</option><option value="1">1 - Anfänger</option>
                         </select></div>
                       <div><label className="block text-sm font-bold text-[var(--contrast)] mb-1">Kategorie</label>
-                        <select value={regForm.category} onChange={e=>setRegForm({...regForm, category: e.target.value})} className="w-full p-2 border rounded-md font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)]">
+                        <select value={regForm.category} onChange={e=>setRegForm({...regForm, category: e.target.value})} className="w-full p-2 border rounded-md font-medium focus:ring-[var(--tcw-green)] focus:border-[var(--tcw-green)] outline-none">
                           <option value="U50">U50</option><option value="O50">O50</option>
                         </select></div>
                     </div>
                     <div className="flex space-x-2 pt-2 font-['Montserrat'] uppercase tracking-wide text-sm">
-                      <button type="submit" className={`flex-1 text-[var(--base-3)] py-3 rounded-md font-bold shadow-sm transition ${editingTeam ? 'bg-[var(--tcw-orange)] hover:bg-[var(--global-color-13)]' : 'bg-[var(--tcw-green)] hover:bg-[var(--tcw-green-dark)]'}`}>
+                      <button type="submit" className={`flex-1 text-[var(--base-3)] py-3 rounded-md font-bold shadow-sm transition outline-none ${editingTeam ? 'bg-[var(--tcw-orange)] hover:bg-[var(--global-color-13)]' : 'bg-[var(--tcw-green)] hover:bg-[var(--tcw-green-dark)]'}`}>
                         {editingTeam ? 'Aktualisieren' : 'Registrieren'}
                       </button>
                       {editingTeam && (
-                        <button type="button" onClick={() => {setEditingTeam(null); setRegForm({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });}} className="px-4 bg-[var(--contrast-3)] text-[var(--contrast)] rounded-md hover:bg-[var(--contrast-2)] hover:text-[var(--base-3)] font-bold transition">
+                        <button type="button" onClick={() => {setEditingTeam(null); setRegForm({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });}} className="px-4 bg-[var(--contrast-3)] text-[var(--contrast)] rounded-md hover:bg-[var(--contrast-2)] hover:text-[var(--base-3)] font-bold transition outline-none">
                           Abbrechen
                         </button>
                       )}
@@ -1508,7 +1540,7 @@ export default function App() {
                          teams.map((t) => (
                           <tr key={t.id} className={`border-b border-[var(--base-3)] last:border-0 hover:bg-[var(--base-3)] transition ${editingTeam?.id === t.id ? 'bg-[var(--base)] hover:bg-[var(--base)]' : ''}`}>
                             <td className="p-3 font-bold text-[var(--contrast)] truncate">{t.name}</td>
-                            <td className="p-3 text-xs font-medium text-[var(--contrast-2)] truncate">{t.clubs.join(' / ') || 'Kein Verein'}</td>
+                            <td className="p-3 text-xs font-medium text-[var(--contrast-2)] truncate">{(t.clubs || []).join(' / ') || 'Kein Verein'}</td>
                             <td className="p-3"><span className={`px-2 py-1 rounded-sm text-xs font-bold shadow-sm ${t.category==='U50'?'bg-[var(--tcw-green)]/10 text-[var(--tcw-green-dark)]':'bg-[var(--contrast-2)]/10 text-[var(--contrast)]'}`}>{t.category}</span></td>
                             <td className="p-3 text-center font-mono font-bold text-[var(--tcw-green)] bg-[var(--base)]/50">{t.pin}</td>
                             <td className="p-3 text-right space-x-2">
@@ -1564,12 +1596,12 @@ export default function App() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {(standings[cat][groupName] || groupTeams).map((t, index) => (
+                                {(standings[cat]?.[groupName] || groupTeams).map((t, index) => (
                                   <tr key={t.id} className="border-b border-[var(--base-2)] last:border-0 hover:bg-[var(--base-2)] transition">
                                     <td className="px-4 py-3 font-bold text-[var(--contrast-3)]">{index + 1}</td>
                                     <td className="px-4 py-3 truncate">
                                       <div className="font-bold text-[var(--contrast)] truncate">{t.name}</div>
-                                      <div className="text-xs font-medium text-[var(--contrast-2)] truncate">{t.clubs.join(' / ')}</div>
+                                      <div className="text-xs font-medium text-[var(--contrast-2)] truncate">{(t.clubs || []).join(' / ')}</div>
                                     </td>
                                     <td className="px-4 py-3 text-center font-bold text-[var(--contrast)]">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
                                     <td className="px-4 py-3 text-center font-medium text-[var(--contrast-2)]">{t.setsWon !== undefined ? `${t.setsWon}:${t.setsLost}` : '0:0'}</td>
@@ -1622,9 +1654,7 @@ export default function App() {
                     const unscheduled = matches.filter(m => m.day === day && m.time === null);
                     if (dayMatches.length === 0 && unscheduled.length === 0) return null;
                     
-                    const mDate = new Date(tournamentStartDate);
-                    mDate.setDate(mDate.getDate() + (day - 1));
-                    const dateStr = formatGermanDate(mDate);
+                    const dateStr = getMatchDateStr(day);
                     
                     return (
                       <div key={day} className="mb-8">
@@ -1698,8 +1728,8 @@ export default function App() {
                           <span className={`pr-6 whitespace-nowrap ${t1IsBye ? 'text-[var(--tcw-orange)] italic font-bold text-xs' : 'font-medium'}`}>{t1IsBye ? 'Freilos' : (match.team1?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && match.score && (
                              <div className="flex space-x-2 shrink-0 font-bold whitespace-nowrap">
-                               <span className="w-5 text-center">{match.score.s1[0]}</span>
-                               <span className="w-5 text-center">{match.score.s2[0]}</span>
+                               <span className="w-5 text-center">{match.score.s1?.[0] ?? '-'}</span>
+                               <span className="w-5 text-center">{match.score.s2?.[0] ?? '-'}</span>
                                <span className="w-8 text-center text-[var(--tcw-orange)]">{match.score.tb ? `[${match.score.tb[0]}]` : ''}</span>
                              </div>
                           )}
@@ -1708,8 +1738,8 @@ export default function App() {
                           <span className={`pr-6 whitespace-nowrap ${t2IsBye ? 'text-[var(--tcw-orange)] italic font-bold text-xs' : 'font-medium'}`}>{t2IsBye ? 'Freilos' : (match.team2?.name || 'Offen')}</span>
                           {!t1IsBye && !t2IsBye && match.score && (
                              <div className="flex space-x-2 shrink-0 font-bold whitespace-nowrap">
-                               <span className="w-5 text-center">{match.score.s1[1]}</span>
-                               <span className="w-5 text-center">{match.score.s2[1]}</span>
+                               <span className="w-5 text-center">{match.score.s1?.[1] ?? '-'}</span>
+                               <span className="w-5 text-center">{match.score.s2?.[1] ?? '-'}</span>
                                <span className="w-8 text-center text-[var(--tcw-orange)]">{match.score.tb ? `[${match.score.tb[1]}]` : ''}</span>
                              </div>
                           )}
@@ -1726,7 +1756,7 @@ export default function App() {
                       <div className="flex items-stretch space-x-8 xl:space-x-12 w-full max-w-[1200px]">
                         {/* QF */}
                         <div className="flex flex-col justify-around w-1/3 min-w-max space-y-4 py-4 relative">
-                           {brackets[cat].qf.map((qf, i) => ( 
+                           {brackets[cat]?.qf?.map((qf, i) => ( 
                              <div key={i} className="relative w-full flex justify-end items-center">
                                <MatchBox match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} />
                                <div className="absolute -right-4 xl:-right-6 w-4 xl:w-6 border-b-2 border-[var(--contrast-3)]"></div>
@@ -1737,7 +1767,7 @@ export default function App() {
                         <div className="flex flex-col justify-around w-1/3 min-w-max py-16 relative">
                            <div className="absolute left-[-1rem] xl:left-[-1.5rem] top-[25%] bottom-[25%] w-px border-l-2 border-[var(--contrast-3)] -z-10"></div>
                            <div className="absolute right-[-1rem] xl:right-[-1.5rem] top-[25%] bottom-[25%] w-px border-r-2 border-[var(--contrast-3)] -z-10"></div>
-                           {brackets[cat].sf.map((sf, i) => ( 
+                           {brackets[cat]?.sf?.map((sf, i) => ( 
                              <div key={i} className="relative w-full flex justify-center items-center">
                                <div className="absolute -left-4 xl:-left-6 w-4 xl:w-6 border-b-2 border-[var(--contrast-3)]"></div>
                                <MatchBox match={getMatchData(sf.id)} title={sf.title} />
@@ -1749,7 +1779,7 @@ export default function App() {
                         <div className="flex flex-col justify-center w-1/3 min-w-max relative">
                            <div className="relative w-full flex justify-start items-center">
                                <div className="absolute -left-4 xl:-left-6 w-4 xl:w-6 border-b-2 border-[var(--contrast-3)]"></div>
-                               <MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" isFinal={true} />
+                               {brackets[cat]?.finals?.[0] && <MatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" isFinal={true} />}
                            </div>
                         </div>
                       </div>
@@ -1757,17 +1787,17 @@ export default function App() {
                       <h3 className="text-xl font-bold text-[var(--contrast-2)] mt-12 mb-4 border-b border-[var(--base)] pb-2 font-['Montserrat'] uppercase">Platzierungsspiele</h3>
                       <div className="flex items-stretch space-x-8 xl:space-x-12 w-full max-w-[800px]">
                         <div className="flex flex-col justify-around w-1/2 min-w-max space-y-8 py-4">
-                           {brackets[cat].pSf.map((pSf, i) => ( 
+                           {brackets[cat]?.pSf?.map((pSf, i) => ( 
                              <div key={i} className="relative w-full"><MatchBox match={getMatchData(pSf.id)} title={pSf.title} /></div> 
                            ))}
                         </div>
                         <div className="flex flex-col justify-between w-1/2 min-w-max py-4">
                            <div className="relative w-full">
                                <div className="absolute -top-5 left-2 text-[var(--tcw-orange)] font-bold text-xs uppercase tracking-widest font-['Montserrat']">Aus Hauptrunde</div>
-                               <MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Spiel um Platz 3" />
+                               {brackets[cat]?.finals?.[1] && <MatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Spiel um Platz 3" />}
                            </div>
-                           <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Spiel um Platz 5" />
-                           <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Spiel um Platz 7" />
+                           {brackets[cat]?.finals?.[2] && <MatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Spiel um Platz 5" />}
+                           {brackets[cat]?.finals?.[3] && <MatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Spiel um Platz 7" />}
                         </div>
                       </div>
                    </div>
@@ -1811,7 +1841,7 @@ export default function App() {
                                    {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : item.rank}
                                  </td>
                                  <td className="p-4 font-bold text-[var(--contrast)] truncate">{item.team.name}</td>
-                                 <td className="p-4 text-[var(--contrast-2)] font-medium truncate">{item.team.clubs.join(' / ')}</td>
+                                 <td className="p-4 text-[var(--contrast-2)] font-medium truncate">{(item.team.clubs || []).join(' / ')}</td>
                                  <td className="p-4 text-center">
                                    {idx < 8 
                                      ? <span className="bg-[var(--tcw-green)]/10 text-[var(--tcw-green-dark)] px-2 py-1 rounded-sm text-xs font-bold shadow-sm">K.O.-Phase</span> 
@@ -1840,8 +1870,7 @@ export default function App() {
               if (gMatches.length === 0) return null;
               const courtNum = gMatches[0].court;
               
-              const mDate = new Date(tournamentStartDate);
-              const dateStr = formatGermanDate(mDate);
+              const dateStr = getMatchDateStr(1);
               
               return (
                 <div key={`${cat}-${groupName}`} className="page-break-after pb-10">
@@ -1904,15 +1933,15 @@ export default function App() {
               </div>
               <div className="flex justify-between items-center mb-4">
                 <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team1?.name}</div>
-                <input name="s1_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[0]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0" required />
-                <input name="s2_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[0]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0" required />
-                <input name="tb_t1" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[0]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--tcw-orange)]/10 text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)] focus:ring-0" />
+                <input name="s1_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1?.[0]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0 outline-none" required />
+                <input name="s2_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2?.[0]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0 outline-none" required />
+                <input name="tb_t1" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb?.[0]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--tcw-orange)]/10 text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)] focus:ring-0 outline-none" />
               </div>
               <div className="flex justify-between items-center mb-8">
                 <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team2?.name}</div>
-                <input name="s1_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[1]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0" required />
-                <input name="s2_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[1]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0" required />
-                <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[1]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--tcw-orange)]/10 text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)] focus:ring-0" />
+                <input name="s1_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1?.[1]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0 outline-none" required />
+                <input name="s2_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2?.[1]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--base-2)] focus:border-[var(--tcw-green)] focus:ring-0 outline-none" required />
+                <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb?.[1]} className="w-12 p-2 border rounded-md text-center font-bold bg-[var(--tcw-orange)]/10 text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)] focus:ring-0 outline-none" />
               </div>
               <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] py-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] flex items-center justify-center shadow-md transition font-['Montserrat'] uppercase tracking-wide">
                  <CheckCircle size={18} className="mr-2" /> Ergebnis speichern
@@ -1935,11 +1964,11 @@ export default function App() {
                 Wie möchten Sie die Spiele der Gruppenphase ansetzen?
               </p>
               <div className="flex flex-col space-y-3">
-                <button onClick={() => generateSchedule('traditional')} className="bg-[var(--base-2)] text-[var(--contrast)] p-4 rounded-md font-bold hover:bg-[var(--base)] transition text-left flex flex-col border border-[var(--base)]">
+                <button onClick={() => generateSchedule('traditional')} className="bg-[var(--base-2)] text-[var(--contrast)] p-4 rounded-md font-bold hover:bg-[var(--base)] transition text-left flex flex-col border border-[var(--base)] outline-none">
                    <span className="text-lg mb-1 font-['Montserrat'] uppercase">1. Klassische Zeitfenster</span> 
                    <span className="text-sm font-medium text-[var(--contrast-2)]">Weist jedem Spiel eine spezifische Startzeit und einen Platz zu.</span>
                 </button>
-                <button onClick={() => generateSchedule('courtPerGroup')} className="bg-[var(--tcw-green)]/10 text-[var(--tcw-green-dark)] border border-[var(--tcw-green)]/30 p-4 rounded-md font-bold hover:bg-[var(--tcw-green)]/20 transition text-left flex flex-col shadow-sm">
+                <button onClick={() => generateSchedule('courtPerGroup')} className="bg-[var(--tcw-green)]/10 text-[var(--tcw-green-dark)] border border-[var(--tcw-green)]/30 p-4 rounded-md font-bold hover:bg-[var(--tcw-green)]/20 transition text-left flex flex-col shadow-sm outline-none">
                    <span className="text-lg mb-1 font-['Montserrat'] uppercase">2. Plätze an Gruppen zuweisen (Flexibel)</span> 
                    <span className="text-sm font-medium text-[var(--tcw-green)]">Jede Gruppe bekommt einen festen Platz für den gesamten Tag. Zeiten sind flexibel. Erstellt druckbare Spielberichte.</span>
                 </button>
@@ -1962,13 +1991,13 @@ export default function App() {
                 Sie haben nicht genügend Gruppen, um ein 8-Team-Viertelfinale nur mit den Top {koQualifyCount} Teams perfekt zu füllen. Wie möchten Sie die leeren Plätze auffüllen?
               </p>
               <div className="flex flex-col space-y-3 font-['Montserrat'] uppercase tracking-wide text-sm">
-                <button onClick={() => generateKO(2, false)} className="bg-[var(--base-2)] text-[var(--contrast)] py-3 px-4 rounded-md font-bold hover:bg-[var(--base)] transition text-left flex justify-between items-center">
+                <button onClick={() => generateKO(2, false)} className="bg-[var(--base-2)] text-[var(--contrast)] py-3 px-4 rounded-md font-bold hover:bg-[var(--base)] transition text-left flex justify-between items-center outline-none">
                    <span>1. Plätze leer lassen</span> <span className="text-xs bg-[var(--base)] px-2 py-1 rounded-sm text-[var(--contrast-2)]">Verwendet Freilose</span>
                 </button>
-                <button onClick={() => generateKO(2, true)} className="bg-[var(--tcw-green)]/10 text-[var(--tcw-green-dark)] border border-[var(--tcw-green)]/30 py-3 px-4 rounded-md font-bold hover:bg-[var(--tcw-green)]/20 transition text-left flex justify-between items-center shadow-sm">
+                <button onClick={() => generateKO(2, true)} className="bg-[var(--tcw-green)]/10 text-[var(--tcw-green-dark)] border border-[var(--tcw-green)]/30 py-3 px-4 rounded-md font-bold hover:bg-[var(--tcw-green)]/20 transition text-left flex justify-between items-center shadow-sm outline-none">
                    <span>2. Beste verbleibende Teams</span> <span className="text-xs bg-[var(--tcw-green)] text-[var(--base-3)] px-2 py-1 rounded-sm">Empfohlene Wildcards</span>
                 </button>
-                <button onClick={() => generateKO(3, false)} className="bg-[var(--base-2)] text-[var(--contrast)] py-3 px-4 rounded-md font-bold hover:bg-[var(--base)] transition text-left flex justify-between items-center">
+                <button onClick={() => generateKO(3, false)} className="bg-[var(--base-2)] text-[var(--contrast)] py-3 px-4 rounded-md font-bold hover:bg-[var(--base)] transition text-left flex justify-between items-center outline-none">
                    <span>3. Top 3 aus allen Gruppen</span> <span className="text-xs bg-[var(--base)] px-2 py-1 rounded-sm text-[var(--contrast-2)]">Striktes Limit</span>
                 </button>
               </div>
@@ -1976,11 +2005,7 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* Print Styles */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @media print { body { background: white; -webkit-print-color-adjust: exact; } .page-break-after { page-break-after: always; } .break-inside-avoid { break-inside: avoid; } @page { size: A3 landscape; margin: 1cm; } }
-      `}} />
     </div>
+    </>
   );
 }
