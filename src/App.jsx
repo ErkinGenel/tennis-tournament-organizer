@@ -68,9 +68,9 @@ const generateRandomScore = () => {
   if (s1[0]>s1[1] && s2[0]>s2[1]) winnerIdx = 1;
   else if (s1[1]>s1[0] && s2[1]>s2[0]) winnerIdx = 2;
   else {
-     const tbp1Wins = Math.random() > 0.5;
-     tb = tbp1Wins ? [10, getRandom([8,7,6,5,4])] : [getRandom([8,7,6,5,4]), 10];
-     winnerIdx = tbp1Wins ? 1 : 2;
+      const tbp1Wins = Math.random() > 0.5;
+      tb = tbp1Wins ? [10, getRandom([8,7,6,5,4])] : [getRandom([8,7,6,5,4]), 10];
+      winnerIdx = tbp1Wins ? 1 : 2;
   }
   return { s1, s2, tb, winnerIdx };
 };
@@ -913,18 +913,19 @@ export default function App() {
         </div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-            <div className="h-28 w-28 flex items-center justify-center mb-6">
-               <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
-            </div>
-            <div className="bg-[var(--base-3)] p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden box-border" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
-              {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
-              <h2 className="text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2 font-['Montserrat'] uppercase tracking-wide">{BRAND.name} Portal</h2>
-              <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
-              <form onSubmit={handleLogin} className="space-y-4 w-full">
-                <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full box-border p-3 border-2 border-[var(--base)] rounded-md text-center tracking-widest font-mono font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition outline-none" placeholder="Passwort oder PIN" required />
-                <button type="submit" className="w-full box-border bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
-              </form>
-              <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
+          <div className="h-28 w-28 flex items-center justify-center mb-6">
+             <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
+          </div>
+          <div className="bg-[var(--base-3)] p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden box-border" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
+            {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
+            <h2 className="text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2 font-['Montserrat'] uppercase tracking-wide">{BRAND.name} Portal</h2>
+            <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
+            <form onSubmit={handleLogin} className="space-y-4 w-full">
+              {/* REMOVED tracking-widest to prevent text shifting on mask dot generation */}
+              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full box-border p-3 border-2 border-[var(--base)] rounded-md text-center font-mono font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition outline-none" placeholder="Passwort oder PIN" required />
+              <button type="submit" className="w-full box-border bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
+            </form>
+            <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
               <p className="text-xs text-[var(--contrast-3)] mb-2 font-medium">Haben Sie eine Offline-Turnierdatei?</p>
               <label className="text-xs bg-[var(--base-2)] hover:bg-[var(--base)] text-[var(--contrast-2)] px-4 py-2 rounded-md cursor-pointer transition font-bold uppercase inline-block">
                  Datei laden
@@ -933,7 +934,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-[var(--contrast)]/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-2)] text-center">
+          <div className="bg-[var(--contrast)]/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-2)] text-center" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
              <Tv className="h-10 w-10 text-[var(--tcw-green-light)] mx-auto mb-4 drop-shadow-lg" />
              <h3 className="font-bold text-[var(--base-3)] text-xl mb-2 font-['Montserrat'] uppercase">TV-Monitor Anzeige</h3>
              <p className="text-sm text-[var(--contrast-3)] mb-6 font-medium">Starten Sie das Live-Turnier-Dashboard für große Bildschirme.</p>
@@ -1191,7 +1192,8 @@ export default function App() {
                 <button onClick={handleLogout} className="flex items-center space-x-2 text-[var(--contrast-3)] hover:text-[var(--base-3)] bg-[var(--contrast-2)]/50 hover:bg-[var(--contrast-2)] px-4 py-2 rounded-md transition border border-[var(--contrast-2)] text-lg group backdrop-blur-sm">
                   <Lock size={20} className="group-hover:text-[var(--tcw-green)] transition-colors" /> <span>Veranstalter</span>
                 </button>
-                <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)]/50 backdrop-blur-sm px-6 py-3 rounded-md shadow-inner border border-[var(--contrast-2)] min-w-[160px] justify-center tracking-widest">
+                {/* SET STRICT WIDTH (w-[200px]) AND MONOSPACE TO LOCK THE HEADER SIZING PERMANENTLY */}
+                <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)]/50 backdrop-blur-sm py-3 rounded-md shadow-inner border border-[var(--contrast-2)] w-[200px] shrink-0 justify-center font-mono">
                   {currentTime}
                 </div>
               </div>
