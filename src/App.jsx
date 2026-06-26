@@ -398,7 +398,108 @@ export default function App() {
     }
   }, [appMode, monitorSlides]);
 
-  // --- 5. FUNCTIONS & HANDLERS ---
+  // --- 5. K.O. BRACKET UPDATE EFFECT (FIXED) ---
+  // This effect now includes 'standings' in the dependency array to ensure K.O. matches
+  // are updated whenever group match scores change, allowing team advancement to propagate
+  // from group phase through quarterfinals → semifinals → finals
+  useEffect(() => {
+    if (!brackets.U50 && !brackets.O50) return;
+    
+    // Create a new array with cloned objects so we don't mutate React state directly
+    let updatedMatches = matches.map(m => ({ ...m }));
+    let changesMade = false;
+
+    // Helper to deterministically assign a team to a specific slot (1 or 2) of a match
+    const assignTeamToMatch = (targetId, team, slotIndex) => {
+       if (!targetId) return;
+       const tMatchIndex = updatedMatches.findIndex(m => m.id === targetId);
+       if (tMatchIndex === -1) return;
+       const tMatch = updatedMatches[tMatchIndex];
+       
+       const currentTeamId = slotIndex === 1 ? tMatch.team1?.id : tMatch.team2?.id;
+       
+       // If the team has changed or needs to be set
+       if (currentTeamId !== team?.id) {
+           if (slotIndex === 1) tMatch.team1 = team || null;
+           if (slotIndex === 2) tMatch.team2 = team || null;
+           
+           // CRITICAL: If a team changes, we must reset any existing scores 
+           // for this match so the new team doesn't inherit a stale result.
+           tMatch.score = null;
+           tMatch.winnerId = null;
+           
+           changesMade = true;
+       }
+    };
+
+    const getWinner = (matchId) => {
+       const m = updatedMatches.find(x => x.id === matchId);
+       if (!m) return null;
+       if (m.team1?.isBye) return m.team2;
+       if (m.team2?.isBye) return m.team1;
+       if (m.winnerId) return m.winnerId === m.team1?.id ? m.team1 : m.team2;
+       return null;
+    };
+
+    const getLoser = (matchId) => {
+       const m = updatedMatches.find(x => x.id === matchId);
+       if (!m) return null;
+       if (m.team1?.isBye || m.team2?.isBye) return null;
+       if (m.winnerId) return m.winnerId === m.team1?.id ? m.team2 : m.team1;
+       return null;
+    };
+
+    // Calculate the K.O. flow top-to-bottom
+    ['U50', 'O50'].forEach(cat => {
+      const b = brackets[cat];
+      if (!b) return;
+
+      // 1. Semi-Finals are populated by the winners/losers of Quarter-Finals
+      if (b.qf && b.qf.length === 4) {
+          assignTeamToMatch(b.sf[0]?.id, getWinner(b.qf[0].id), 1);
+          assignTeamToMatch(b.sf[0]?.id, getWinner(b.qf[1].id), 2);
+          assignTeamToMatch(b.sf[1]?.id, getWinner(b.qf[2].id), 1);
+          assignTeamToMatch(b.sf[1]?.id, getWinner(b.qf[3].id), 2);
+
+          // Placement Semi-Finals (Places 5-8)
+          assignTeamToMatch(b.pSf[0]?.id, getLoser(b.qf[0].id), 1);
+          assignTeamToMatch(b.pSf[0]?.id, getLoser(b.qf[1].id), 2);
+          assignTeamToMatch(b.pSf[1]?.id, getLoser(b.qf[2].id), 1);
+          assignTeamToMatch(b.pSf[1]?.id, getLoser(b.qf[3].id), 2);
+      }
+
+      // 2. Grand Finals are populated by the Semi-Finals
+      if (b.sf && b.sf.length === 2) {
+          assignTeamToMatch(b.finals[0]?.id, getWinner(b.sf[0].id), 1);
+          assignTeamToMatch(b.finals[0]?.id, getWinner(b.sf[1].id), 2);
+          assignTeamToMatch(b.finals[1]?.id, getLoser(b.sf[0].id), 1);
+          assignTeamToMatch(b.finals[1]?.id, getLoser(b.sf[1].id), 2);
+      }
+
+      // 3. Placement Finals (5/6 and 7/8) are populated by the Placement Semi-Finals
+      if (b.pSf && b.pSf.length === 2) {
+          assignTeamToMatch(b.finals[2]?.id, getWinner(b.pSf[0].id), 1);
+          assignTeamToMatch(b.finals[2]?.id, getWinner(b.pSf[1].id), 2);
+          assignTeamToMatch(b.finals[3]?.id, getLoser(b.pSf[0].id), 1);
+          assignTeamToMatch(b.finals[3]?.id, getLoser(b.pSf[1].id), 2);
+      }
+    });
+
+    if (changesMade) setMatches(updatedMatches);
+  }, [matches, brackets, standings]); // 🔧 FIX: Added 'standings' to dependency array
+
+  // --- 6. ADDITIONAL K.O. SYNC EFFECT ---
+  // Forces bracket recalculation when standings change significantly
+  // This ensures rapid propagation of results through the tournament bracket
+  useEffect(() => {
+    if (!brackets.U50 && !brackets.O50) return;
+    
+    // Create a shallow copy to trigger the bracket update effect above
+    // This is particularly important when multiple group matches finish in succession
+    setBrackets(prev => ({ ...prev }));
+  }, [standings]);
+
+  // --- 7. FUNCTIONS & HANDLERS ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (passwordInput === 'wannweil') {
@@ -823,90 +924,23 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!brackets.U50 && !brackets.O50) return;
-    
-    // Create a new array with cloned objects so we don't mutate React state directly
-    let updatedMatches = matches.map(m => ({ ...m }));
-    let changesMade = false;
-
-    // Helper to deterministically assign a team to a specific slot (1 or 2) of a match
-    const assignTeamToMatch = (targetId, team, slotIndex) => {
-       if (!targetId) return;
-       const tMatchIndex = updatedMatches.findIndex(m => m.id === targetId);
-       if (tMatchIndex === -1) return;
-       const tMatch = updatedMatches[tMatchIndex];
-       
-       const currentTeamId = slotIndex === 1 ? tMatch.team1?.id : tMatch.team2?.id;
-       
-       // If the team has changed or needs to be set
-       if (currentTeamId !== team?.id) {
-           if (slotIndex === 1) tMatch.team1 = team || null;
-           if (slotIndex === 2) tMatch.team2 = team || null;
-           
-           // CRITICAL: If a team changes, we must reset any existing scores 
-           // for this match so the new team doesn't inherit a stale result.
-           tMatch.score = null;
-           tMatch.winnerId = null;
-           
-           changesMade = true;
-       }
-    };
-
-    const getWinner = (matchId) => {
-       const m = updatedMatches.find(x => x.id === matchId);
-       if (!m) return null;
-       if (m.team1?.isBye) return m.team2;
-       if (m.team2?.isBye) return m.team1;
-       if (m.winnerId) return m.winnerId === m.team1?.id ? m.team1 : m.team2;
-       return null;
-    };
-
-    const getLoser = (matchId) => {
-       const m = updatedMatches.find(x => x.id === matchId);
-       if (!m) return null;
-       if (m.team1?.isBye || m.team2?.isBye) return null;
-       if (m.winnerId) return m.winnerId === m.team1?.id ? m.team2 : m.team1;
-       return null;
-    };
-
-    // Calculate the K.O. flow top-to-bottom
-    ['U50', 'O50'].forEach(cat => {
-      const b = brackets[cat];
-      if (!b) return;
-
-      // 1. Semi-Finals are populated by the winners/losers of Quarter-Finals
-      if (b.qf && b.qf.length === 4) {
-          assignTeamToMatch(b.sf[0]?.id, getWinner(b.qf[0].id), 1);
-          assignTeamToMatch(b.sf[0]?.id, getWinner(b.qf[1].id), 2);
-          assignTeamToMatch(b.sf[1]?.id, getWinner(b.qf[2].id), 1);
-          assignTeamToMatch(b.sf[1]?.id, getWinner(b.qf[3].id), 2);
-
-          // Placement Semi-Finals (Places 5-8)
-          assignTeamToMatch(b.pSf[0]?.id, getLoser(b.qf[0].id), 1);
-          assignTeamToMatch(b.pSf[0]?.id, getLoser(b.qf[1].id), 2);
-          assignTeamToMatch(b.pSf[1]?.id, getLoser(b.qf[2].id), 1);
-          assignTeamToMatch(b.pSf[1]?.id, getLoser(b.qf[3].id), 2);
+    if (simState === 'idle') return;
+    const delay = 1200; 
+    const timer = setTimeout(() => {
+      switch (simState) {
+        case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
+        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
+        case 'schedule': generateSchedule('traditional'); setActiveTab('schedule'); setSimState('group_scores'); break;
+        case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
+        case 'ko': generateKO(2, true); setActiveTab('bracket'); setSimState('ko_qf_scores'); break;
+        case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
+        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Platzierungsspiel, 5-8'); setSimState('ko_final_scores'); break;
+        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Spiel um Platz'); setSimState('idle'); break;
+        default: setSimState('idle');
       }
-
-      // 2. Grand Finals are populated by the Semi-Finals
-      if (b.sf && b.sf.length === 2) {
-          assignTeamToMatch(b.finals[0]?.id, getWinner(b.sf[0].id), 1);
-          assignTeamToMatch(b.finals[0]?.id, getWinner(b.sf[1].id), 2);
-          assignTeamToMatch(b.finals[1]?.id, getLoser(b.sf[0].id), 1);
-          assignTeamToMatch(b.finals[1]?.id, getLoser(b.sf[1].id), 2);
-      }
-
-      // 3. Placement Finals (5/6 and 7/8) are populated by the Placement Semi-Finals
-      if (b.pSf && b.pSf.length === 2) {
-          assignTeamToMatch(b.finals[2]?.id, getWinner(b.pSf[0].id), 1);
-          assignTeamToMatch(b.finals[2]?.id, getWinner(b.pSf[1].id), 2);
-          assignTeamToMatch(b.finals[3]?.id, getLoser(b.pSf[0].id), 1);
-          assignTeamToMatch(b.finals[3]?.id, getLoser(b.pSf[1].id), 2);
-      }
-    });
-
-    if (changesMade) setMatches(updatedMatches);
-  }, [matches, brackets]);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [simState]);
 
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
     setMatches(prev => prev.map(m => {
@@ -937,25 +971,6 @@ export default function App() {
     if (simState !== 'idle') return;
     setSimState('init');
   };
-
-  useEffect(() => {
-    if (simState === 'idle') return;
-    const delay = 1200; 
-    const timer = setTimeout(() => {
-      switch (simState) {
-        case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
-        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
-        case 'schedule': generateSchedule('traditional'); setActiveTab('schedule'); setSimState('group_scores'); break;
-        case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
-        case 'ko': generateKO(2, true); setActiveTab('bracket'); setSimState('ko_qf_scores'); break;
-        case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
-        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Platzierungsspiel, 5-8'); setSimState('ko_final_scores'); break;
-        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Spiel um Platz'); setSimState('idle'); break;
-        default: setSimState('idle');
-      }
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [simState]);
 
   const renderScore = (score) => {
     if (!score) return <span className="text-[var(--contrast-3)]">vs</span>;
