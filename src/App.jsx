@@ -68,9 +68,9 @@ const generateRandomScore = () => {
   if (s1[0]>s1[1] && s2[0]>s2[1]) winnerIdx = 1;
   else if (s1[1]>s1[0] && s2[1]>s2[0]) winnerIdx = 2;
   else {
-     const tbp1Wins = Math.random() > 0.5;
-     tb = tbp1Wins ? [10, getRandom([8,7,6,5,4])] : [getRandom([8,7,6,5,4]), 10];
-     winnerIdx = tbp1Wins ? 1 : 2;
+      const tbp1Wins = Math.random() > 0.5;
+      tb = tbp1Wins ? [10, getRandom([8,7,6,5,4])] : [getRandom([8,7,6,5,4]), 10];
+      winnerIdx = tbp1Wins ? 1 : 2;
   }
   return { s1, s2, tb, winnerIdx };
 };
@@ -82,6 +82,53 @@ const formatStageGroupName = (stage, groupName) => {
   if (stage === 'Group') return groupName.replace('Gruppe ', 'Gr. ');
   if (groupName.includes('Halbfinale 2') && stage === 'Placement') return 'Platzierungsspiel, 5-8';
   return groupName;
+};
+
+// --- GLOBAL STYLES ---
+const globalStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap');
+  :root {
+    --contrast: #222222;
+    --contrast-2: #575760;
+    --contrast-3: #b2b2be;
+    --base: #f0f0f0;
+    --base-2: #f7f8f9;
+    --base-3: #ffffff;
+    --tcw-green: #008236;
+    --tcw-orange: #CC4E00;
+    --tcw-yellow: #ECF241;
+    --tcw-green-dark: #003616;
+    --tcw-green-light: #00D95A;
+    --global-color-12: #ffa347;
+    --global-color-13: #db7833;
+  }
+  body { font-family: 'Open Sans', sans-serif; background-color: var(--base); color: var(--contrast); }
+  h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Montserrat', sans-serif; }
+  @media print { 
+    body { background: white; -webkit-print-color-adjust: exact; } 
+    .page-break-after { page-break-after: always; } 
+    .break-inside-avoid { break-inside: avoid; } 
+    @page { size: A3 landscape; margin: 1cm; } 
+  }
+`;
+
+// --- ISOLATED CLOCK COMPONENT ---
+// This prevents the main App from re-rendering every second, eliminating monitor jitter.
+const LiveClock = () => {
+  const [time, setTime] = useState(new Date().toLocaleTimeString('de-DE'));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('de-DE'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)]/50 backdrop-blur-sm py-3 rounded-md shadow-inner border border-[var(--contrast-2)] w-[200px] shrink-0 justify-center font-mono">
+      {time}
+    </div>
+  );
 };
 
 // --- Main Application Component ---
@@ -116,7 +163,6 @@ export default function App() {
   
   const [simState, setSimState] = useState('idle');
   const [koQualifyCount, setKoQualifyCount] = useState(2);
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('de-DE'));
 
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
@@ -266,13 +312,6 @@ export default function App() {
 
   // --- 4. TV MONITOR LOGIC ---
   useEffect(() => {
-    if (appMode === 'monitor') {
-      const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('de-DE')), 1000);
-      return () => clearInterval(clockInt);
-    }
-  }, [appMode]);
-
-  useEffect(() => {
     if (appMode !== 'monitor') return;
 
     let newSlides = [];
@@ -359,7 +398,108 @@ export default function App() {
     }
   }, [appMode, monitorSlides]);
 
-  // --- 5. FUNCTIONS & HANDLERS ---
+  // --- 5. K.O. BRACKET UPDATE EFFECT (FIXED) ---
+  // This effect now includes 'standings' in the dependency array to ensure K.O. matches
+  // are updated whenever group match scores change, allowing team advancement to propagate
+  // from group phase through quarterfinals → semifinals → finals
+  useEffect(() => {
+    if (!brackets.U50 && !brackets.O50) return;
+    
+    // Create a new array with cloned objects so we don't mutate React state directly
+    let updatedMatches = matches.map(m => ({ ...m }));
+    let changesMade = false;
+
+    // Helper to deterministically assign a team to a specific slot (1 or 2) of a match
+    const assignTeamToMatch = (targetId, team, slotIndex) => {
+       if (!targetId) return;
+       const tMatchIndex = updatedMatches.findIndex(m => m.id === targetId);
+       if (tMatchIndex === -1) return;
+       const tMatch = updatedMatches[tMatchIndex];
+       
+       const currentTeamId = slotIndex === 1 ? tMatch.team1?.id : tMatch.team2?.id;
+       
+       // If the team has changed or needs to be set
+       if (currentTeamId !== team?.id) {
+           if (slotIndex === 1) tMatch.team1 = team || null;
+           if (slotIndex === 2) tMatch.team2 = team || null;
+           
+           // CRITICAL: If a team changes, we must reset any existing scores 
+           // for this match so the new team doesn't inherit a stale result.
+           tMatch.score = null;
+           tMatch.winnerId = null;
+           
+           changesMade = true;
+       }
+    };
+
+    const getWinner = (matchId) => {
+       const m = updatedMatches.find(x => x.id === matchId);
+       if (!m) return null;
+       if (m.team1?.isBye) return m.team2;
+       if (m.team2?.isBye) return m.team1;
+       if (m.winnerId) return m.winnerId === m.team1?.id ? m.team1 : m.team2;
+       return null;
+    };
+
+    const getLoser = (matchId) => {
+       const m = updatedMatches.find(x => x.id === matchId);
+       if (!m) return null;
+       if (m.team1?.isBye || m.team2?.isBye) return null;
+       if (m.winnerId) return m.winnerId === m.team1?.id ? m.team2 : m.team1;
+       return null;
+    };
+
+    // Calculate the K.O. flow top-to-bottom
+    ['U50', 'O50'].forEach(cat => {
+      const b = brackets[cat];
+      if (!b) return;
+
+      // 1. Semi-Finals are populated by the winners/losers of Quarter-Finals
+      if (b.qf && b.qf.length === 4) {
+          assignTeamToMatch(b.sf[0]?.id, getWinner(b.qf[0].id), 1);
+          assignTeamToMatch(b.sf[0]?.id, getWinner(b.qf[1].id), 2);
+          assignTeamToMatch(b.sf[1]?.id, getWinner(b.qf[2].id), 1);
+          assignTeamToMatch(b.sf[1]?.id, getWinner(b.qf[3].id), 2);
+
+          // Placement Semi-Finals (Places 5-8)
+          assignTeamToMatch(b.pSf[0]?.id, getLoser(b.qf[0].id), 1);
+          assignTeamToMatch(b.pSf[0]?.id, getLoser(b.qf[1].id), 2);
+          assignTeamToMatch(b.pSf[1]?.id, getLoser(b.qf[2].id), 1);
+          assignTeamToMatch(b.pSf[1]?.id, getLoser(b.qf[3].id), 2);
+      }
+
+      // 2. Grand Finals are populated by the Semi-Finals
+      if (b.sf && b.sf.length === 2) {
+          assignTeamToMatch(b.finals[0]?.id, getWinner(b.sf[0].id), 1);
+          assignTeamToMatch(b.finals[0]?.id, getWinner(b.sf[1].id), 2);
+          assignTeamToMatch(b.finals[1]?.id, getLoser(b.sf[0].id), 1);
+          assignTeamToMatch(b.finals[1]?.id, getLoser(b.sf[1].id), 2);
+      }
+
+      // 3. Placement Finals (5/6 and 7/8) are populated by the Placement Semi-Finals
+      if (b.pSf && b.pSf.length === 2) {
+          assignTeamToMatch(b.finals[2]?.id, getWinner(b.pSf[0].id), 1);
+          assignTeamToMatch(b.finals[2]?.id, getWinner(b.pSf[1].id), 2);
+          assignTeamToMatch(b.finals[3]?.id, getLoser(b.pSf[0].id), 1);
+          assignTeamToMatch(b.finals[3]?.id, getLoser(b.pSf[1].id), 2);
+      }
+    });
+
+    if (changesMade) setMatches(updatedMatches);
+  }, [matches, brackets, standings]); // 🔧 FIX: Added 'standings' to dependency array
+
+  // --- 6. ADDITIONAL K.O. SYNC EFFECT ---
+  // Forces bracket recalculation when standings change significantly
+  // This ensures rapid propagation of results through the tournament bracket
+  useEffect(() => {
+    if (!brackets.U50 && !brackets.O50) return;
+    
+    // Create a shallow copy to trigger the bracket update effect above
+    // This is particularly important when multiple group matches finish in succession
+    setBrackets(prev => ({ ...prev }));
+  }, [standings]);
+
+  // --- 7. FUNCTIONS & HANDLERS ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (passwordInput === 'wannweil') {
@@ -784,35 +924,23 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!brackets.U50 && !brackets.O50) return;
-    let updatedMatches = [...matches];
-    let changesMade = false;
-
-    const pushToNode = (matchId, team) => {
-       if (!matchId || !team) return;
-       let targetMatch = updatedMatches.find(m => m.id === matchId);
-       if (targetMatch && !targetMatch.team1) { targetMatch.team1 = team; changesMade = true; }
-       else if (targetMatch && !targetMatch.team2 && targetMatch.team1.id !== team.id) { targetMatch.team2 = team; changesMade = true; }
-    };
-
-    matches.filter(m => (m.stage === 'KO' || m.stage === 'Placement') && m.winnerId).forEach(m => {
-       const winner = m.winnerId === m.team1.id ? m.team1 : m.team2;
-       const loser = m.winnerId === m.team1.id ? m.team2 : m.team1;
-       pushToNode(m.nextMatchId, winner);
-       pushToNode(m.nextLoserId, loser);
-    });
-
-    ['U50', 'O50'].forEach(cat => {
-      if(brackets[cat]) {
-        brackets[cat].qf?.forEach(qf => {
-          if (qf.team1?.isBye) pushToNode(qf.next, qf.team2);
-          if (qf.team2?.isBye) pushToNode(qf.next, qf.team1);
-        });
+    if (simState === 'idle') return;
+    const delay = 1200; 
+    const timer = setTimeout(() => {
+      switch (simState) {
+        case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
+        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
+        case 'schedule': generateSchedule('traditional'); setActiveTab('schedule'); setSimState('group_scores'); break;
+        case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
+        case 'ko': generateKO(2, true); setActiveTab('bracket'); setSimState('ko_qf_scores'); break;
+        case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
+        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Platzierungsspiel, 5-8'); setSimState('ko_final_scores'); break;
+        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Spiel um Platz'); setSimState('idle'); break;
+        default: setSimState('idle');
       }
-    });
-
-    if (changesMade) setMatches(updatedMatches);
-  }, [matches, brackets]);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [simState]);
 
   const fillMissingScores = (stageFilter = '', groupFilter = '') => {
     setMatches(prev => prev.map(m => {
@@ -844,25 +972,6 @@ export default function App() {
     setSimState('init');
   };
 
-  useEffect(() => {
-    if (simState === 'idle') return;
-    const delay = 1200; 
-    const timer = setTimeout(() => {
-      switch (simState) {
-        case 'init': loadMockData(); setActiveTab('registration'); setSimState('groups'); break;
-        case 'groups': generateGroups(); setActiveTab('groups'); setSimState('schedule'); break;
-        case 'schedule': generateSchedule('traditional'); setActiveTab('schedule'); setSimState('group_scores'); break;
-        case 'group_scores': fillMissingScores('Group'); setActiveTab('groups'); setSimState('ko'); break;
-        case 'ko': generateKO(2, true); setActiveTab('bracket'); setSimState('ko_qf_scores'); break;
-        case 'ko_qf_scores': fillMissingScores('KO', 'Viertelfinale'); setSimState('ko_sf_scores'); break;
-        case 'ko_sf_scores': fillMissingScores('KO', 'Halbfinale'); fillMissingScores('Placement', 'Platzierungsspiel, 5-8'); setSimState('ko_final_scores'); break;
-        case 'ko_final_scores': fillMissingScores('KO', 'Finale'); fillMissingScores('Placement', 'Spiel um Platz'); setSimState('idle'); break;
-        default: setSimState('idle');
-      }
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [simState]);
-
   const renderScore = (score) => {
     if (!score) return <span className="text-[var(--contrast-3)]">vs</span>;
     let text = `${score.s1?.[0] ?? '-'}:${score.s1?.[1] ?? '-'} | ${score.s2?.[0] ?? '-'}:${score.s2?.[1] ?? '-'}`;
@@ -873,34 +982,6 @@ export default function App() {
   const groupMatches = matches.filter(m => m.stage === 'Group');
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
-
-  // --- GLOBAL STYLES (Crucial for Layout to prevent White Screen) ---
-  const globalStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap');
-    :root {
-      --contrast: #222222;
-      --contrast-2: #575760;
-      --contrast-3: #b2b2be;
-      --base: #f0f0f0;
-      --base-2: #f7f8f9;
-      --base-3: #ffffff;
-      --tcw-green: #008236;
-      --tcw-orange: #CC4E00;
-      --tcw-yellow: #ECF241;
-      --tcw-green-dark: #003616;
-      --tcw-green-light: #00D95A;
-      --global-color-12: #ffa347;
-      --global-color-13: #db7833;
-    }
-    body { font-family: 'Open Sans', sans-serif; background-color: var(--base); color: var(--contrast); }
-    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Montserrat', sans-serif; }
-    @media print { 
-      body { background: white; -webkit-print-color-adjust: exact; } 
-      .page-break-after { page-break-after: always; } 
-      .break-inside-avoid { break-inside: avoid; } 
-      @page { size: A3 landscape; margin: 1cm; } 
-    }
-  `;
 
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
@@ -916,13 +997,14 @@ export default function App() {
           <div className="h-28 w-28 flex items-center justify-center mb-6">
              <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
           </div>
-          <div className="bg-[var(--base-3)] p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
+          <div className="bg-[var(--base-3)] p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden box-border" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
             {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
             <h2 className="text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2 font-['Montserrat'] uppercase tracking-wide">{BRAND.name} Portal</h2>
             <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-[var(--base)] rounded-md text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition outline-none" placeholder="Passwort oder PIN" required />
-              <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
+            <form onSubmit={handleLogin} className="space-y-4 w-full">
+              {/* REMOVED tracking-widest to prevent text shifting on mask dot generation */}
+              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full box-border p-3 border-2 border-[var(--base)] rounded-md text-center font-mono font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition outline-none" placeholder="Passwort oder PIN" required />
+              <button type="submit" className="w-full box-border bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
             </form>
             <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
               <p className="text-xs text-[var(--contrast-3)] mb-2 font-medium">Haben Sie eine Offline-Turnierdatei?</p>
@@ -933,7 +1015,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-[var(--contrast)]/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-2)] text-center">
+          <div className="bg-[var(--contrast)]/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-2)] text-center" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
              <Tv className="h-10 w-10 text-[var(--tcw-green-light)] mx-auto mb-4 drop-shadow-lg" />
              <h3 className="font-bold text-[var(--base-3)] text-xl mb-2 font-['Montserrat'] uppercase">TV-Monitor Anzeige</h3>
              <p className="text-sm text-[var(--contrast-3)] mb-6 font-medium">Starten Sie das Live-Turnier-Dashboard für große Bildschirme.</p>
@@ -1170,7 +1252,7 @@ export default function App() {
       <>
       <style dangerouslySetInnerHTML={{__html: globalStyles}} />
       <div className="h-screen w-screen overflow-hidden bg-[var(--contrast)] text-[var(--base)] font-['Open_Sans'] p-6 flex flex-col">
-        <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-md shadow-2xl border border-[var(--contrast-2)] shrink-0">
+        <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-md shadow-2xl border border-[var(--contrast-2)] shrink-0 w-full box-border" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
           <div className="absolute inset-0 z-0">
             <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-r from-[var(--contrast)] via-[var(--contrast)]/90 to-transparent"></div>
@@ -1191,9 +1273,7 @@ export default function App() {
                 <button onClick={handleLogout} className="flex items-center space-x-2 text-[var(--contrast-3)] hover:text-[var(--base-3)] bg-[var(--contrast-2)]/50 hover:bg-[var(--contrast-2)] px-4 py-2 rounded-md transition border border-[var(--contrast-2)] text-lg group backdrop-blur-sm">
                   <Lock size={20} className="group-hover:text-[var(--tcw-green)] transition-colors" /> <span>Veranstalter</span>
                 </button>
-                <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)]/50 backdrop-blur-sm px-6 py-3 rounded-md shadow-inner border border-[var(--contrast-2)] min-w-[160px] justify-center tracking-widest">
-                  {currentTime}
-                </div>
+                <LiveClock />
               </div>
           </div>
         </header>
