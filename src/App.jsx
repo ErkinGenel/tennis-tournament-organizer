@@ -84,6 +84,53 @@ const formatStageGroupName = (stage, groupName) => {
   return groupName;
 };
 
+// --- GLOBAL STYLES ---
+const globalStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap');
+  :root {
+    --contrast: #222222;
+    --contrast-2: #575760;
+    --contrast-3: #b2b2be;
+    --base: #f0f0f0;
+    --base-2: #f7f8f9;
+    --base-3: #ffffff;
+    --tcw-green: #008236;
+    --tcw-orange: #CC4E00;
+    --tcw-yellow: #ECF241;
+    --tcw-green-dark: #003616;
+    --tcw-green-light: #00D95A;
+    --global-color-12: #ffa347;
+    --global-color-13: #db7833;
+  }
+  body { font-family: 'Open Sans', sans-serif; background-color: var(--base); color: var(--contrast); }
+  h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Montserrat', sans-serif; }
+  @media print { 
+    body { background: white; -webkit-print-color-adjust: exact; } 
+    .page-break-after { page-break-after: always; } 
+    .break-inside-avoid { break-inside: avoid; } 
+    @page { size: A3 landscape; margin: 1cm; } 
+  }
+`;
+
+// --- ISOLATED CLOCK COMPONENT ---
+// This prevents the main App from re-rendering every second, eliminating monitor jitter.
+const LiveClock = () => {
+  const [time, setTime] = useState(new Date().toLocaleTimeString('de-DE'));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('de-DE'));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)]/50 backdrop-blur-sm py-3 rounded-md shadow-inner border border-[var(--contrast-2)] w-[200px] shrink-0 justify-center font-mono">
+      {time}
+    </div>
+  );
+};
+
 // --- Main Application Component ---
 export default function App() {
   // --- 1. BASIC STATE ---
@@ -116,7 +163,6 @@ export default function App() {
   
   const [simState, setSimState] = useState('idle');
   const [koQualifyCount, setKoQualifyCount] = useState(2);
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('de-DE'));
 
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
@@ -265,13 +311,6 @@ export default function App() {
   }, [teams, groups, matches, brackets, day1Start, day2Start, tournamentDays, isolateGrandFinals, tournamentStartDate, appMode, user, appId]);
 
   // --- 4. TV MONITOR LOGIC ---
-  useEffect(() => {
-    if (appMode === 'monitor') {
-      const clockInt = setInterval(() => setCurrentTime(new Date().toLocaleTimeString('de-DE')), 1000);
-      return () => clearInterval(clockInt);
-    }
-  }, [appMode]);
-
   useEffect(() => {
     if (appMode !== 'monitor') return;
 
@@ -874,34 +913,6 @@ export default function App() {
   const unplayedGroupCount = groupMatches.filter(m => !m.winnerId).length;
   const canGenerateKO = matches.length > 0 && groupMatches.length > 0 && unplayedGroupCount === 0;
 
-  // --- GLOBAL STYLES (Crucial for Layout to prevent White Screen) ---
-  const globalStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&family=Open+Sans:wght@400;500;600;700&display=swap');
-    :root {
-      --contrast: #222222;
-      --contrast-2: #575760;
-      --contrast-3: #b2b2be;
-      --base: #f0f0f0;
-      --base-2: #f7f8f9;
-      --base-3: #ffffff;
-      --tcw-green: #008236;
-      --tcw-orange: #CC4E00;
-      --tcw-yellow: #ECF241;
-      --tcw-green-dark: #003616;
-      --tcw-green-light: #00D95A;
-      --global-color-12: #ffa347;
-      --global-color-13: #db7833;
-    }
-    body { font-family: 'Open Sans', sans-serif; background-color: var(--base); color: var(--contrast); }
-    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Montserrat', sans-serif; }
-    @media print { 
-      body { background: white; -webkit-print-color-adjust: exact; } 
-      .page-break-after { page-break-after: always; } 
-      .break-inside-avoid { break-inside: avoid; } 
-      @page { size: A3 landscape; margin: 1cm; } 
-    }
-  `;
-
   // --- UI RENDER: LOGIN & LAUNCH SCREEN ---
   if (appMode === 'login') {
     return (
@@ -1192,10 +1203,7 @@ export default function App() {
                 <button onClick={handleLogout} className="flex items-center space-x-2 text-[var(--contrast-3)] hover:text-[var(--base-3)] bg-[var(--contrast-2)]/50 hover:bg-[var(--contrast-2)] px-4 py-2 rounded-md transition border border-[var(--contrast-2)] text-lg group backdrop-blur-sm">
                   <Lock size={20} className="group-hover:text-[var(--tcw-green)] transition-colors" /> <span>Veranstalter</span>
                 </button>
-                {/* SET STRICT WIDTH (w-[200px]) AND MONOSPACE TO LOCK THE HEADER SIZING PERMANENTLY */}
-                <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)]/50 backdrop-blur-sm py-3 rounded-md shadow-inner border border-[var(--contrast-2)] w-[200px] shrink-0 justify-center font-mono">
-                  {currentTime}
-                </div>
+                <LiveClock />
               </div>
           </div>
         </header>
