@@ -883,18 +883,18 @@ export default function App() {
         </div>
         
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-28 w-28 flex items-center justify-center mb-6">
-             <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
-          </div>
-          <div className="bg-[var(--base-3)] p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden">
-            {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
-            <h2 className="text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2 font-['Montserrat'] uppercase tracking-wide">{BRAND.name} Portal</h2>
-            <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border-2 border-[var(--base)] rounded-md text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition" placeholder="Passwort oder PIN" required />
-              <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
-            </form>
-            <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
+            <div className="h-28 w-28 flex items-center justify-center mb-6">
+               <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
+            </div>
+            <div className="bg-[var(--base-3)] p-8 rounded-lg shadow-2xl w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden box-border" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
+              {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
+              <h2 className="text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2 font-['Montserrat'] uppercase tracking-wide">{BRAND.name} Portal</h2>
+              <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
+              <form onSubmit={handleLogin} className="space-y-4 w-full">
+                <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full box-border p-3 border-2 border-[var(--base)] rounded-md text-center tracking-widest font-mono font-bold focus:border-[var(--tcw-green)] focus:ring-0 transition outline-none" placeholder="Passwort oder PIN" required />
+                <button type="submit" className="w-full box-border bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded-md font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition uppercase tracking-wide">Anmelden</button>
+              </form>
+              <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
               <p className="text-xs text-[var(--contrast-3)] mb-2 font-medium">Haben Sie eine Offline-Turnierdatei?</p>
               <label className="text-xs bg-[var(--base-2)] hover:bg-[var(--base)] text-[var(--contrast-2)] px-4 py-2 rounded-md cursor-pointer transition font-bold uppercase">
                  Datei laden
@@ -1137,7 +1137,7 @@ export default function App() {
 
     return (
       <div className="h-screen w-screen overflow-hidden bg-[var(--contrast)] text-[var(--base)] font-['Open_Sans'] p-6 flex flex-col">
-        <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-md shadow-2xl border border-[var(--contrast-2)] shrink-0">
+        <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded-md shadow-2xl border border-[var(--contrast-2)] shrink-0 w-full box-border" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', backfaceVisibility: 'hidden' }}>
           <div className="absolute inset-0 z-0">
             <img src={BRAND.banner} alt="Banner" className="w-full h-full object-cover opacity-20" />
             <div className="absolute inset-0 bg-gradient-to-r from-[var(--contrast)] via-[var(--contrast)]/90 to-transparent"></div>
