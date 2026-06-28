@@ -697,14 +697,16 @@ export default function App() {
 
     const assignMatchesToSlots = (matchNodes, courtLimit) => {
        let assignedTimes = [];
-       while (matchNodes.length > 0) {
+       let nodesToAssign = [...matchNodes]; // Copy array to prevent mutation emptying it
+
+       while (nodesToAssign.length > 0) {
            const time = timeSlots[currentSlotIdx];
            const courtsInUse = newMatches.filter(m => m.day === targetDay && m.time === time).map(m => m.court);
            
            let slotCapacity = courtLimit - courtsInUse.length;
            
-           while (slotCapacity > 0 && matchNodes.length > 0) {
-               const node = matchNodes.shift();
+           while (slotCapacity > 0 && nodesToAssign.length > 0) {
+               const node = nodesToAssign.shift();
                let availableCourt = 1;
                while(courtsInUse.includes(availableCourt)) availableCourt++;
                
@@ -715,7 +717,7 @@ export default function App() {
                slotCapacity--;
            }
            
-           if (matchNodes.length > 0) {
+           if (nodesToAssign.length > 0) {
                currentSlotIdx++;
            }
        }
