@@ -825,7 +825,6 @@ export default function App() {
   useEffect(() => {
     if (!brackets.U50 && !brackets.O50) return;
     
-    // Create a new array with cloned objects so we don't mutate React state directly
     let updatedMatches = matches.map(m => ({ ...m }));
     let changesMade = false;
 
@@ -837,14 +836,14 @@ export default function App() {
        const tMatch = updatedMatches[tMatchIndex];
        
        const currentTeamId = slotIndex === 1 ? tMatch.team1?.id : tMatch.team2?.id;
+       const newTeamId = team?.id;
        
-       // If the team has changed or needs to be set
-       if (currentTeamId !== team?.id) {
+       // Only update if the team ACTUALLY changed to a different team
+       if (currentTeamId !== newTeamId) {
            if (slotIndex === 1) tMatch.team1 = team || null;
            if (slotIndex === 2) tMatch.team2 = team || null;
            
-           // CRITICAL: If a team changes, we must reset any existing scores 
-           // for this match so the new team doesn't inherit a stale result.
+           // CRITICAL: Only reset scores if the teams participating have changed.
            tMatch.score = null;
            tMatch.winnerId = null;
            
