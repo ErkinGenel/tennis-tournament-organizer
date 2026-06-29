@@ -114,6 +114,7 @@ const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 export default function App() {
   const [appMode, setAppMode] = useState('login');
   const [passwordInput, setPasswordInput] = useState('');
+  const [monitorPassword, setMonitorPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [user, setUser] = useState(null);
   const [loggedInTeamId, setLoggedInTeamId] = useState(null);
@@ -394,7 +395,19 @@ export default function App() {
   const handleLogout = () => {
     sessionStorage.removeItem('tennis_auth');
     setPasswordInput('');
+    setMonitorPassword('');
     setAppMode('login');
+  };
+
+  const handleMonitorLogin = (e) => {
+    e.preventDefault();
+    if (monitorPassword === 'wannweil' || monitorPassword === 'monitor') {
+      setAppMode('monitor');
+      setMonitorPassword('');
+      setAuthError('');
+    } else {
+      setAuthError('Falsches Monitor-Passwort.');
+    }
   };
 
   const handleRegister = (e) => {
@@ -879,29 +892,26 @@ export default function App() {
              <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
           </div>
           <div className="p-8 rounded shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden bg-[var(--base-3)]">
-            {authError && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
+            {authError && !authError.includes('Monitor') && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
             <h2 className="heading-font text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2">{BRAND.name} Portal</h2>
             <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
             <form onSubmit={handleLogin} className="space-y-4">
               <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-[var(--contrast-3)] rounded text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:outline-none transition bg-[var(--base-3)] text-[var(--contrast)]" placeholder="Passwort oder PIN" required />
               <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition">Anmelden</button>
             </form>
-            <div className="mt-8 pt-6 border-t border-[var(--base)] text-center">
-              <p className="text-xs text-[var(--contrast-3)] mb-2 font-medium">Offline-Turnierdatei laden?</p>
-              <label className="text-xs bg-[var(--base)] hover:bg-[var(--base-2)] text-[var(--contrast)] px-4 py-2 rounded cursor-pointer transition font-bold border border-[var(--contrast-3)]">
-                 Datei laden
-                 <input type="file" accept=".json" className="hidden" onChange={handleImportTournament} />
-              </label>
-            </div>
           </div>
 
-          <div className="bg-[var(--contrast)] p-8 rounded shadow-lg w-full border border-[var(--contrast-2)] text-center">
+          <div className="bg-[var(--contrast)] p-8 rounded shadow-lg w-full border border-[var(--contrast-2)] text-center relative overflow-hidden">
+             {authError && authError.includes('Monitor') && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
              <Tv className="h-10 w-10 text-[var(--tcw-green-light)] mx-auto mb-4" />
              <h3 className="heading-font font-bold text-[var(--base-3)] text-xl mb-2">TV-Monitor Anzeige</h3>
              <p className="text-sm text-[var(--contrast-3)] mb-6 font-medium">Starten Sie das Live-Dashboard.</p>
-             <button onClick={() => setAppMode('monitor')} className="w-full bg-[var(--contrast-2)] text-[var(--base-3)] p-3 rounded font-bold hover:bg-[var(--contrast)] shadow-md flex items-center justify-center border border-[var(--contrast-3)] transition">
-               <Monitor size={20} className="mr-2" /> Monitor starten
-             </button>
+             <form onSubmit={handleMonitorLogin} className="space-y-4">
+               <input type="password" value={monitorPassword} onChange={(e) => setMonitorPassword(e.target.value)} className="w-full p-3 border border-[var(--contrast-2)] rounded text-center tracking-widest font-bold focus:border-[var(--tcw-green-light)] focus:outline-none transition bg-[var(--contrast-2)] text-[var(--base-3)] placeholder:text-[var(--contrast-3)]" placeholder="Monitor-Passwort" required />
+               <button type="submit" className="w-full bg-[var(--contrast-2)] text-[var(--base-3)] p-3 rounded font-bold hover:bg-[var(--contrast)] shadow-md flex items-center justify-center border border-[var(--contrast-3)] transition">
+                 <Monitor size={20} className="mr-2" /> Monitor starten
+               </button>
+             </form>
           </div>
         </div>
       </div>
