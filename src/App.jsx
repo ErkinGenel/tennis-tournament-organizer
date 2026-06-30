@@ -33,6 +33,7 @@ const GlobalStyles = () => (
 
 const BRAND = {
   logo: "https://tcwannweil.com/wp-content/uploads/Logo-50-Jahre.png", 
+  logo_black: "public/50JahreLogo3.png",
   banner: "https://tcwannweil.com/wp-content/uploads/image1000099.jpg?auto=format&fit=crop&w=2000&q=80", 
   name: "TC Wannweil"
 };
@@ -1918,7 +1919,7 @@ export default function App() {
                return (
                  <div key={team.id} className="border-4 border-[var(--contrast)] rounded-2xl p-8 flex flex-col items-center text-center shadow-sm page-break-inside-avoid mb-4 break-inside-avoid">
                    <div className="flex items-center space-x-4 mb-6">
-                      <img src={BRAND.logo} alt="Logo" className="h-16 object-contain" />
+                      <img src={BRAND.logo_black} alt="Logo" className="h-16 object-contain" />
                       <div className="text-left">
                          <h2 className="heading-font text-2xl font-black uppercase leading-none">{BRAND.name}</h2>
                          <div className="text-[var(--contrast-2)] font-bold uppercase tracking-widest text-sm mt-1">Spieler-Ticket</div>
