@@ -207,6 +207,21 @@ export default function App() {
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const pinParam = urlParams.get('pin');
+    if (pinParam && teams.length > 0 && appMode === 'login') {
+      const foundTeam = teams.find(t => t.pin === pinParam);
+      if (foundTeam) {
+        setAppMode('player');
+        setLoggedInTeamId(foundTeam.id);
+        setAuthError('');
+        // Clean URL to prevent sharing the link with PIN unintentionally later
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [teams, appMode]);
+
   const standings = useMemo(() => {
     const stats = {};
     teams.forEach(t => { stats[t.id] = { ...t, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }; });
@@ -1541,6 +1556,9 @@ export default function App() {
                 <div className="col-span-2">
                   <div className="flex justify-between items-center mb-4">
                      <h3 className="heading-font font-bold text-lg text-[var(--contrast)]">Registrierte Teams ({teams.length})</h3>
+                     <button onClick={() => { setPrintView('tickets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 1000); }} disabled={teams.length === 0} className="flex items-center space-x-2 bg-[var(--contrast)] text-[var(--base-3)] px-3 py-2 rounded hover:bg-[var(--contrast-2)] font-bold transition disabled:opacity-50 text-xs sm:text-sm shadow-sm">
+                       <Smartphone size={16} /> <span className="hidden sm:inline">Tickets drucken</span><span className="sm:hidden">Tickets</span>
+                     </button>
                   </div>
                   <div className="overflow-auto max-h-[600px] border border-[var(--contrast-3)] rounded bg-[var(--base-3)]">
                     <table className="w-full text-left text-sm table-fixed">
@@ -1885,6 +1903,44 @@ export default function App() {
               )
             })
           })}
+        </div>
+      )}
+
+      {/* --- PRINTABLE TEAM TICKETS (QR CODES) --- */}
+      {printView === 'tickets' && (
+        <div className="hidden print:block w-full bg-[var(--base-3)] p-8">
+          <div className="grid grid-cols-2 gap-8">
+            {teams.map(team => {
+               // Base URL is retrieved dynamically so it works wherever the app is hosted
+               const ticketUrl = `${window.location.origin}${window.location.pathname}?pin=${team.pin}`;
+               const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(ticketUrl)}&margin=10`;
+               
+               return (
+                 <div key={team.id} className="border-4 border-[var(--contrast)] rounded-2xl p-8 flex flex-col items-center text-center shadow-sm page-break-inside-avoid mb-4 break-inside-avoid">
+                   <div className="flex items-center space-x-4 mb-6">
+                      <img src={BRAND.logo} alt="Logo" className="h-16 object-contain" />
+                      <div className="text-left">
+                         <h2 className="heading-font text-2xl font-black uppercase leading-none">{BRAND.name}</h2>
+                         <div className="text-[var(--contrast-2)] font-bold uppercase tracking-widest text-sm mt-1">Spieler-Ticket</div>
+                      </div>
+                   </div>
+                   
+                   <div className="bg-[var(--base)] w-full py-4 mb-8 border-y-2 border-[var(--contrast)]">
+                     <div className="text-2xl font-black text-[var(--tcw-green-dark)] truncate px-2">{team.name}</div>
+                     <div className="text-md font-bold text-[var(--contrast-2)] mt-1">{team.clubs.join(' / ')} • {team.category}</div>
+                   </div>
+                   
+                   <div className="border-4 border-[var(--contrast)] p-2 rounded-xl bg-white mb-6">
+                     <img src={qrUrl} alt="QR Code" className="w-40 h-40" />
+                   </div>
+                   
+                   <div className="text-sm text-[var(--contrast-2)] font-bold mb-2 uppercase tracking-wider">Dein Login-Code</div>
+                   <div className="text-4xl font-mono font-black text-[var(--tcw-green)] tracking-[0.25em]">{team.pin}</div>
+                   <div className="text-xs text-[var(--contrast-3)] font-medium mt-6 max-w-[80%]">Mit der Smartphone-Kamera scannen, um direkt zum persönlichen Spielplan zu gelangen.</div>
+                 </div>
+               )
+            })}
+          </div>
         </div>
       )}
 
