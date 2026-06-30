@@ -1024,7 +1024,7 @@ export default function App() {
                 ) : (
                   scheduledMatches.map(m => {
                     const isWinner = m.winnerId === myTeam.id; const isLoser = m.winnerId && m.winnerId !== myTeam.id;
-                    const opp = m.team1.id === myTeam.id ? m.team2 : m.team1;
+                    const opp = m.team1?.id === myTeam.id ? m.team2 : m.team1;
                     return (
                       <div key={m.id} className={`bg-[var(--base-3)] rounded p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-[var(--tcw-green)]' : isLoser ? 'border-l-[var(--tcw-orange)]' : 'border-l-[var(--contrast-3)]'}`}>
                         <div className="flex justify-between items-center text-xs font-bold text-[var(--contrast-2)] uppercase tracking-wider mb-3 pb-2 border-b border-[var(--base)]">
@@ -1034,7 +1034,7 @@ export default function App() {
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
                             <div className="text-xs text-[var(--contrast-3)] mb-1 font-medium">Gegner</div>
-                            <div className="font-bold text-[var(--contrast)] text-sm">{opp.name}</div>
+                            <div className="font-bold text-[var(--contrast)] text-sm">{opp?.name || 'Noch offen'}</div>
                           </div>
                           <div className="text-right pl-4">
                             {m.score ? (
