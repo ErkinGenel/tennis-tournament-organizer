@@ -83,12 +83,22 @@ const getFormattedDate = (baseDateStr, dayOffset) => {
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const generateTimeSlots = (startTimeStr, numSlots = 8) => {
+const addMinutes = (timeStr, mins) => {
+  if (!timeStr || timeStr === 'Flexibel' || timeStr === 'BYE') return timeStr;
+  let [h, m] = timeStr.split(':').map(Number);
+  m += mins;
+  h += Math.floor(m / 60);
+  m = m % 60;
+  h = h % 24; 
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
+const generateTimeSlots = (startTimeStr, numSlots = 8, duration = 90) => {
   const slots = [];
   let [hours, minutes] = startTimeStr.split(':').map(Number);
   for (let i = 0; i < numSlots; i++) {
     slots.push(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
-    minutes += 90;
+    minutes += duration;
     if (minutes >= 60) { hours += Math.floor(minutes / 60); minutes = minutes % 60; }
   }
   return slots;
@@ -145,8 +155,8 @@ const OfficialMatchBox = ({ match, title, isFinal=false }) => {
            </div>
            {!t1IsBye && !t2IsBye && (
               <div className="flex border-l border-[var(--base)] divide-x divide-[var(--base)] shrink-0 bg-[var(--base-3)]">
-                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s1[0] ?? '-'}</div>
-                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s2[0] ?? '-'}</div>
+                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s1?.[0] ?? '-'}</div>
+                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s2?.[0] ?? '-'}</div>
                  <div className="w-7 flex items-center justify-center text-[10px] text-[var(--tcw-orange)] font-bold">{match.score?.tb && match.score.tb[0] > 0 ? match.score.tb[0] : ''}</div>
               </div>
            )}
@@ -161,8 +171,8 @@ const OfficialMatchBox = ({ match, title, isFinal=false }) => {
            </div>
            {!t1IsBye && !t2IsBye && (
               <div className="flex border-l border-[var(--base)] divide-x divide-[var(--base)] shrink-0 bg-[var(--base-3)]">
-                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s1[1] ?? '-'}</div>
-                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s2[1] ?? '-'}</div>
+                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s1?.[1] ?? '-'}</div>
+                 <div className={`w-7 flex items-center justify-center text-sm ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--contrast)]' : 'text-[var(--contrast-2)]'}`}>{match.score?.s2?.[1] ?? '-'}</div>
                  <div className="w-7 flex items-center justify-center text-[10px] text-[var(--tcw-orange)] font-bold">{match.score?.tb && match.score.tb[1] > 0 ? match.score.tb[1] : ''}</div>
               </div>
            )}
@@ -191,6 +201,7 @@ export default function App() {
   const [day2Start, setDay2Start] = useState('14:30');
   const [tournamentDays, setTournamentDays] = useState(2);
   const [isolateGrandFinals, setIsolateGrandFinals] = useState(true);
+  const [matchDuration, setMatchDuration] = useState(90);
 
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
@@ -207,13 +218,29 @@ export default function App() {
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
 
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const pinParam = urlParams.get('pin');
+    if (pinParam && teams.length > 0 && appMode === 'login') {
+      const foundTeam = teams.find(t => t.pin === pinParam);
+      if (foundTeam) {
+        setAppMode('player');
+        setLoggedInTeamId(foundTeam.id);
+        setAuthError('');
+        // Clean URL to prevent sharing the link with PIN unintentionally later
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [teams, appMode]);
+
   const standings = useMemo(() => {
     const stats = {};
     teams.forEach(t => { stats[t.id] = { ...t, played: 0, won: 0, lost: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }; });
 
     matches.filter(m => m.stage === 'Group' && m.score).forEach(m => {
       const { s1, s2, tb } = m.score;
-      const t1 = stats[m.team1.id]; const t2 = stats[m.team2.id];
+      const t1 = m.team1 ? stats[m.team1.id] : null; 
+      const t2 = m.team2 ? stats[m.team2.id] : null;
       if(!t1 || !t2) return;
 
       t1.played++; t2.played++;
@@ -254,8 +281,8 @@ export default function App() {
     ['U50', 'O50'].forEach(cat => {
       const b = brackets[cat];
       if (!b) return;
-      const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team1 : m.team2) : null; };
-      const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1.id ? m.team2 : m.team1) : null; };
+      const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1?.id ? m.team1 : m.team2) : null; };
+      const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1?.id ? m.team2 : m.team1) : null; };
 
       const top8 = [
         getWinner(`final_${cat}`), getLoser(`final_${cat}`),
@@ -268,7 +295,7 @@ export default function App() {
          if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team });
       });
 
-      const placedIds = ranks[cat].map(r => r.team.id);
+      const placedIds = ranks[cat].map(r => r.team?.id).filter(id => id);
       let remaining = [];
       if (standings[cat]) {
         Object.values(standings[cat]).forEach(groupSt => {
@@ -315,10 +342,24 @@ export default function App() {
         if (liveData.day2Start) setDay2Start(liveData.day2Start);
         if (liveData.tournamentDays) setTournamentDays(liveData.tournamentDays);
         if (liveData.isolateGrandFinals !== undefined) setIsolateGrandFinals(liveData.isolateGrandFinals);
+        if (liveData.matchDuration !== undefined) setMatchDuration(liveData.matchDuration);
       }
     });
     return () => unsubscribe();
   }, [user, appId, appMode]);
+
+  useEffect(() => {
+    const syncToCloud = async () => {
+      if (appMode === 'organizer' && user) {
+        try {
+          const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
+          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, lastUpdated: new Date().toISOString() });
+        } catch (error) { console.error("Failed to push updates to live server:", error); }
+      }
+    };
+    const timeoutId = setTimeout(syncToCloud, 800);
+    return () => clearTimeout(timeoutId);
+  }, [teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, appMode, user, appId]);
 
   useEffect(() => {
     const syncToCloud = async () => {
@@ -570,6 +611,7 @@ export default function App() {
            if (data.day2Start) setDay2Start(data.day2Start);
            if (data.tournamentDays) setTournamentDays(data.tournamentDays);
            if (data.isolateGrandFinals !== undefined) setIsolateGrandFinals(data.isolateGrandFinals);
+           if (data.matchDuration !== undefined) setMatchDuration(data.matchDuration);
            if (data.matches && data.matches.length > 0) setActiveTab('schedule');
         }
         setAuthError('');
@@ -612,7 +654,7 @@ export default function App() {
   const generateSchedule = (mode = 'traditional') => {
     let newMatches = [];
     if (mode === 'traditional') {
-      const timeSlots = generateTimeSlots(day1Start, 8);
+      const timeSlots = generateTimeSlots(day1Start, 8, matchDuration);
       ['U50', 'O50'].forEach(cat => {
         if (!groups[cat]) return;
         Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
@@ -628,9 +670,9 @@ export default function App() {
       newMatches.forEach(match => {
         for (const time of timeSlots) {
           const slot = scheduleState[time];
-          if (slot.courtsUsed < COURTS && !slot.playingTeams.has(match.team1.id) && !slot.playingTeams.has(match.team2.id)) {
+          if (slot.courtsUsed < COURTS && !slot.playingTeams.has(match.team1?.id) && !slot.playingTeams.has(match.team2?.id)) {
              match.time = time; match.court = slot.courtsUsed + 1;
-             slot.courtsUsed++; slot.playingTeams.add(match.team1.id); slot.playingTeams.add(match.team2.id); break;
+             slot.courtsUsed++; slot.playingTeams.add(match.team1?.id); slot.playingTeams.add(match.team2?.id); break;
           }
         }
       });
@@ -671,7 +713,7 @@ export default function App() {
         const usedTimes = newMatches.map(m => m.time).filter(t => t);
         if (usedTimes.length > 0) {
            const latestTime = usedTimes.sort().reverse()[0];
-           const nextSlot = generateTimeSlots(latestTime, 2)[1];
+           const nextSlot = generateTimeSlots(latestTime, 2, matchDuration)[1];
            setDay2Start(nextSlot);
         }
       } else if (mode === 'courtPerGroup') {
@@ -682,7 +724,7 @@ export default function App() {
           }
         });
         const maxMatches = (maxTeams * (maxTeams - 1)) / 2;
-        const totalMinutes = maxMatches * 90;
+        const totalMinutes = maxMatches * matchDuration;
         let [hours, minutes] = day1Start.split(':').map(Number);
         hours += Math.floor(totalMinutes / 60); minutes += totalMinutes % 60;
         if (minutes >= 60) { hours += Math.floor(minutes / 60); minutes %= 60; }
@@ -705,7 +747,7 @@ export default function App() {
       if (m.score || !m.team1 || !m.team2 || m.team1.isBye || m.team2.isBye || !isStageMatch || !isGroupMatch) return m;
       
       const randomData = generateRandomScore();
-      return { ...m, score: { s1: randomData.s1, s2: randomData.s2, tb: randomData.tb }, winnerId: randomData.winnerIdx === 1 ? m.team1.id : m.team2.id };
+      return { ...m, score: { s1: randomData.s1, s2: randomData.s2, tb: randomData.tb }, winnerId: randomData.winnerIdx === 1 ? m.team1?.id : m.team2?.id };
     }));
   };
 
@@ -718,7 +760,7 @@ export default function App() {
       if (t1Sets === 1 && t2Sets === 1 && tb) {
         if (tb[0] > tb[1]) t1Sets++; else if (tb[1] > tb[0]) t2Sets++;
       }
-      const winnerId = t1Sets > t2Sets ? m.team1.id : (t2Sets > t1Sets ? m.team2.id : null);
+      const winnerId = t1Sets > t2Sets ? m.team1?.id : (t2Sets > t1Sets ? m.team2?.id : null);
       return { ...m, score: { s1, s2, tb }, winnerId };
     }));
     setScoreModal(null);
@@ -743,7 +785,7 @@ export default function App() {
     
     const targetDay = tournamentDays;
     
-    const day2Slots = generateTimeSlots(day2Start, 12);
+    const day2Slots = generateTimeSlots(day2Start, 12, matchDuration);
     const slotUsage = {};
     day2Slots.forEach(time => slotUsage[time] = 0);
 
@@ -880,12 +922,12 @@ export default function App() {
        if (!matchId || !team) return;
        let targetMatch = updatedMatches.find(m => m.id === matchId);
        if (targetMatch && !targetMatch.team1) { targetMatch.team1 = team; changesMade = true; }
-       else if (targetMatch && !targetMatch.team2 && targetMatch.team1.id !== team.id) { targetMatch.team2 = team; changesMade = true; }
+       else if (targetMatch && !targetMatch.team2 && targetMatch.team1?.id !== team.id) { targetMatch.team2 = team; changesMade = true; }
     };
 
     matches.filter(m => (m.stage === 'KO' || m.stage === 'Placement') && m.winnerId).forEach(m => {
-       const winner = m.winnerId === m.team1.id ? m.team1 : m.team2;
-       const loser = m.winnerId === m.team1.id ? m.team2 : m.team1;
+       const winner = m.winnerId === m.team1?.id ? m.team1 : m.team2;
+       const loser = m.winnerId === m.team1?.id ? m.team2 : m.team1;
        pushToNode(m.nextMatchId, winner);
        pushToNode(m.nextLoserId, loser);
     });
@@ -893,14 +935,54 @@ export default function App() {
     ['U50', 'O50'].forEach(cat => {
       if(brackets[cat]) {
         brackets[cat].qf.forEach(qf => {
-          if (qf.team1.isBye) pushToNode(qf.next, qf.team2);
-          if (qf.team2.isBye) pushToNode(qf.next, qf.team1);
+          if (qf.team1?.isBye) pushToNode(qf.next, qf.team2);
+          if (qf.team2?.isBye) pushToNode(qf.next, qf.team1);
         });
       }
     });
 
     if (changesMade) setMatches(updatedMatches);
   }, [matches, brackets]);
+
+  const handleMatchTimeChange = (matchId, newTime) => {
+    if (!newTime) {
+      setMatches(prev => prev.map(m => m.id === matchId ? { ...m, time: null } : m));
+      return;
+    }
+    setMatches(prev => {
+      const matchToUpdate = prev.find(m => m.id === matchId);
+      if (!matchToUpdate || matchToUpdate.time === 'Flexibel' || matchToUpdate.time === 'BYE' || !matchToUpdate.court) {
+          return prev.map(m => m.id === matchId ? { ...m, time: newTime } : m);
+      }
+
+      const { day, court } = matchToUpdate;
+      
+      const courtMatches = prev.filter(m => m.day === day && m.court === court && m.time !== null && m.time !== 'Flexibel' && m.time !== 'BYE')
+                               .sort((a,b) => a.time.localeCompare(b.time));
+      
+      const matchIdx = courtMatches.findIndex(m => m.id === matchId);
+      if (matchIdx === -1) return prev;
+
+      const updatedCourtMatches = [...courtMatches];
+      updatedCourtMatches[matchIdx] = { ...updatedCourtMatches[matchIdx], time: newTime };
+      
+      for (let i = matchIdx + 1; i < updatedCourtMatches.length; i++) {
+         updatedCourtMatches[i] = {
+             ...updatedCourtMatches[i],
+             time: addMinutes(updatedCourtMatches[i - 1].time, matchDuration)
+         };
+      }
+
+      return prev.map(m => {
+         const updated = updatedCourtMatches.find(ucm => ucm.id === m.id);
+         return updated ? updated : m;
+      });
+    });
+  };
+
+  const handleMatchDayChange = (matchId, newDay) => {
+    setMatches(prev => prev.map(m => m.id === matchId ? { ...m, day: parseInt(newDay) } : m));
+  };
 
   const handleSimulateTournament = () => {
     if (simState !== 'idle') return;
@@ -932,7 +1014,7 @@ export default function App() {
 
   const renderScore = (score) => {
     if (!score) return <span className="text-[var(--contrast-3)]">vs</span>;
-    let text = `${score.s1[0]}:${score.s1[1]} | ${score.s2[0]}:${score.s2[1]}`;
+    let text = `${score.s1?.[0] ?? '-'}:${score.s1?.[1] ?? '-'} | ${score.s2?.[0] ?? '-'}:${score.s2?.[1] ?? '-'}`;
     if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += ` | [${score.tb[0]}:${score.tb[1]}]`;
     return <span className="font-bold text-[var(--contrast)]">{text}</span>;
   };
@@ -1023,8 +1105,12 @@ export default function App() {
                   <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">Noch keine Spiele geplant.</div>
                 ) : (
                   scheduledMatches.map(m => {
-                    const isWinner = m.winnerId === myTeam.id; const isLoser = m.winnerId && m.winnerId !== myTeam.id;
-                    const opp = m.team1?.id === myTeam.id ? m.team2 : m.team1;
+                    const isWinner = m.winnerId === myTeam.id; 
+                    const isLoser = m.winnerId && m.winnerId !== myTeam.id;
+                    
+                    const opp = (m.team1 && m.team1.id === myTeam.id) ? m.team2 : m.team1;
+                    const oppName = opp ? (opp.isBye ? 'Freilos' : opp.name) : 'Noch offen';
+
                     return (
                       <div key={m.id} className={`bg-[var(--base-3)] rounded p-4 shadow-sm border-l-4 ${isWinner ? 'border-l-[var(--tcw-green)]' : isLoser ? 'border-l-[var(--tcw-orange)]' : 'border-l-[var(--contrast-3)]'}`}>
                         <div className="flex justify-between items-center text-xs font-bold text-[var(--contrast-2)] uppercase tracking-wider mb-3 pb-2 border-b border-[var(--base)]">
@@ -1034,13 +1120,13 @@ export default function App() {
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
                             <div className="text-xs text-[var(--contrast-3)] mb-1 font-medium">Gegner</div>
-                            <div className="font-bold text-[var(--contrast)] text-sm">{opp?.name || 'Noch offen'}</div>
+                            <div className="font-bold text-[var(--contrast)] text-sm">{oppName}</div>
                           </div>
                           <div className="text-right pl-4">
                             {m.score ? (
                                <div className={`font-black text-lg ${isWinner ? 'text-[var(--tcw-green)]' : 'text-[var(--tcw-orange)]'}`}>
-                                  {m.score.s1[0]}:{m.score.s1[1]} <br/> {m.score.s2[0]}:{m.score.s2[1]}
-                                  {m.score.tb && <span><br/>[{m.score.tb[0]}:{m.score.tb[1]}]</span>}
+                                  {m.score.s1?.[0] ?? '-'}:{m.score.s1?.[1] ?? '-'} <br/> {m.score.s2?.[0] ?? '-'}:{m.score.s2?.[1] ?? '-'}
+                                  {m.score.tb && (m.score.tb[0] > 0 || m.score.tb[1] > 0) && <span><br/>[{m.score.tb[0]}:{m.score.tb[1]}]</span>}
                                </div>
                             ) : (<span className="text-[var(--contrast-3)] font-bold text-sm">VS</span>)}
                           </div>
@@ -1100,9 +1186,9 @@ export default function App() {
                   return (
                     <div className="bg-[var(--base-3)] rounded shadow-sm border border-[var(--base)] overflow-hidden divide-y divide-[var(--base)]">
                       {myRanks.map((item, idx) => (
-                         <div key={item.team.id} className={`flex items-center p-3 ${item.team.id === myTeam.id ? 'bg-[var(--base)] border-l-4 border-l-[var(--tcw-green)]' : ''}`}>
+                         <div key={item.team?.id} className={`flex items-center p-3 ${item.team?.id === myTeam.id ? 'bg-[var(--base)] border-l-4 border-l-[var(--tcw-green)]' : ''}`}>
                            <div className="w-8 text-center font-extrabold text-[var(--contrast-3)]">{idx===0?'🏆':item.rank}</div>
-                           <div className={`flex-1 pl-3 truncate ${item.team.id === myTeam.id ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)] font-medium'}`}>{item.team.name}</div>
+                           <div className={`flex-1 pl-3 truncate ${item.team?.id === myTeam.id ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)] font-medium'}`}>{item.team?.name}</div>
                          </div>
                       ))}
                     </div>
@@ -1134,8 +1220,8 @@ export default function App() {
       if (!score) return <span className="text-[var(--contrast-3)] font-normal flex-1 text-center">vs</span>;
       return (
         <div className="flex justify-center items-center space-x-4 text-[var(--tcw-green-light)] w-full">
-          <div className="w-8 text-center">{score.s1[0]}:{score.s1[1]}</div>
-          <div className="w-8 text-center">{score.s2[0]}:{score.s2[1]}</div>
+          <div className="w-8 text-center">{score.s1?.[0] ?? '-'}:{score.s1?.[1] ?? '-'}</div>
+          <div className="w-8 text-center">{score.s2?.[0] ?? '-'}:{score.s2?.[1] ?? '-'}</div>
           <div className="w-12 text-center text-[var(--tcw-yellow)]">
             {score.tb && (score.tb[0] > 0 || score.tb[1] > 0) ? `[${score.tb[0]}:${score.tb[1]}]` : ''}
           </div>
@@ -1182,8 +1268,8 @@ export default function App() {
                </div>
                {!t1IsBye && !t2IsBye && (
                   <div className="flex border-l border-[var(--contrast-2)] divide-x divide-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
-                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s1[0] ?? '-'}</div>
-                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s2[0] ?? '-'}</div>
+                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s1?.[0] ?? '-'}</div>
+                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team1?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s2?.[0] ?? '-'}</div>
                      <div className="w-12 flex items-center justify-center text-sm text-[var(--tcw-yellow)] font-bold">{match.score?.tb && match.score.tb[0] > 0 ? match.score.tb[0] : ''}</div>
                   </div>
                )}
@@ -1198,8 +1284,8 @@ export default function App() {
                </div>
                {!t1IsBye && !t2IsBye && (
                   <div className="flex border-l border-[var(--contrast-2)] divide-x divide-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
-                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s1[1] ?? '-'}</div>
-                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s2[1] ?? '-'}</div>
+                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s1?.[1] ?? '-'}</div>
+                     <div className={`w-10 flex items-center justify-center text-xl ${match.winnerId === match.team2?.id ? 'font-bold text-[var(--tcw-green-light)]' : 'text-[var(--contrast-3)]'}`}>{match.score?.s2?.[1] ?? '-'}</div>
                      <div className="w-12 flex items-center justify-center text-sm text-[var(--tcw-yellow)] font-bold">{match.score?.tb && match.score.tb[1] > 0 ? match.score.tb[1] : ''}</div>
                   </div>
                )}
@@ -1348,21 +1434,21 @@ export default function App() {
              <div className="grid grid-cols-2 gap-8 h-full content-start">
                 <div className="flex flex-col space-y-4">
                    {(slide.data || []).slice(0, 6).map(item => (
-                      <div key={item.team.id} className={`rounded border flex items-center p-5 shadow ${item.rank === 1 ? 'border-[var(--tcw-yellow)] bg-[var(--contrast-2)]' : 'bg-[var(--contrast)] border-[var(--contrast-2)]'}`}>
+                      <div key={item.team?.id} className={`rounded border flex items-center p-5 shadow ${item.rank === 1 ? 'border-[var(--tcw-yellow)] bg-[var(--contrast-2)]' : 'bg-[var(--contrast)] border-[var(--contrast-2)]'}`}>
                          <div className={`text-4xl font-black w-20 text-center ${item.rank === 1 ? 'text-[var(--tcw-yellow)]' : 'text-[var(--contrast-3)]'}`}>
                             {item.rank === 1 ? '🏆' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : item.rank}
                          </div>
-                         <div className="flex-1 text-3xl font-bold text-[var(--base-3)] whitespace-nowrap pl-4 pr-2">{item.team.name}</div>
-                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="flex-1 text-3xl font-bold text-[var(--base-3)] whitespace-nowrap pl-4 pr-2">{item.team?.name}</div>
+                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{item.team?.clubs.join(' / ')}</div>
                       </div>
                    ))}
                 </div>
                 <div className="flex flex-col space-y-4">
                    {(slide.data || []).slice(6, 12).map(item => (
-                      <div key={item.team.id} className="bg-[var(--contrast)] rounded border border-[var(--contrast-2)] flex items-center p-5 shadow">
+                      <div key={item.team?.id} className="bg-[var(--contrast)] rounded border border-[var(--contrast-2)] flex items-center p-5 shadow">
                          <div className="text-4xl font-black text-[var(--contrast-3)] w-20 text-center">{item.rank}</div>
-                         <div className="flex-1 text-3xl font-bold text-[var(--base-3)] whitespace-nowrap pl-4 pr-2">{item.team.name}</div>
-                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{item.team.clubs.join(' / ')}</div>
+                         <div className="flex-1 text-3xl font-bold text-[var(--base-3)] whitespace-nowrap pl-4 pr-2">{item.team?.name}</div>
+                         <div className="text-[var(--contrast-3)] text-xl truncate max-w-[200px]">{item.team?.clubs.join(' / ')}</div>
                       </div>
                    ))}
                 </div>
@@ -1487,9 +1573,16 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="mt-4 pt-4 border-t border-[var(--contrast-3)] flex items-center space-x-3">
-                  <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-[var(--contrast-3)]" />
-                  <label htmlFor="isolateFinals" className="font-bold text-[var(--contrast)]">Finale isolieren (Nach allen anderen Spielen ansetzen)</label>
+                <div className="flex flex-col md:flex-row gap-4 mt-4 pt-4 border-t border-[var(--contrast-3)]">
+                  <div className="flex items-center space-x-3">
+                    <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-[var(--contrast-3)]" />
+                    <label htmlFor="isolateFinals" className="font-bold text-[var(--contrast)]">Finale isolieren (Nach anderen Spielen ansetzen)</label>
+                  </div>
+                  <div className="flex items-center space-x-3 md:ml-auto">
+                    <Clock className="text-[var(--contrast-2)]" />
+                    <div className="font-bold text-[var(--contrast)]">Spieldauer (Min.):</div>
+                    <input type="number" min="15" step="15" value={matchDuration} onChange={(e) => setMatchDuration(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-24" />
+                  </div>
                 </div>
               </div>
 
@@ -1536,6 +1629,9 @@ export default function App() {
                 <div className="col-span-2">
                   <div className="flex justify-between items-center mb-4">
                      <h3 className="heading-font font-bold text-lg text-[var(--contrast)]">Registrierte Teams ({teams.length})</h3>
+                     <button onClick={() => { setPrintView('tickets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 1000); }} disabled={teams.length === 0} className="flex items-center space-x-2 bg-[var(--contrast)] text-[var(--base-3)] px-3 py-2 rounded hover:bg-[var(--contrast-2)] font-bold transition disabled:opacity-50 text-xs sm:text-sm shadow-sm">
+                       <Smartphone size={16} /> <span className="hidden sm:inline">Tickets drucken</span><span className="sm:hidden">Tickets</span>
+                     </button>
                   </div>
                   <div className="overflow-auto max-h-[600px] border border-[var(--contrast-3)] rounded bg-[var(--base-3)]">
                     <table className="w-full text-left text-sm table-fixed">
@@ -1696,7 +1792,21 @@ export default function App() {
                                 return (
                                 <tr key={m.id} className={`transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-[var(--base-2)]'}`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-[var(--tcw-orange)]' : (m.time === 'Flexibel' ? 'text-[var(--tcw-green-dark)] text-xs tracking-widest' : 'text-[var(--contrast)]')}`}>{m.time || 'Nicht angesetzt'}</td>
+                                  <td className={`p-3 font-bold ${isUnscheduled ? 'text-[var(--tcw-orange)]' : (m.time === 'Flexibel' ? 'text-[var(--tcw-green-dark)] text-xs tracking-widest' : 'text-[var(--contrast)]')}`}>
+                                     {appMode === 'organizer' ? (
+                                        <div className="flex flex-col space-y-1" onClick={e => e.stopPropagation()}>
+                                           {tournamentDays > 1 && (
+                                               <select value={m.day || 1} onChange={(e) => handleMatchDayChange(m.id, e.target.value)} className="p-1 border border-[var(--contrast-3)] rounded text-xs bg-[var(--base-3)] w-full">
+                                                  <option value={1}>Tag 1</option>
+                                                  <option value={2}>Tag 2</option>
+                                               </select>
+                                           )}
+                                           <input type="time" value={m.time && m.time !== 'Flexibel' && m.time !== 'BYE' ? m.time : ''} onChange={(e) => handleMatchTimeChange(m.id, e.target.value)} className="p-1 border border-[var(--contrast-3)] rounded text-xs bg-[var(--base-3)] w-full font-bold" />
+                                        </div>
+                                     ) : (
+                                        m.time || 'Nicht angesetzt'
+                                     )}
+                                  </td>
                                   <td className="p-3">{m.court ? <span className="border border-[var(--contrast-3)] px-2 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
                                   <td className="p-3 text-xs truncate"><span className="block font-bold text-[var(--tcw-green)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-[var(--contrast-2)]">{formatStageGroupName(m.stage, m.groupName)}</span></td>
                                   <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>
@@ -1806,12 +1916,12 @@ export default function App() {
                            </thead>
                            <tbody className="divide-y divide-[var(--base)]">
                              {finalRankings[cat].map((item, idx) => (
-                               <tr key={item.team.id} className="hover:bg-[var(--base-2)] transition bg-[var(--base-3)]">
+                               <tr key={item.team?.id} className="hover:bg-[var(--base-2)] transition bg-[var(--base-3)]">
                                  <td className="p-4 text-center font-bold text-lg border-r border-[var(--contrast-3)] text-[var(--contrast)]">
                                    {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : item.rank}
                                  </td>
-                                 <td className="p-4 font-bold text-[var(--contrast)] truncate">{item.team.name}</td>
-                                 <td className="p-4 text-[var(--contrast-2)] truncate">{item.team.clubs.join(' / ')}</td>
+                                 <td className="p-4 font-bold text-[var(--contrast)] truncate">{item.team?.name}</td>
+                                 <td className="p-4 text-[var(--contrast-2)] truncate">{item.team?.clubs.join(' / ')}</td>
                                  <td className="p-4 text-center">
                                    {idx < 8 
                                      ? <span className="border border-[var(--tcw-green)] text-[var(--tcw-green)] px-2 py-1 rounded text-xs font-bold">K.O.-Phase</span> 
@@ -1866,8 +1976,8 @@ export default function App() {
                       <tbody className="divide-y divide-[var(--contrast)]">
                         {gMatches.map(m => (
                           <tr key={m.id}>
-                             <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team1.name}</td>
-                             <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team2.name}</td>
+                             <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team1?.name || 'Offen'}</td>
+                             <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team2?.name || 'Offen'}</td>
                              <td className="border-r border-[var(--contrast)] p-5"></td>
                              <td className="border-r border-[var(--contrast)] p-5"></td>
                              <td className="p-5"></td>
@@ -1880,6 +1990,44 @@ export default function App() {
               )
             })
           })}
+        </div>
+      )}
+
+      {/* --- PRINTABLE TEAM TICKETS (QR CODES) --- */}
+      {printView === 'tickets' && (
+        <div className="hidden print:block w-full bg-[var(--base-3)] p-8">
+          <div className="grid grid-cols-2 gap-8">
+            {teams.map(team => {
+               // Base URL is retrieved dynamically so it works wherever the app is hosted
+               const ticketUrl = `${window.location.origin}${window.location.pathname}?pin=${team.pin}`;
+               const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(ticketUrl)}&margin=10`;
+               
+               return (
+                 <div key={team.id} className="border-4 border-[var(--contrast)] rounded-2xl p-8 flex flex-col items-center text-center shadow-sm page-break-inside-avoid mb-4 break-inside-avoid">
+                   <div className="flex items-center space-x-4 mb-6">
+                      <img src={BRAND.logo} alt="Logo" className="h-16 object-contain" />
+                      <div className="text-left">
+                         <h2 className="heading-font text-2xl font-black uppercase leading-none">{BRAND.name}</h2>
+                         <div className="text-[var(--contrast-2)] font-bold uppercase tracking-widest text-sm mt-1">Spieler-Ticket</div>
+                      </div>
+                   </div>
+                   
+                   <div className="bg-[var(--base)] w-full py-4 mb-8 border-y-2 border-[var(--contrast)]">
+                     <div className="text-2xl font-black text-[var(--tcw-green-dark)] truncate px-2">{team.name}</div>
+                     <div className="text-md font-bold text-[var(--contrast-2)] mt-1">{team.clubs.join(' / ')} • {team.category}</div>
+                   </div>
+                   
+                   <div className="border-4 border-[var(--contrast)] p-2 rounded-xl bg-white mb-6">
+                     <img src={qrUrl} alt="QR Code" className="w-40 h-40" />
+                   </div>
+                   
+                   <div className="text-sm text-[var(--contrast-2)] font-bold mb-2 uppercase tracking-wider">Dein Login-Code</div>
+                   <div className="text-4xl font-mono font-black text-[var(--tcw-green)] tracking-[0.25em]">{team.pin}</div>
+                   <div className="text-xs text-[var(--contrast-3)] font-medium mt-6 max-w-[80%]">Mit der Smartphone-Kamera scannen, um direkt zum persönlichen Spielplan zu gelangen.</div>
+                 </div>
+               )
+            })}
+          </div>
         </div>
       )}
 
@@ -1899,13 +2047,13 @@ export default function App() {
                 <div className="w-1/2">Teams</div><div className="w-12 text-center">S1</div><div className="w-12 text-center">S2</div><div className="w-12 text-center text-[var(--tcw-orange)]">TB</div>
               </div>
               <div className="flex justify-between items-center mb-4">
-                <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team1?.name}</div>
+                <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team1?.name || 'Offen'}</div>
                 <input name="s1_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[0]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
                 <input name="s2_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[0]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
                 <input name="tb_t1" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[0]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)]" />
               </div>
               <div className="flex justify-between items-center mb-8">
-                <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team2?.name}</div>
+                <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team2?.name || 'Offen'}</div>
                 <input name="s1_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[1]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
                 <input name="s2_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[1]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
                 <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[1]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)]" />
