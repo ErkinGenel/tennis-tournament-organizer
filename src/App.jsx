@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   Trophy, Users, Calendar, Trash2, Edit, Save, Upload, Monitor, LayoutDashboard, 
   Clock, Smartphone, Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward, 
-  Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield, PlusCircle, Printer, GitCommit, QrCode
+  Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield, PlusCircle, Printer, GitCommit, QrCode,
+  CheckSquare, Plus, Minus
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -188,6 +189,95 @@ const OfficialMatchBox = ({ match, title, isFinal=false }) => {
    );
 };
 
+const ScoreEntryModal = ({ match, onClose, onSave }) => {
+  const [score, setScore] = useState(() => {
+    if (match.score) return JSON.parse(JSON.stringify(match.score));
+    return { s1: [0, 0], s2: [0, 0], tb: [null, null] };
+  });
+
+  const updateScore = (set, teamIdx, delta) => {
+    setScore(prev => {
+      const newScore = { ...prev };
+      let val = newScore[set][teamIdx];
+      if (val === null) val = 0;
+      val += delta;
+      if (val < 0) val = 0;
+      if (set !== 'tb' && val > 7) val = 7; // Max 7 for regular sets
+      newScore[set][teamIdx] = val;
+      return newScore;
+    });
+  };
+
+  const handleSave = () => {
+    const formatSet = (s) => (s[0] === null && s[1] === null) ? null : [s[0] || 0, s[1] || 0];
+    onSave(match.id, formatSet(score.s1) || [0,0], formatSet(score.s2) || [0,0], (score.tb[0] > 0 || score.tb[1] > 0) ? score.tb : null);
+  };
+
+  const Stepper = ({ label, value, onIncrease, onDecrease, colorClass }) => (
+    <div className="flex flex-col items-center">
+      <div className="text-[10px] text-[var(--contrast-2)] font-bold uppercase mb-1">{label}</div>
+      <div className="flex items-center bg-[var(--base-2)] rounded-lg border border-[var(--contrast-3)] overflow-hidden">
+        <button type="button" onClick={onDecrease} className="px-4 py-3 bg-[var(--base-3)] hover:bg-[var(--base)] border-r border-[var(--contrast-3)] active:bg-[var(--contrast-3)] transition-colors"><Minus size={20} className="text-[var(--contrast)]" /></button>
+        <div className={`w-12 text-center text-2xl font-black ${colorClass}`}>{value !== null ? value : '-'}</div>
+        <button type="button" onClick={onIncrease} className="px-4 py-3 bg-[var(--base-3)] hover:bg-[var(--base)] border-l border-[var(--contrast-3)] active:bg-[var(--contrast-3)] transition-colors"><Plus size={20} className="text-[var(--contrast)]" /></button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-[var(--contrast)]/90 flex flex-col items-center justify-center z-50 print:hidden p-4 md:p-8 backdrop-blur-sm">
+      <div className="bg-[var(--base-3)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col h-full max-h-[800px] animate-in zoom-in-95">
+        <div className="bg-[var(--tcw-green)] p-5 flex justify-between items-center text-[var(--base-3)] shrink-0">
+           <div>
+              <h3 className="font-bold text-xl heading-font flex items-center"><Edit2 size={24} className="mr-2"/> Ergebnis eintragen</h3>
+              <div className="text-sm font-medium opacity-90 mt-1">{match.time} Uhr • Platz {match.court} • {CATEGORIES[match.category]?.substring(0,3)} {match.category}</div>
+           </div>
+           <button onClick={onClose} className="p-2 hover:bg-[var(--tcw-green-dark)] rounded-full transition"><X size={28}/></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col justify-center space-y-8">
+           {/* Team 1 Row */}
+           <div className="bg-[var(--base-3)] border-2 border-[var(--contrast-3)] rounded-xl p-4 md:p-6 shadow-sm">
+              <div className="text-xl md:text-2xl font-black text-[var(--contrast)] mb-4 pb-2 border-b-2 border-[var(--base)] truncate">
+                 {match.team1?.name || 'Offen'}
+              </div>
+              <div className="flex justify-around gap-2">
+                 <Stepper label="Satz 1" value={score.s1[0]} onIncrease={() => updateScore('s1', 0, 1)} onDecrease={() => updateScore('s1', 0, -1)} colorClass="text-[var(--contrast)]" />
+                 <Stepper label="Satz 2" value={score.s2[0]} onIncrease={() => updateScore('s2', 0, 1)} onDecrease={() => updateScore('s2', 0, -1)} colorClass="text-[var(--contrast)]" />
+                 <Stepper label="Tiebreak" value={score.tb[0]} onIncrease={() => updateScore('tb', 0, 1)} onDecrease={() => updateScore('tb', 0, -1)} colorClass="text-[var(--tcw-orange)]" />
+              </div>
+           </div>
+
+           {/* VS Divider */}
+           <div className="flex items-center justify-center">
+              <div className="h-px bg-[var(--contrast-3)] flex-1"></div>
+              <span className="px-4 text-[var(--contrast-3)] font-bold text-lg uppercase tracking-widest">Gegen</span>
+              <div className="h-px bg-[var(--contrast-3)] flex-1"></div>
+           </div>
+
+           {/* Team 2 Row */}
+           <div className="bg-[var(--base-3)] border-2 border-[var(--contrast-3)] rounded-xl p-4 md:p-6 shadow-sm">
+              <div className="text-xl md:text-2xl font-black text-[var(--contrast)] mb-4 pb-2 border-b-2 border-[var(--base)] truncate">
+                 {match.team2?.name || 'Offen'}
+              </div>
+              <div className="flex justify-around gap-2">
+                 <Stepper label="Satz 1" value={score.s1[1]} onIncrease={() => updateScore('s1', 1, 1)} onDecrease={() => updateScore('s1', 1, -1)} colorClass="text-[var(--contrast)]" />
+                 <Stepper label="Satz 2" value={score.s2[1]} onIncrease={() => updateScore('s2', 1, 1)} onDecrease={() => updateScore('s2', 1, -1)} colorClass="text-[var(--contrast)]" />
+                 <Stepper label="Tiebreak" value={score.tb[1]} onIncrease={() => updateScore('tb', 1, 1)} onDecrease={() => updateScore('tb', 1, -1)} colorClass="text-[var(--tcw-orange)]" />
+              </div>
+           </div>
+        </div>
+
+        <div className="p-4 md:p-6 bg-[var(--base-2)] border-t border-[var(--contrast-3)] shrink-0">
+           <button onClick={handleSave} className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] py-4 rounded-xl font-black text-xl hover:bg-[var(--tcw-green-dark)] active:scale-[0.98] flex items-center justify-center shadow-lg transition-all">
+              <CheckCircle size={28} className="mr-3" /> ERGEBNIS SPEICHERN
+           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [appMode, setAppMode] = useState('login');
   const [passwordInput, setPasswordInput] = useState('');
@@ -198,6 +288,8 @@ export default function App() {
   const [playerTab, setPlayerTab] = useState('matches');
   
   const [activeTab, setActiveTab] = useState('registration');
+  const [resultsFilter, setResultsFilter] = useState('pending'); // Für den neuen "Erfassung"-Tab
+  
   const [teams, setTeams] = useState([]);
   const [groups, setGroups] = useState({ U50: {}, O50: {} });
   const [matches, setMatches] = useState([]);
@@ -213,7 +305,7 @@ export default function App() {
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
   const [scoreModal, setScoreModal] = useState(null);
-  const [koConfig, setKoConfig] = useState(null); // Settings modal for KO Generation
+  const [koConfig, setKoConfig] = useState(null); 
   const [schedulePrompt, setSchedulePrompt] = useState(false);
   
   const [printView, setPrintView] = useState('normal');
@@ -222,13 +314,11 @@ export default function App() {
   const [simState, setSimState] = useState('idle');
   const [koQualifyCount, setKoQualifyCount] = useState(2);
   
-  // Ensure strict 24 hour display for monitor clock
   const [currentTime, setCurrentTime] = useState(() => new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false }));
 
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
 
-  // Auto-Login via URL parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlPin = params.get('pin');
@@ -1477,29 +1567,30 @@ export default function App() {
 
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${printView !== 'normal' ? 'hidden' : 'print:p-0 print:max-w-none'}`}>
         
-        <div className="flex bg-[var(--base-3)] border border-[var(--contrast-3)] rounded mb-8 print:hidden overflow-hidden shadow-sm">
+        <div className="flex flex-wrap bg-[var(--base-3)] border border-[var(--contrast-3)] rounded mb-8 print:hidden overflow-hidden shadow-sm">
           {[
             { id: 'registration', icon: Users, label: 'Anmeldung' },
             { id: 'groups', icon: Shield, label: 'Gruppen' },
             { id: 'schedule', icon: Calendar, label: 'Spielplan' },
             { id: 'bracket', icon: Trophy, label: 'K.O.-Baum' },
-            { id: 'rankings', icon: Award, label: 'Rangliste' }
+            { id: 'rankings', icon: Award, label: 'Rangliste' },
+            { id: 'results', icon: CheckSquare, label: 'Erfassung' }
           ].map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 font-bold transition-all border-r border-[var(--contrast-3)] last:border-r-0 ${
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 font-bold transition-all border-r border-b md:border-b-0 border-[var(--contrast-3)] last:border-r-0 ${
                 activeTab === t.id ? 'bg-[var(--base)] text-[var(--tcw-green)]' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)] hover:text-[var(--contrast)]'
               }`}
             >
-              <t.icon size={18} /> <span>{t.label}</span>
+              <t.icon size={18} /> <span className="whitespace-nowrap">{t.label}</span>
             </button>
           ))}
         </div>
 
-        <div className="bg-[var(--base-3)] rounded border border-[var(--contrast-3)] p-6 print:border-none print:shadow-none print:p-0">
+        <div className={`bg-[var(--base-3)] rounded border border-[var(--contrast-3)] print:border-none print:shadow-none print:p-0 ${activeTab === 'results' ? 'p-0 bg-transparent border-none' : 'p-6'}`}>
           
-          {}
+          {/* Registration Tab */}
           {activeTab === 'registration' && (
             <div className="space-y-8 print:hidden">
               <div className="flex justify-between items-center bg-[var(--base-2)] p-6 rounded border border-[var(--base)]">
@@ -1639,7 +1730,7 @@ export default function App() {
             </div>
           )}
 
-          {}
+          {/* Groups Tab */}
           {activeTab === 'groups' && (
             <div className="space-y-8">
               <div className="flex justify-between items-center print:hidden">
@@ -1696,7 +1787,7 @@ export default function App() {
             </div>
           )}
 
-          {}
+          {/* Schedule Tab */}
           {activeTab === 'schedule' && (
             <div>
                <div className="flex justify-between items-center mb-6 print:hidden">
@@ -1792,7 +1883,103 @@ export default function App() {
             </div>
           )}
 
-          {}
+          {activeTab === 'results' && (
+            <div className="bg-[var(--base-2)] min-h-[calc(100vh-200px)] p-2 md:p-6 pb-24 rounded-lg">
+                <div className="flex justify-between items-center mb-6 px-2">
+                    <div>
+                        <h2 className="heading-font text-2xl font-black text-[var(--contrast)]">Ergebniserfassung</h2>
+                        <p className="text-[var(--contrast-2)] text-sm font-bold">Für Tablets und Smartphones optimiert.</p>
+                    </div>
+                </div>
+
+                <div className="flex space-x-2 bg-[var(--base-3)] p-2 rounded-xl shadow-sm border border-[var(--contrast-3)] mb-6 mx-2">
+                    <button 
+                        onClick={() => setResultsFilter('pending')}
+                        className={`flex-1 py-3 font-bold rounded-lg transition-colors ${resultsFilter === 'pending' ? 'bg-[var(--tcw-green)] text-[var(--base-3)] shadow' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)]'}`}
+                    >
+                        Zu Spielen ({matches.filter(m => !m.winnerId && !m.team1?.isBye && !m.team2?.isBye && m.team1 && m.team2).length})
+                    </button>
+                    <button 
+                        onClick={() => setResultsFilter('completed')}
+                        className={`flex-1 py-3 font-bold rounded-lg transition-colors ${resultsFilter === 'completed' ? 'bg-[var(--tcw-green)] text-[var(--base-3)] shadow' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)]'}`}
+                    >
+                        Beendet ({matches.filter(m => m.winnerId && !m.team1?.isBye && !m.team2?.isBye && m.team1 && m.team2).length})
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-2">
+                    {matches
+                        .filter(m => m.team1 && m.team2 && !m.team1.isBye && !m.team2.isBye)
+                        .filter(m => resultsFilter === 'pending' ? !m.winnerId : m.winnerId)
+                        .sort((a, b) => {
+                            if (a.day !== b.day) return a.day - b.day;
+                            if (a.time === 'Flexibel' && b.time === 'Flexibel') return (a.court || 0) - (b.court || 0);
+                            if (a.time === 'Flexibel') return -1;
+                            if (b.time === 'Flexibel') return 1;
+                            return a.time.localeCompare(b.time);
+                        })
+                        .map(m => (
+                            <div 
+                                key={m.id} 
+                                onClick={() => setScoreModal(m)}
+                                className="bg-[var(--base-3)] rounded-xl shadow-sm border border-[var(--contrast-3)] p-5 flex flex-col cursor-pointer hover:shadow-md hover:border-[var(--tcw-green-light)] active:scale-[0.98] transition-all"
+                            >
+                                <div className="flex justify-between items-center mb-4 pb-3 border-b border-[var(--base)]">
+                                    <div className="flex flex-col">
+                                        <span className="text-[var(--tcw-green-dark)] font-black text-xl">{m.time} Uhr</span>
+                                        <span className="text-xs font-bold text-[var(--contrast-3)] mt-0.5">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                                    </div>
+                                    <span className="bg-[var(--contrast)] text-[var(--base-3)] px-4 py-1.5 rounded-lg font-black tracking-widest shadow-sm">
+                                        Platz {m.court || '?'}
+                                    </span>
+                                </div>
+                                
+                                <div className="flex flex-col space-y-3">
+                                    <div className="flex justify-between items-center bg-[var(--base-2)] rounded-lg p-3">
+                                        <span className={`text-lg font-bold truncate pr-4 ${m.winnerId === m.team1.id ? 'text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>{m.team1.name}</span>
+                                        {m.score && (
+                                            <div className="flex space-x-2 font-black text-xl shrink-0">
+                                                <span className="w-6 text-center">{m.score.s1[0]}</span>
+                                                <span className="w-6 text-center">{m.score.s2[0]}</span>
+                                                <span className="w-8 text-center text-[var(--tcw-orange)] text-sm pt-1">{m.score.tb && m.score.tb[0] > 0 ? `(${m.score.tb[0]})` : ''}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between items-center bg-[var(--base-2)] rounded-lg p-3">
+                                        <span className={`text-lg font-bold truncate pr-4 ${m.winnerId === m.team2.id ? 'text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>{m.team2.name}</span>
+                                        {m.score && (
+                                            <div className="flex space-x-2 font-black text-xl shrink-0">
+                                                <span className="w-6 text-center">{m.score.s1[1]}</span>
+                                                <span className="w-6 text-center">{m.score.s2[1]}</span>
+                                                <span className="w-8 text-center text-[var(--tcw-orange)] text-sm pt-1">{m.score.tb && m.score.tb[1] > 0 ? `(${m.score.tb[1]})` : ''}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {!m.score ? (
+                                    <div className="mt-5 bg-[var(--tcw-green)] text-center text-[var(--base-3)] py-3 rounded-lg font-black text-lg flex items-center justify-center">
+                                        <Edit2 size={20} className="mr-2" /> Ergebnis eintragen
+                                    </div>
+                                ) : (
+                                    <div className="mt-5 bg-[var(--base)] border border-[var(--contrast-3)] text-center text-[var(--contrast-2)] py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:bg-[var(--contrast-3)] hover:text-[var(--contrast)] transition-colors">
+                                        Ergebnis korrigieren
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    }
+                    
+                    {matches.filter(m => resultsFilter === 'pending' ? !m.winnerId : m.winnerId).length === 0 && (
+                        <div className="col-span-full py-12 text-center text-[var(--contrast-3)] font-bold text-xl bg-[var(--base-3)] rounded-xl border-2 border-dashed border-[var(--contrast-3)]">
+                            Keine Spiele in dieser Kategorie gefunden.
+                        </div>
+                    )}
+                </div>
+            </div>
+          )}
+
+          {/* Bracket Tab */}
           {activeTab === 'bracket' && (
              <div className="overflow-x-auto pb-12">
                {['U50', 'O50'].map(cat => {
@@ -1838,6 +2025,7 @@ export default function App() {
              </div>
           )}
 
+          {/* Rankings Tab */}
           {activeTab === 'rankings' && (
              <div className="space-y-12">
                {['U50', 'O50'].map(cat => {
@@ -1981,39 +2169,7 @@ export default function App() {
         </div>
       )}
 
-      {scoreModal && (
-        <div className="fixed inset-0 bg-[var(--contrast)]/80 flex items-center justify-center z-50 print:hidden p-4">
-          <div className="bg-[var(--base-3)] rounded shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 border border-[var(--contrast-3)]">
-            <div className="bg-[var(--tcw-green)] p-4 flex justify-between items-center text-[var(--base-3)]">
-               <h3 className="font-bold">Spielergebnis eintragen</h3>
-               <button onClick={() => setScoreModal(null)} className="hover:text-[var(--contrast-3)] transition"><X size={20}/></button>
-            </div>
-            <form onSubmit={(e) => {
-               e.preventDefault(); const fd = new FormData(e.target);
-               handleSaveScore(scoreModal.id, [parseInt(fd.get('s1_t1')||0), parseInt(fd.get('s1_t2')||0)], [parseInt(fd.get('s2_t1')||0), parseInt(fd.get('s2_t2')||0)], [parseInt(fd.get('tb_t1')||0), parseInt(fd.get('tb_t2')||0)]);
-            }} className="p-6">
-              <div className="flex justify-between items-end mb-4 font-bold text-sm text-[var(--contrast-2)] border-b border-[var(--contrast-3)] pb-2 uppercase tracking-wider">
-                <div className="w-1/2">Teams</div><div className="w-12 text-center">S1</div><div className="w-12 text-center">S2</div><div className="w-12 text-center text-[var(--tcw-orange)]">TB</div>
-              </div>
-              <div className="flex justify-between items-center mb-4">
-                <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team1?.name || 'Offen'}</div>
-                <input name="s1_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[0]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
-                <input name="s2_t1" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[0]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
-                <input name="tb_t1" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[0]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)]" />
-              </div>
-              <div className="flex justify-between items-center mb-8">
-                <div className="w-1/2 font-bold text-[var(--contrast)] truncate pr-2">{scoreModal.team2?.name || 'Offen'}</div>
-                <input name="s1_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s1[1]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
-                <input name="s2_t2" type="number" min="0" max="7" defaultValue={scoreModal.score?.s2[1]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold bg-[var(--base-3)] focus:border-[var(--tcw-green)]" required />
-                <input name="tb_t2" type="number" min="0" max="20" defaultValue={scoreModal.score?.tb[1]} className="w-12 p-2 border border-[var(--contrast-3)] rounded text-center font-bold text-[var(--tcw-orange)] focus:border-[var(--tcw-orange)]" />
-              </div>
-              <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] py-3 rounded font-bold hover:bg-[var(--tcw-green-dark)] flex items-center justify-center transition">
-                 <CheckCircle size={18} className="mr-2" /> Ergebnis speichern
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} />}
 
       {schedulePrompt && (
         <div className="fixed inset-0 bg-[var(--contrast)]/80 flex items-center justify-center z-50 print:hidden p-4">
