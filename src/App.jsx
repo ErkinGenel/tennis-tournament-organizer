@@ -3,7 +3,7 @@ import {
   Trophy, Users, Calendar, Trash2, Edit, Save, Upload, Monitor, LayoutDashboard, 
   Clock, Smartphone, Play, CheckCircle, ChevronRight, X, Lock, Loader2, FastForward, 
   Edit2, Download, Award, Tv, LogOut, User, AlertTriangle, Shield, PlusCircle, Printer, GitCommit, QrCode,
-  CheckSquare, Plus, Minus
+  CheckSquare, Plus, Minus, FileSignature
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
@@ -98,7 +98,6 @@ const addMinutes = (timeStr, mins) => {
   h += Math.floor(m / 60);
   m = m % 60;
   h = h % 24; 
-  // Enforcing strict 24-hour format
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 };
 
@@ -109,7 +108,7 @@ const generateTimeSlots = (startTimeStr, numSlots = 8, spacing = 105) => {
     slots.push(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`);
     minutes += spacing;
     if (minutes >= 60) { hours += Math.floor(minutes / 60); minutes = minutes % 60; }
-    hours = hours % 24; // Ensure 24h loop
+    hours = hours % 24; 
   }
   return slots;
 };
@@ -202,7 +201,7 @@ const ScoreEntryModal = ({ match, onClose, onSave }) => {
       if (val === null) val = 0;
       val += delta;
       if (val < 0) val = 0;
-      if (set !== 'tb' && val > 7) val = 7; // Max 7 for regular sets
+      if (set !== 'tb' && val > 7) val = 7; 
       newScore[set][teamIdx] = val;
       return newScore;
     });
@@ -236,7 +235,6 @@ const ScoreEntryModal = ({ match, onClose, onSave }) => {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col justify-center space-y-8">
-           {/* Team 1 Row */}
            <div className="bg-[var(--base-3)] border-2 border-[var(--contrast-3)] rounded-xl p-4 md:p-6 shadow-sm">
               <div className="text-xl md:text-2xl font-black text-[var(--contrast)] mb-4 pb-2 border-b-2 border-[var(--base)] truncate">
                  {match.team1?.name || 'Offen'}
@@ -248,14 +246,12 @@ const ScoreEntryModal = ({ match, onClose, onSave }) => {
               </div>
            </div>
 
-           {/* VS Divider */}
            <div className="flex items-center justify-center">
               <div className="h-px bg-[var(--contrast-3)] flex-1"></div>
               <span className="px-4 text-[var(--contrast-3)] font-bold text-lg uppercase tracking-widest">Gegen</span>
               <div className="h-px bg-[var(--contrast-3)] flex-1"></div>
            </div>
 
-           {/* Team 2 Row */}
            <div className="bg-[var(--base-3)] border-2 border-[var(--contrast-3)] rounded-xl p-4 md:p-6 shadow-sm">
               <div className="text-xl md:text-2xl font-black text-[var(--contrast)] mb-4 pb-2 border-b-2 border-[var(--base)] truncate">
                  {match.team2?.name || 'Offen'}
@@ -282,13 +278,15 @@ export default function App() {
   const [appMode, setAppMode] = useState('login');
   const [passwordInput, setPasswordInput] = useState('');
   const [monitorPassword, setMonitorPassword] = useState('');
+  const [directorPassword, setDirectorPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  
   const [user, setUser] = useState(null);
   const [loggedInTeamId, setLoggedInTeamId] = useState(null);
   const [playerTab, setPlayerTab] = useState('matches');
   
   const [activeTab, setActiveTab] = useState('registration');
-  const [resultsFilter, setResultsFilter] = useState('pending'); // Für den neuen "Erfassung"-Tab
+  const [resultsFilter, setResultsFilter] = useState('pending'); 
   
   const [teams, setTeams] = useState([]);
   const [groups, setGroups] = useState({ U50: {}, O50: {} });
@@ -315,9 +313,21 @@ export default function App() {
   const [koQualifyCount, setKoQualifyCount] = useState(2);
   
   const [currentTime, setCurrentTime] = useState(() => new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', hour12: false }));
-
   const [monitorSlides, setMonitorSlides] = useState([]);
   const [monitorSlideIdx, setMonitorSlideIdx] = useState(0);
+
+  const matchCodeMap = useMemo(() => {
+     const map = {};
+     const sched = [...matches].filter(m => m.time && m.time !== 'Flexibel' && m.time !== 'BYE').sort((a,b) => {
+         if (a.day !== b.day) return a.day - b.day;
+         if (a.time !== b.time) return a.time.localeCompare(b.time);
+         return (a.court || 0) - (b.court || 0);
+     });
+     sched.forEach((m, idx) => {
+         map[m.id] = `M-${String(idx + 1).padStart(3, '0')}`;
+     });
+     return map;
+  }, [matches]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -368,7 +378,7 @@ export default function App() {
 
   useEffect(() => {
     const syncToCloud = async () => {
-      if (appMode === 'organizer' && user) {
+      if ((appMode === 'organizer' || appMode === 'director') && user) {
         try {
           const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
           await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, lastUpdated: new Date().toISOString() });
@@ -581,16 +591,15 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('tennis_auth');
-    setPasswordInput('');
-    setMonitorPassword('');
-    const url = new URL(window.location);
-    if (url.searchParams.has('pin')) {
-      url.searchParams.delete('pin');
-      window.history.replaceState({}, '', url);
+  const handleDirectorLogin = (e) => {
+    e.preventDefault();
+    if (directorPassword === 'wannweil' || directorPassword === 'erfassung') {
+        setAppMode('director');
+        setDirectorPassword('');
+        setAuthError('');
+    } else {
+        setAuthError('Falsches Passwort für Turnierleitung.');
     }
-    setAppMode('login');
   };
 
   const handleMonitorLogin = (e) => {
@@ -602,6 +611,19 @@ export default function App() {
     } else {
       setAuthError('Falsches Monitor-Passwort.');
     }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('tennis_auth');
+    setPasswordInput('');
+    setMonitorPassword('');
+    setDirectorPassword('');
+    const url = new URL(window.location);
+    if (url.searchParams.has('pin')) {
+      url.searchParams.delete('pin');
+      window.history.replaceState({}, '', url);
+    }
+    setAppMode('login');
   };
 
   const handleRegister = (e) => {
@@ -746,7 +768,7 @@ export default function App() {
   const generateSchedule = (mode = 'traditional') => {
     let newMatches = [];
     if (mode === 'traditional') {
-      const timeSlotSpacing = matchDuration + 15; // Universal 15min gap between matches
+      const timeSlotSpacing = matchDuration + 15; 
       const timeSlots = generateTimeSlots(day1Start, 16, timeSlotSpacing);
       
       ['U50', 'O50'].forEach(cat => {
@@ -868,12 +890,10 @@ export default function App() {
     
     const sfDay = tournamentDays;
     
-    // Calculate start times dynamically based on configuration
     let day1AvailableStart = day1Start;
     const day1GroupMatches = newMatches.filter(m => m.day === 1 && m.endTime);
     if (day1GroupMatches.length > 0) {
         const latestEndMins = Math.max(...day1GroupMatches.map(m => timeToMins(m.endTime)));
-        // Start QFs 15 mins after the absolute last group match
         day1AvailableStart = addMinutes(`${Math.floor(latestEndMins/60).toString().padStart(2,'0')}:${(latestEndMins%60).toString().padStart(2,'0')}`, 15);
     }
     
@@ -1100,32 +1120,55 @@ export default function App() {
         <GlobalStyles />
         <div className="absolute inset-0 z-0 opacity-10" style={{backgroundImage: `url(${BRAND.banner})`, backgroundSize: 'cover'}}></div>
         
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-          <div className="h-32 w-32 flex items-center justify-center mb-6 drop-shadow-md">
-             <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
-          </div>
-          <div className="p-8 rounded shadow-lg w-full border border-[var(--contrast-3)] mb-6 relative overflow-hidden bg-[var(--base-3)]">
-            {authError && !authError.includes('Monitor') && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
-            <h2 className="heading-font text-2xl font-extrabold text-center text-[var(--contrast)] mt-2 mb-2">{BRAND.name} Portal</h2>
-            <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Veranstalter-Passwort oder Team-PIN eingeben</p>
+        <div className="h-32 w-32 flex items-center justify-center mb-8 drop-shadow-md relative z-10">
+            <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
+        </div>
+
+        <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch justify-center">
+          
+          <div className="p-8 rounded-xl shadow-xl w-full border border-[var(--contrast-3)] relative overflow-hidden bg-[var(--base-3)] flex flex-col justify-between">
+            {authError && !authError.includes('Monitor') && !authError.includes('Turnierleitung') && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
+            <div>
+                <Lock className="h-10 w-10 text-[var(--tcw-green)] mx-auto mb-4" />
+                <h2 className="heading-font text-xl font-extrabold text-center text-[var(--contrast)] mb-2">Veranstalter & Team</h2>
+                <p className="text-center text-[var(--contrast-2)] text-sm mb-6 font-medium">Turnierplanung oder privater Team-Zugang.</p>
+            </div>
             <form onSubmit={handleLogin} className="space-y-4">
-              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-[var(--contrast-3)] rounded text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:outline-none transition bg-[var(--base-3)] text-[var(--contrast)]" placeholder="Passwort oder PIN" required />
+              <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full p-3 border border-[var(--contrast-3)] rounded text-center tracking-widest font-bold focus:border-[var(--tcw-green)] focus:outline-none transition bg-[var(--base-2)] text-[var(--contrast)]" placeholder="Passwort oder PIN" required />
               <button type="submit" className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] p-3 rounded font-bold hover:bg-[var(--tcw-green-dark)] shadow-md transition">Anmelden</button>
             </form>
           </div>
 
-          <div className="bg-[var(--contrast)] p-8 rounded shadow-lg w-full border border-[var(--contrast-2)] text-center relative overflow-hidden">
+          <div className="p-8 rounded-xl shadow-xl w-full border border-[var(--tcw-green-dark)] relative overflow-hidden bg-[var(--tcw-green)] text-[var(--base-3)] flex flex-col justify-between transform md:scale-105 z-10">
+            {authError && authError.includes('Turnierleitung') && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
+            <div>
+                <CheckSquare className="h-10 w-10 text-[var(--base-3)] mx-auto mb-4" />
+                <h2 className="heading-font text-xl font-extrabold text-center mb-2">Turnierleitung</h2>
+                <p className="text-center text-[var(--base)] text-sm mb-6 font-medium">Mobile Ergebniserfassung für Tablets & Smartphones.</p>
+            </div>
+            <form onSubmit={handleDirectorLogin} className="space-y-4">
+              <input type="password" value={directorPassword} onChange={(e) => setDirectorPassword(e.target.value)} className="w-full p-3 border border-[var(--tcw-green-dark)] rounded text-center tracking-widest font-bold focus:border-[var(--base-3)] focus:outline-none transition bg-[var(--tcw-green-dark)] text-[var(--base-3)] placeholder:text-[var(--base-3)] placeholder:opacity-70" placeholder="Leiter-Passwort" required />
+              <button type="submit" className="w-full bg-[var(--base-3)] text-[var(--tcw-green-dark)] p-3 rounded font-bold hover:bg-[var(--base)] shadow-lg flex items-center justify-center transition">
+                <FileSignature size={20} className="mr-2" /> Erfassung starten
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-[var(--contrast)] p-8 rounded-xl shadow-xl w-full border border-[var(--contrast-2)] text-center relative overflow-hidden flex flex-col justify-between">
              {authError && authError.includes('Monitor') && <div className="absolute top-0 left-0 w-full bg-[var(--tcw-orange)] text-[var(--base-3)] text-xs font-bold text-center py-2 animate-in slide-in-from-top">{authError}</div>}
-             <Tv className="h-10 w-10 text-[var(--tcw-green-light)] mx-auto mb-4" />
-             <h3 className="heading-font font-bold text-[var(--base-3)] text-xl mb-2">TV-Monitor Anzeige</h3>
-             <p className="text-sm text-[var(--contrast-3)] mb-6 font-medium">Starten Sie das Live-Dashboard.</p>
+             <div>
+                 <Tv className="h-10 w-10 text-[var(--tcw-green-light)] mx-auto mb-4" />
+                 <h3 className="heading-font font-bold text-[var(--base-3)] text-xl mb-2">TV-Monitor Anzeige</h3>
+                 <p className="text-sm text-[var(--contrast-3)] mb-6 font-medium">Starten Sie das Live-Dashboard.</p>
+             </div>
              <form onSubmit={handleMonitorLogin} className="space-y-4">
                <input type="password" value={monitorPassword} onChange={(e) => setMonitorPassword(e.target.value)} className="w-full p-3 border border-[var(--contrast-2)] rounded text-center tracking-widest font-bold focus:border-[var(--tcw-green-light)] focus:outline-none transition bg-[var(--contrast-2)] text-[var(--base-3)] placeholder:text-[var(--contrast-3)]" placeholder="Monitor-Passwort" required />
-               <button type="submit" className="w-full bg-[var(--contrast-2)] text-[var(--base-3)] p-3 rounded font-bold hover:bg-[var(--contrast)] shadow-md flex items-center justify-center border border-[var(--contrast-3)] transition">
+               <button type="submit" className="w-full bg-[var(--contrast-2)] text-[var(--base-3)] p-3 rounded font-bold hover:bg-[var(--contrast-3)] shadow-md flex items-center justify-center border border-[var(--contrast-3)] transition">
                  <Monitor size={20} className="mr-2" /> Monitor starten
                </button>
              </form>
           </div>
+
         </div>
       </div>
     );
@@ -1373,7 +1416,7 @@ export default function App() {
               </div>
               <div className="flex items-center space-x-6">
                 <button onClick={handleLogout} className="flex items-center space-x-2 text-[var(--contrast-3)] hover:text-[var(--base-3)] bg-[var(--contrast-2)] px-4 py-2 rounded transition border border-[var(--contrast-2)] text-lg">
-                  <Lock size={20} className="mr-2" /> Veranstalter
+                  <LogOut size={20} className="mr-2" /> Menü
                 </button>
                 <div className="text-4xl font-bold text-[var(--base-3)] flex items-center bg-[var(--contrast-2)] px-6 py-3 rounded border border-[var(--contrast-2)] min-w-[160px] justify-center">
                   {currentTime}
@@ -1526,6 +1569,139 @@ export default function App() {
     );
   }
 
+  if (appMode === 'director') {
+    const timeSlotColors = [
+       'bg-blue-100 border-blue-300', 'bg-green-100 border-green-300', 'bg-yellow-100 border-yellow-300', 
+       'bg-purple-100 border-purple-300', 'bg-pink-100 border-pink-300', 'bg-orange-100 border-orange-300', 
+       'bg-teal-100 border-teal-300', 'bg-indigo-100 border-indigo-300', 'bg-red-100 border-red-300', 'bg-cyan-100 border-cyan-300'
+    ];
+    
+    const uniqueTimeSlots = Array.from(new Set(matches.filter(m => m.time && m.time !== 'Flexibel' && m.time !== 'BYE').map(m => `${m.day}-${m.time}`))).sort();
+    
+    const getTimeSlotColor = (day, time) => {
+        if (!time || time === 'Flexibel' || time === 'BYE') return 'bg-[var(--base-3)] border-[var(--contrast-3)]';
+        const index = uniqueTimeSlots.indexOf(`${day}-${time}`);
+        if (index === -1) return 'bg-[var(--base-3)] border-[var(--contrast-3)]';
+        return timeSlotColors[index % timeSlotColors.length];
+    };
+
+    return (
+        <div className="bg-[var(--base-2)] min-h-screen pb-24 font-sans">
+            <GlobalStyles />
+            <header className="bg-[var(--tcw-green)] text-[var(--base-3)] pt-6 pb-6 px-5 shadow-md flex justify-between items-center sticky top-0 z-20">
+                <div className="flex items-center space-x-4">
+                    <div className="bg-[var(--base-3)] p-2 rounded-lg text-[var(--tcw-green)]">
+                        <FileSignature size={28} />
+                    </div>
+                    <div>
+                        <h1 className="heading-font text-2xl font-bold leading-none">Turnierleitung</h1>
+                        <p className="text-sm font-medium opacity-90 mt-1 tracking-wider uppercase">Ergebniserfassung</p>
+                    </div>
+                </div>
+                <button onClick={handleLogout} className="p-3 bg-[var(--tcw-green-dark)] rounded-full hover:bg-[var(--contrast)] transition shadow-sm border border-[var(--tcw-green-dark)]">
+                    <LogOut size={22} />
+                </button>
+            </header>
+
+            <main className="p-4 md:p-6 max-w-5xl mx-auto mt-4">
+                <div className="flex space-x-2 bg-[var(--base-3)] p-2 rounded-xl shadow-sm border border-[var(--contrast-3)] mb-6">
+                    <button 
+                        onClick={() => setResultsFilter('pending')}
+                        className={`flex-1 py-3 font-bold rounded-lg transition-colors ${resultsFilter === 'pending' ? 'bg-[var(--tcw-green)] text-[var(--base-3)] shadow' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)]'}`}
+                    >
+                        Zu Spielen ({matches.filter(m => !m.winnerId && !m.team1?.isBye && !m.team2?.isBye && m.team1 && m.team2).length})
+                    </button>
+                    <button 
+                        onClick={() => setResultsFilter('completed')}
+                        className={`flex-1 py-3 font-bold rounded-lg transition-colors ${resultsFilter === 'completed' ? 'bg-[var(--tcw-green)] text-[var(--base-3)] shadow' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)]'}`}
+                    >
+                        Beendet ({matches.filter(m => m.winnerId && !m.team1?.isBye && !m.team2?.isBye && m.team1 && m.team2).length})
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {matches
+                        .filter(m => m.team1 && m.team2 && !m.team1.isBye && !m.team2.isBye)
+                        .filter(m => resultsFilter === 'pending' ? !m.winnerId : m.winnerId)
+                        .sort((a, b) => {
+                            if (a.day !== b.day) return a.day - b.day;
+                            if (a.time === 'Flexibel' && b.time === 'Flexibel') return (a.court || 0) - (b.court || 0);
+                            if (a.time === 'Flexibel') return -1;
+                            if (b.time === 'Flexibel') return 1;
+                            return a.time.localeCompare(b.time);
+                        })
+                        .map(m => {
+                            const slotColorClass = getTimeSlotColor(m.day, m.time);
+                            const mCode = matchCodeMap[m.id] || 'TBA';
+                            return (
+                            <div 
+                                key={m.id} 
+                                onClick={() => setScoreModal(m)}
+                                className={`rounded-xl shadow-sm border p-5 flex flex-col cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all ${slotColorClass}`}
+                            >
+                                <div className="flex justify-between items-start mb-4 pb-3 border-b border-[var(--contrast-2)]/20">
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center space-x-3">
+                                           <span className="text-[var(--contrast)] font-black text-xl">{m.time} Uhr</span>
+                                           <span className="bg-[var(--contrast)] text-[var(--base-3)] text-xs px-2 py-1 rounded font-bold tracking-widest">{mCode}</span>
+                                        </div>
+                                        <span className="text-xs font-bold text-[var(--contrast-2)] mt-1">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                                    </div>
+                                    <span className="bg-[var(--base-3)] text-[var(--contrast)] px-4 py-1.5 rounded-lg font-black tracking-widest shadow-sm border border-[var(--contrast-3)]">
+                                        Platz {m.court || '?'}
+                                    </span>
+                                </div>
+                                
+                                <div className="flex flex-col space-y-3">
+                                    <div className="flex justify-between items-center bg-[var(--base-3)]/70 rounded-lg p-3 border border-[var(--base-3)]">
+                                        <span className={`text-lg font-bold truncate pr-4 ${m.winnerId === m.team1.id ? 'text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>{m.team1.name}</span>
+                                        {m.score && (
+                                            <div className="flex space-x-2 font-black text-xl shrink-0">
+                                                <span className="w-6 text-center">{m.score.s1[0]}</span>
+                                                <span className="w-6 text-center">{m.score.s2[0]}</span>
+                                                <span className="w-8 text-center text-[var(--tcw-orange)] text-sm pt-1">{m.score.tb && m.score.tb[0] > 0 ? `(${m.score.tb[0]})` : ''}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between items-center bg-[var(--base-3)]/70 rounded-lg p-3 border border-[var(--base-3)]">
+                                        <span className={`text-lg font-bold truncate pr-4 ${m.winnerId === m.team2.id ? 'text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>{m.team2.name}</span>
+                                        {m.score && (
+                                            <div className="flex space-x-2 font-black text-xl shrink-0">
+                                                <span className="w-6 text-center">{m.score.s1[1]}</span>
+                                                <span className="w-6 text-center">{m.score.s2[1]}</span>
+                                                <span className="w-8 text-center text-[var(--tcw-orange)] text-sm pt-1">{m.score.tb && m.score.tb[1] > 0 ? `(${m.score.tb[1]})` : ''}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {!m.score ? (
+                                    <div className="mt-5 bg-[var(--tcw-green)] text-center text-[var(--base-3)] py-3 rounded-lg font-black text-lg flex items-center justify-center">
+                                        <Edit2 size={20} className="mr-2" /> Ergebnis eintragen
+                                    </div>
+                                ) : (
+                                    <div className="mt-5 bg-[var(--base)] border border-[var(--contrast-3)] text-center text-[var(--contrast-2)] py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:bg-[var(--contrast-3)] hover:text-[var(--contrast)] transition-colors">
+                                        Ergebnis korrigieren
+                                    </div>
+                                )}
+                            </div>
+                            );
+                        })
+                    }
+                    
+                    {matches.filter(m => resultsFilter === 'pending' ? !m.winnerId : m.winnerId).length === 0 && (
+                        <div className="col-span-full py-12 text-center text-[var(--contrast-3)] font-bold text-xl bg-[var(--base-3)] rounded-xl border-2 border-dashed border-[var(--contrast-3)]">
+                            Keine Spiele in dieser Kategorie gefunden.
+                        </div>
+                    )}
+                </div>
+            </main>
+
+            {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} />}
+        </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen bg-[var(--base-2)] text-[var(--contrast)] font-sans pb-12 relative ${printView !== 'normal' ? 'bg-[var(--base-3)]' : ''}`}>
       <GlobalStyles />
@@ -1558,8 +1734,8 @@ export default function App() {
             <button onClick={() => window.print()} className="flex items-center space-x-2 bg-[var(--contrast-2)] hover:bg-[var(--contrast)] px-3 py-2 rounded transition text-sm">
               <Printer size={18} /> <span className="hidden sm:inline">Drucken</span>
             </button>
-            <button onClick={() => setAppMode('monitor')} className="flex items-center space-x-2 bg-[var(--contrast)] hover:bg-[var(--contrast-2)] text-[var(--base-3)] px-3 py-2 rounded transition text-sm border border-[var(--contrast-2)]">
-              <Tv size={18} /> <span className="hidden sm:inline">Monitor</span>
+            <button onClick={handleLogout} className="flex items-center space-x-2 bg-[var(--contrast)] hover:bg-[var(--contrast-2)] text-[var(--base-3)] px-3 py-2 rounded transition text-sm border border-[var(--contrast-2)]">
+              <LogOut size={18} /> <span className="hidden sm:inline">Abmelden</span>
             </button>
           </div>
         </div>
@@ -1573,8 +1749,7 @@ export default function App() {
             { id: 'groups', icon: Shield, label: 'Gruppen' },
             { id: 'schedule', icon: Calendar, label: 'Spielplan' },
             { id: 'bracket', icon: Trophy, label: 'K.O.-Baum' },
-            { id: 'rankings', icon: Award, label: 'Rangliste' },
-            { id: 'results', icon: CheckSquare, label: 'Erfassung' }
+            { id: 'rankings', icon: Award, label: 'Rangliste' }
           ].map((t) => (
             <button
               key={t.id}
@@ -1588,7 +1763,7 @@ export default function App() {
           ))}
         </div>
 
-        <div className={`bg-[var(--base-3)] rounded border border-[var(--contrast-3)] print:border-none print:shadow-none print:p-0 ${activeTab === 'results' ? 'p-0 bg-transparent border-none' : 'p-6'}`}>
+        <div className="bg-[var(--base-3)] rounded border border-[var(--contrast-3)] print:border-none print:shadow-none print:p-0 p-6">
           
           {/* Registration Tab */}
           {activeTab === 'registration' && (
@@ -1861,7 +2036,11 @@ export default function App() {
                                       </div>
                                   </td>
                                   <td className="p-3 whitespace-nowrap">{m.court ? <span className="border border-[var(--contrast-3)] px-2 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
-                                  <td className="p-3 text-xs truncate"><span className="block font-bold text-[var(--tcw-green)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span><span className="text-[var(--contrast-2)]">{formatStageGroupName(m.stage, m.groupName)}</span></td>
+                                  <td className="p-3 text-xs truncate">
+                                    <span className="block font-bold text-[var(--tcw-green)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span>
+                                    <span className="text-[var(--contrast-2)]">{formatStageGroupName(m.stage, m.groupName)}</span>
+                                    {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)]">{matchCodeMap[m.id]}</span>}
+                                  </td>
                                   <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>
                                     {m.team1?.isBye ? <span className="text-[var(--tcw-orange)] font-bold italic">Freilos</span> : (m.team1?.name || 'Offen')}
                                   </td>
@@ -1880,102 +2059,6 @@ export default function App() {
                     )
                  })}
                </div>
-            </div>
-          )}
-
-          {activeTab === 'results' && (
-            <div className="bg-[var(--base-2)] min-h-[calc(100vh-200px)] p-2 md:p-6 pb-24 rounded-lg">
-                <div className="flex justify-between items-center mb-6 px-2">
-                    <div>
-                        <h2 className="heading-font text-2xl font-black text-[var(--contrast)]">Ergebniserfassung</h2>
-                        <p className="text-[var(--contrast-2)] text-sm font-bold">Für Tablets und Smartphones optimiert.</p>
-                    </div>
-                </div>
-
-                <div className="flex space-x-2 bg-[var(--base-3)] p-2 rounded-xl shadow-sm border border-[var(--contrast-3)] mb-6 mx-2">
-                    <button 
-                        onClick={() => setResultsFilter('pending')}
-                        className={`flex-1 py-3 font-bold rounded-lg transition-colors ${resultsFilter === 'pending' ? 'bg-[var(--tcw-green)] text-[var(--base-3)] shadow' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)]'}`}
-                    >
-                        Zu Spielen ({matches.filter(m => !m.winnerId && !m.team1?.isBye && !m.team2?.isBye && m.team1 && m.team2).length})
-                    </button>
-                    <button 
-                        onClick={() => setResultsFilter('completed')}
-                        className={`flex-1 py-3 font-bold rounded-lg transition-colors ${resultsFilter === 'completed' ? 'bg-[var(--tcw-green)] text-[var(--base-3)] shadow' : 'text-[var(--contrast-2)] hover:bg-[var(--base-2)]'}`}
-                    >
-                        Beendet ({matches.filter(m => m.winnerId && !m.team1?.isBye && !m.team2?.isBye && m.team1 && m.team2).length})
-                    </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-2">
-                    {matches
-                        .filter(m => m.team1 && m.team2 && !m.team1.isBye && !m.team2.isBye)
-                        .filter(m => resultsFilter === 'pending' ? !m.winnerId : m.winnerId)
-                        .sort((a, b) => {
-                            if (a.day !== b.day) return a.day - b.day;
-                            if (a.time === 'Flexibel' && b.time === 'Flexibel') return (a.court || 0) - (b.court || 0);
-                            if (a.time === 'Flexibel') return -1;
-                            if (b.time === 'Flexibel') return 1;
-                            return a.time.localeCompare(b.time);
-                        })
-                        .map(m => (
-                            <div 
-                                key={m.id} 
-                                onClick={() => setScoreModal(m)}
-                                className="bg-[var(--base-3)] rounded-xl shadow-sm border border-[var(--contrast-3)] p-5 flex flex-col cursor-pointer hover:shadow-md hover:border-[var(--tcw-green-light)] active:scale-[0.98] transition-all"
-                            >
-                                <div className="flex justify-between items-center mb-4 pb-3 border-b border-[var(--base)]">
-                                    <div className="flex flex-col">
-                                        <span className="text-[var(--tcw-green-dark)] font-black text-xl">{m.time} Uhr</span>
-                                        <span className="text-xs font-bold text-[var(--contrast-3)] mt-0.5">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
-                                    </div>
-                                    <span className="bg-[var(--contrast)] text-[var(--base-3)] px-4 py-1.5 rounded-lg font-black tracking-widest shadow-sm">
-                                        Platz {m.court || '?'}
-                                    </span>
-                                </div>
-                                
-                                <div className="flex flex-col space-y-3">
-                                    <div className="flex justify-between items-center bg-[var(--base-2)] rounded-lg p-3">
-                                        <span className={`text-lg font-bold truncate pr-4 ${m.winnerId === m.team1.id ? 'text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>{m.team1.name}</span>
-                                        {m.score && (
-                                            <div className="flex space-x-2 font-black text-xl shrink-0">
-                                                <span className="w-6 text-center">{m.score.s1[0]}</span>
-                                                <span className="w-6 text-center">{m.score.s2[0]}</span>
-                                                <span className="w-8 text-center text-[var(--tcw-orange)] text-sm pt-1">{m.score.tb && m.score.tb[0] > 0 ? `(${m.score.tb[0]})` : ''}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex justify-between items-center bg-[var(--base-2)] rounded-lg p-3">
-                                        <span className={`text-lg font-bold truncate pr-4 ${m.winnerId === m.team2.id ? 'text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>{m.team2.name}</span>
-                                        {m.score && (
-                                            <div className="flex space-x-2 font-black text-xl shrink-0">
-                                                <span className="w-6 text-center">{m.score.s1[1]}</span>
-                                                <span className="w-6 text-center">{m.score.s2[1]}</span>
-                                                <span className="w-8 text-center text-[var(--tcw-orange)] text-sm pt-1">{m.score.tb && m.score.tb[1] > 0 ? `(${m.score.tb[1]})` : ''}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                {!m.score ? (
-                                    <div className="mt-5 bg-[var(--tcw-green)] text-center text-[var(--base-3)] py-3 rounded-lg font-black text-lg flex items-center justify-center">
-                                        <Edit2 size={20} className="mr-2" /> Ergebnis eintragen
-                                    </div>
-                                ) : (
-                                    <div className="mt-5 bg-[var(--base)] border border-[var(--contrast-3)] text-center text-[var(--contrast-2)] py-3 rounded-lg font-bold text-sm flex items-center justify-center hover:bg-[var(--contrast-3)] hover:text-[var(--contrast)] transition-colors">
-                                        Ergebnis korrigieren
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    }
-                    
-                    {matches.filter(m => resultsFilter === 'pending' ? !m.winnerId : m.winnerId).length === 0 && (
-                        <div className="col-span-full py-12 text-center text-[var(--contrast-3)] font-bold text-xl bg-[var(--base-3)] rounded-xl border-2 border-dashed border-[var(--contrast-3)]">
-                            Keine Spiele in dieser Kategorie gefunden.
-                        </div>
-                    )}
-                </div>
             </div>
           )}
 
@@ -2089,7 +2172,7 @@ export default function App() {
         </div>
       </main>
 
-      {}
+      {/* Print View Tickets */}
       {printView === 'tickets' && (
         <div className="hidden print:block w-full bg-[var(--base-3)] text-[var(--contrast)] p-8">
           <div className="grid grid-cols-2 gap-8">
@@ -2117,6 +2200,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Print View Sheets */}
       {printView === 'sheets' && (
         <div className="hidden print:block w-full bg-[var(--base-3)] text-[var(--contrast)] p-8">
           {['U50', 'O50'].map(cat => {
@@ -2142,6 +2226,7 @@ export default function App() {
                    <table className="w-full text-left border-collapse border border-[var(--contrast)] mb-6">
                       <thead className="bg-[var(--base)] border-b border-[var(--contrast)]">
                         <tr>
+                          <th className="border-r border-[var(--contrast)] p-4 text-center w-24">Code</th>
                           <th className="border-r border-[var(--contrast)] p-4 text-lg w-1/3">Team 1</th>
                           <th className="border-r border-[var(--contrast)] p-4 text-lg w-1/3">Team 2</th>
                           <th className="border-r border-[var(--contrast)] p-4 text-center">Satz 1</th>
@@ -2152,6 +2237,7 @@ export default function App() {
                       <tbody className="divide-y divide-[var(--contrast)]">
                         {gMatches.map(m => (
                           <tr key={m.id}>
+                             <td className="border-r border-[var(--contrast)] p-5 text-center font-black text-xl bg-[var(--base-2)]">{matchCodeMap[m.id] || '-'}</td>
                              <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team1?.name || 'Offen'}</td>
                              <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team2?.name || 'Offen'}</td>
                              <td className="border-r border-[var(--contrast)] p-5"></td>
@@ -2169,6 +2255,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Modals */}
       {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} />}
 
       {schedulePrompt && (
