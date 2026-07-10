@@ -1424,7 +1424,7 @@ export default function App() {
               </div>
 
               <div className="hidden xl:flex flex-1 justify-center px-8">
-                 <img src={BRAND.sponsorBanner} alt="Sponsor" className="h-16 w-auto object-contain bg-[var(--base-3)] p-2 rounded shadow-sm" />
+                 <img src={BRAND.sponsorBanner} alt="Sponsor" className="h-18 w-auto object-contain" />
               </div>
 
               <div className="flex items-center space-x-6 shrink-0">
