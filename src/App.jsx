@@ -2311,13 +2311,13 @@ export default function App() {
                            </div>
 
                            {/* Master-Turnier Note for Top 4 */}
-                           <div className="h-24 flex items-center justify-center w-full px-4 mb-4">
+                           <div className="flex items-center justify-center w-full px-4 mb-10 mt-2">
                                {isTop4 && (
-                                  <div className="border border-[var(--tcw-yellow)] bg-[var(--base-2)] px-6 py-3 rounded-xl w-full max-w-2xl shadow-sm text-center">
-                                     <h3 className="heading-font text-lg font-black text-[var(--contrast)] mb-1 flex justify-center items-center">
-                                        <Trophy className="mr-2 text-[var(--tcw-orange)]" size={20}/> QUALIFIZIERT FÜR DAS MASTERS
+                                  <div className="bg-[var(--base)] border border-[var(--contrast-3)] px-5 py-2.5 rounded-lg max-w-xl text-center shadow-sm">
+                                     <h3 className="heading-font text-xs font-bold text-[var(--contrast-2)] uppercase tracking-widest flex justify-center items-center mb-0.5">
+                                        <Trophy className="mr-2 text-[var(--contrast-3)]" size={14}/> Qualifiziert für das Masters
                                      </h3>
-                                     <p className="text-[var(--contrast-2)] font-bold text-sm">
+                                     <p className="text-[var(--contrast-2)] font-medium text-[10px]">
                                         Die besten vier Paarungen qualifizieren sich für das Kessler-Cup-Masters-Turnier am Ende der Saison.
                                      </p>
                                   </div>
