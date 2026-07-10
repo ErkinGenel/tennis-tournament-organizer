@@ -35,6 +35,7 @@ const GlobalStyles = () => (
 const BRAND = {
   logo: "https://tcwannweil.com/wp-content/uploads/Logo-50-Jahre.png", 
   banner: "https://tcwannweil.com/wp-content/uploads/image1000099.jpg?auto=format&fit=crop&w=2000&q=80", 
+  sponsorBanner: "https://tcwannweil.com/wp-content/uploads/csm_Beitragsbild_Kessler_WTB_d56175dfc9.png",
   name: "TC Wannweil"
 };
 
@@ -2271,8 +2272,8 @@ export default function App() {
             return finalRankings[cat].map((item) => {
               const isTop4 = item.rank <= 4;
               return (
-                <div key={item.team?.id} className="page-break-after p-8 box-border" style={{ height: '280mm' }}>
-                   <div className="flex flex-col items-center justify-center p-12 border-[12px] border-double border-[var(--tcw-green)] h-full relative box-border bg-[var(--base-3)]">
+                <div key={item.team?.id} className="page-break-after p-0 m-0 w-[210mm] h-[297mm] box-border relative bg-[var(--base-3)] overflow-hidden">
+                   <div className="flex flex-col items-center justify-between p-10 border-[10px] border-double border-[var(--tcw-green)] absolute inset-0 m-4 box-border bg-[var(--base-3)]">
                        {/* Watermark Logo */}
                        <div className="absolute inset-0 z-0 opacity-[0.03] flex items-center justify-center pointer-events-none">
                            <img src={BRAND.logo} alt="Watermark" className="w-[500px] h-[500px] object-contain grayscale" />
@@ -2280,57 +2281,63 @@ export default function App() {
 
                        <div className="relative z-10 flex flex-col items-center w-full h-full text-center justify-between">
                            
-                           {/* Header */}
-                           <div className="pt-6">
-                              <img src={BRAND.logo} alt="Logo" className="h-28 mb-8 mx-auto object-contain" />
-                              <h1 className="heading-font text-6xl font-black uppercase text-[var(--contrast)] tracking-[0.4em] mb-4">Urkunde</h1>
-                              <div className="h-1.5 w-40 bg-[var(--tcw-orange)] mx-auto mb-4"></div>
+                           {/* Header Banners */}
+                           <div className="flex justify-between items-start w-full px-4 pt-2">
+                              <div className="flex flex-col items-center">
+                                 <img src={BRAND.logo} alt="Logo" className="h-20 object-contain" />
+                                 <span className="font-bold text-[10px] mt-1 text-[var(--tcw-green-dark)] uppercase tracking-wider">TC Wannweil e.V. seit 1976</span>
+                              </div>
+                              {/* Fallback falls Bild lokal fehlt: onerror lädt es im Zweifel direkt vom WTB */}
+                              <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-20 w-auto object-contain" onError={(e) => { e.target.src = 'https://www.wtb-tennis.de/fileadmin/WTB/bezirk_d/csm_Beitragsbild_Kessler_WTB_d56175dfc9.png'; e.target.onerror = null; }} />
+                           </div>
+
+                           {/* Title */}
+                           <div className="mt-4 mb-2">
+                              <h1 className="heading-font text-5xl font-black uppercase text-[var(--contrast)] tracking-[0.4em] mb-2">Urkunde</h1>
+                              <div className="h-1 w-32 bg-[var(--tcw-orange)] mx-auto"></div>
                            </div>
 
                            {/* Body */}
-                           <div className="flex-1 flex flex-col justify-center w-full my-8 space-y-6">
-                              <p className="text-2xl font-medium text-[var(--contrast-2)]">Wir gratulieren herzlich zum</p>
-                              
-                              <div className="text-7xl font-black text-[var(--tcw-green-dark)] drop-shadow-sm my-6">
-                                {item.rank}. Platz
+                           <div className="flex-1 flex flex-col justify-center w-full space-y-4">
+                              <div className="text-2xl font-medium text-[var(--contrast)] leading-relaxed">
+                                 Wir gratulieren herzlich zum <br/>
+                                 <span className="text-7xl font-black text-[var(--tcw-green-dark)] drop-shadow-sm block my-6">{item.rank}. Platz</span>
+                                 beim Kessler-Cup Herren Bezirk D 2026 in Wannweil.
                               </div>
                               
-                              <p className="text-xl font-bold uppercase tracking-[0.2em] text-[var(--contrast-3)] mb-10">
+                              <p className="text-lg font-bold uppercase tracking-[0.2em] text-[var(--contrast-3)]">
                                 Kategorie {CATEGORIES[cat]}
                               </p>
 
-                              <div className="my-8 px-8">
-                                 <h2 className="heading-font text-5xl font-extrabold text-[var(--contrast)] leading-tight">{item.team?.name}</h2>
-                                 <p className="text-2xl text-[var(--contrast-2)] mt-4 font-bold">{item.team?.clubs.join(' / ')}</p>
+                              <div className="my-6 px-4">
+                                 <h2 className="heading-font text-4xl font-extrabold text-[var(--contrast)] leading-tight">{item.team?.name}</h2>
+                                 <p className="text-xl text-[var(--contrast-2)] mt-2 font-bold">{item.team?.clubs.join(' / ')}</p>
                               </div>
                            </div>
 
                            {/* Master-Turnier Note for Top 4 */}
-                           <div className="h-40 flex items-center justify-center w-full px-8">
+                           <div className="h-24 flex items-center justify-center w-full px-4 mb-4">
                                {isTop4 && (
-                                  <div className="border-4 border-[var(--tcw-yellow)] bg-[var(--base-2)] px-8 py-5 rounded-2xl w-full max-w-3xl shadow-sm text-center">
-                                     <h3 className="heading-font text-2xl font-black text-[var(--contrast)] mb-2 flex justify-center items-center">
-                                        <Trophy className="mr-3 text-[var(--tcw-orange)]" size={28}/> QUALIFIZIERT FÜR DAS MASTERS
+                                  <div className="border border-[var(--tcw-yellow)] bg-[var(--base-2)] px-6 py-3 rounded-xl w-full max-w-2xl shadow-sm text-center">
+                                     <h3 className="heading-font text-lg font-black text-[var(--contrast)] mb-1 flex justify-center items-center">
+                                        <Trophy className="mr-2 text-[var(--tcw-orange)]" size={20}/> QUALIFIZIERT FÜR DAS MASTERS
                                      </h3>
-                                     <p className="text-[var(--contrast-2)] font-bold text-lg leading-snug">
-                                        Herzlichen Glückwunsch! Ihr seid für das <strong>Kessler-Cup-Masters-Turnier</strong> am Ende der Saison qualifiziert.
-                                     </p>
-                                     <p className="text-[var(--contrast-3)] font-medium text-sm mt-3 italic">
-                                        Die besten vier Paarungen qualifizieren sich für das Masters-Turnier am Ende der Saison.
+                                     <p className="text-[var(--contrast-2)] font-bold text-sm">
+                                        Die besten vier Paarungen qualifizieren sich für das Kessler-Cup-Masters-Turnier am Ende der Saison.
                                      </p>
                                   </div>
                                )}
                            </div>
 
                            {/* Footer */}
-                           <div className="w-full flex justify-between items-end px-16 mt-12 pb-6">
+                           <div className="w-full flex justify-between items-end px-12 pb-4">
                                <div className="text-center">
-                                   <div className="border-b-2 border-[var(--contrast-2)] w-64 mb-3"></div>
-                                   <p className="text-md font-bold text-[var(--contrast-2)]">Wannweil, {new Date().toLocaleDateString('de-DE')}</p>
+                                   <div className="border-b-2 border-[var(--contrast-2)] w-56 mb-2"></div>
+                                   <p className="text-sm font-bold text-[var(--contrast-2)]">Wannweil, {new Date().toLocaleDateString('de-DE')}</p>
                                </div>
                                <div className="text-center">
-                                   <div className="border-b-2 border-[var(--contrast-2)] w-64 mb-3"></div>
-                                   <p className="text-md font-bold text-[var(--contrast-2)]">Turnierleitung</p>
+                                   <div className="border-b-2 border-[var(--contrast-2)] w-56 mb-2"></div>
+                                   <p className="text-sm font-bold text-[var(--contrast-2)]">Turnierleitung</p>
                                </div>
                            </div>
                        </div>
@@ -2411,7 +2418,12 @@ export default function App() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
-        @media print { body { background: white; -webkit-print-color-adjust: exact; } .page-break-after { page-break-after: always; } .break-inside-avoid { break-inside: avoid; } @page { size: A4 portrait; margin: 1cm; } }
+        @media print { 
+            body { background: white; -webkit-print-color-adjust: exact; margin: 0; padding: 0; } 
+            .page-break-after { page-break-after: always; } 
+            .break-inside-avoid { break-inside: avoid; } 
+            @page { size: A4 portrait; margin: 0; } 
+        }
       `}} />
     </div>
   );
