@@ -33,10 +33,10 @@ const GlobalStyles = () => (
 );
 
 const BRAND = {
-  logo: "https://tcwannweil.com/wp-content/uploads/Logo-50-Jahre.png", 
-  banner: "https://tcwannweil.com/wp-content/uploads/image1000099.jpg?auto=format&fit=crop&w=2000&q=80", 
-  sponsorBanner: "https://tcwannweil.com/wp-content/uploads/csm_Beitragsbild_Kessler_WTB_d56175dfc9.png",
-  name: "TC Wannweil"
+  logo: "https://erkingenel.github.io/tennis-tournament-organizer/50JahreLogo3.png", 
+  banner: "https://erkingenel.github.io/tennis-tournament-organizer/50JahreLogo3.jpg?auto=format&fit=crop&w=2000&q=80", 
+  sponsorBanner: "https://erkingenel.github.io/tennis-tournament-organizer/kessler_wtb.png",
+  name: "TC Wannweil e.V."
 };
 
 const fallbackConfig = {
@@ -2287,8 +2287,7 @@ export default function App() {
                                  <img src={BRAND.logo} alt="Logo" className="h-20 object-contain" />
                                  <span className="font-bold text-[10px] mt-1 text-[var(--tcw-green-dark)] uppercase tracking-wider">TC Wannweil e.V. seit 1976</span>
                               </div>
-                              {/* Fallback falls Bild lokal fehlt: onerror lädt es im Zweifel direkt vom WTB */}
-                              <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-20 w-auto object-contain" onError={(e) => { e.target.src = 'https://www.wtb-tennis.de/fileadmin/WTB/bezirk_d/csm_Beitragsbild_Kessler_WTB_d56175dfc9.png'; e.target.onerror = null; }} />
+                              <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-20 w-auto object-contain" />
                            </div>
 
                            {/* Title */}
@@ -2304,10 +2303,6 @@ export default function App() {
                                  <span className="text-7xl font-black text-[var(--tcw-green-dark)] drop-shadow-sm block my-6">{item.rank}. Platz</span>
                                  beim Kessler-Cup Herren Bezirk D 2026 in Wannweil.
                               </div>
-                              
-                              <p className="text-lg font-bold uppercase tracking-[0.2em] text-[var(--contrast-3)]">
-                                Kategorie {CATEGORIES[cat]}
-                              </p>
 
                               <div className="my-6 px-4">
                                  <h2 className="heading-font text-4xl font-extrabold text-[var(--contrast)] leading-tight">{item.team?.name}</h2>
