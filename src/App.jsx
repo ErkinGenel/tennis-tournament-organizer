@@ -191,7 +191,14 @@ const OfficialMatchBox = ({ match, title, isFinal=false }) => {
 
 const ScoreEntryModal = ({ match, onClose, onSave }) => {
   const [score, setScore] = useState(() => {
-    if (match.score) return JSON.parse(JSON.stringify(match.score));
+    if (match.score) {
+      const parsed = JSON.parse(JSON.stringify(match.score));
+      return {
+        s1: parsed.s1 || [0, 0],
+        s2: parsed.s2 || [0, 0],
+        tb: parsed.tb || [null, null]
+      };
+    }
     return { s1: [0, 0], s2: [0, 0], tb: [null, null] };
   });
 
