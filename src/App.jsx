@@ -1411,7 +1411,7 @@ export default function App() {
         <GlobalStyles />
         <header className="relative flex justify-between items-center mb-6 overflow-hidden rounded border border-[var(--contrast-2)] shrink-0 bg-[var(--contrast)]">
           <div className="relative z-10 flex w-full justify-between items-center p-5">
-              <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-6 shrink-0">
                 <div className="h-20 w-20 flex items-center justify-center drop-shadow-md">
                    <img src={BRAND.logo} alt="Logo" className="w-full h-full object-contain" />
                 </div>
@@ -1422,7 +1422,12 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center space-x-6">
+
+              <div className="hidden xl:flex flex-1 justify-center px-8">
+                 <img src={BRAND.sponsorBanner} alt="Sponsor" className="h-16 w-auto object-contain bg-[var(--base-3)] p-2 rounded shadow-sm" />
+              </div>
+
+              <div className="flex items-center space-x-6 shrink-0">
                 <button onClick={handleLogout} className="flex items-center space-x-2 text-[var(--contrast-3)] hover:text-[var(--base-3)] bg-[var(--contrast-2)] px-4 py-2 rounded transition border border-[var(--contrast-2)] text-lg">
                   <LogOut size={20} className="mr-2" /> Menü
                 </button>
