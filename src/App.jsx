@@ -2111,6 +2111,14 @@ export default function App() {
           {/* Rankings Tab */}
           {activeTab === 'rankings' && (
              <div className="space-y-12">
+               <div className="flex justify-end print:hidden mb-4">
+                  <button 
+                    onClick={() => { setPrintView('certificates'); setTimeout(() => { window.print(); setPrintView('normal'); }, 600); }} 
+                    className="bg-[var(--tcw-green)] text-[var(--base-3)] px-5 py-2 rounded font-bold hover:bg-[var(--tcw-green-dark)] transition flex items-center shadow-sm"
+                  >
+                     <Award size={18} className="mr-2"/> Urkunden drucken
+                  </button>
+               </div>
                {['U50', 'O50'].map(cat => {
                  const finalMatchId = brackets[cat]?.finals?.[0]?.id;
                  const finalMatch = matches.find(m => m.id === finalMatchId);
@@ -2251,6 +2259,85 @@ export default function App() {
                 </div>
               )
             })
+          })}
+        </div>
+      )}
+
+      {/* Print View Certificates */}
+      {printView === 'certificates' && (
+        <div className="hidden print:block w-full bg-[var(--base-3)] text-[var(--contrast)]">
+          {['U50', 'O50'].map(cat => {
+            if (!finalRankings[cat] || finalRankings[cat].length === 0) return null;
+            return finalRankings[cat].map((item) => {
+              const isTop4 = item.rank <= 4;
+              return (
+                <div key={item.team?.id} className="page-break-after p-8 box-border" style={{ height: '280mm' }}>
+                   <div className="flex flex-col items-center justify-center p-12 border-[12px] border-double border-[var(--tcw-green)] h-full relative box-border bg-[var(--base-3)]">
+                       {/* Watermark Logo */}
+                       <div className="absolute inset-0 z-0 opacity-[0.03] flex items-center justify-center pointer-events-none">
+                           <img src={BRAND.logo} alt="Watermark" className="w-[500px] h-[500px] object-contain grayscale" />
+                       </div>
+
+                       <div className="relative z-10 flex flex-col items-center w-full h-full text-center justify-between">
+                           
+                           {/* Header */}
+                           <div className="pt-6">
+                              <img src={BRAND.logo} alt="Logo" className="h-28 mb-8 mx-auto object-contain" />
+                              <h1 className="heading-font text-6xl font-black uppercase text-[var(--contrast)] tracking-[0.4em] mb-4">Urkunde</h1>
+                              <div className="h-1.5 w-40 bg-[var(--tcw-orange)] mx-auto mb-4"></div>
+                           </div>
+
+                           {/* Body */}
+                           <div className="flex-1 flex flex-col justify-center w-full my-8 space-y-6">
+                              <p className="text-2xl font-medium text-[var(--contrast-2)]">Wir gratulieren herzlich zum</p>
+                              
+                              <div className="text-7xl font-black text-[var(--tcw-green-dark)] drop-shadow-sm my-6">
+                                {item.rank}. Platz
+                              </div>
+                              
+                              <p className="text-xl font-bold uppercase tracking-[0.2em] text-[var(--contrast-3)] mb-10">
+                                Kategorie {CATEGORIES[cat]}
+                              </p>
+
+                              <div className="my-8 px-8">
+                                 <h2 className="heading-font text-5xl font-extrabold text-[var(--contrast)] leading-tight">{item.team?.name}</h2>
+                                 <p className="text-2xl text-[var(--contrast-2)] mt-4 font-bold">{item.team?.clubs.join(' / ')}</p>
+                              </div>
+                           </div>
+
+                           {/* Master-Turnier Note for Top 4 */}
+                           <div className="h-40 flex items-center justify-center w-full px-8">
+                               {isTop4 && (
+                                  <div className="border-4 border-[var(--tcw-yellow)] bg-[var(--base-2)] px-8 py-5 rounded-2xl w-full max-w-3xl shadow-sm text-center">
+                                     <h3 className="heading-font text-2xl font-black text-[var(--contrast)] mb-2 flex justify-center items-center">
+                                        <Trophy className="mr-3 text-[var(--tcw-orange)]" size={28}/> QUALIFIZIERT FÜR DAS MASTERS
+                                     </h3>
+                                     <p className="text-[var(--contrast-2)] font-bold text-lg leading-snug">
+                                        Herzlichen Glückwunsch! Ihr seid für das <strong>Kessler-Cup-Masters-Turnier</strong> am Ende der Saison qualifiziert.
+                                     </p>
+                                     <p className="text-[var(--contrast-3)] font-medium text-sm mt-3 italic">
+                                        Die besten vier Paarungen qualifizieren sich für das Masters-Turnier am Ende der Saison.
+                                     </p>
+                                  </div>
+                               )}
+                           </div>
+
+                           {/* Footer */}
+                           <div className="w-full flex justify-between items-end px-16 mt-12 pb-6">
+                               <div className="text-center">
+                                   <div className="border-b-2 border-[var(--contrast-2)] w-64 mb-3"></div>
+                                   <p className="text-md font-bold text-[var(--contrast-2)]">Wannweil, {new Date().toLocaleDateString('de-DE')}</p>
+                               </div>
+                               <div className="text-center">
+                                   <div className="border-b-2 border-[var(--contrast-2)] w-64 mb-3"></div>
+                                   <p className="text-md font-bold text-[var(--contrast-2)]">Turnierleitung</p>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+                </div>
+              );
+            });
           })}
         </div>
       )}
