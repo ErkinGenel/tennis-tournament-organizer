@@ -2285,8 +2285,7 @@ export default function App() {
                            <div className="flex flex-col items-center w-full px-4 pt-4 space-y-6">
                               <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-24 w-auto object-contain" />
                               <div className="flex items-center justify-center space-x-4">
-                                 <img src={BRAND.logo} alt="Logo" className="h-10 w-auto object-contain" />
-                                 <h1 className="heading-font text-6xl font-extrabold text-[var(--contrast)] tracking-widest leading-none">TC Wannweil e.V.</h1>
+                                 <h1 className="heading-font text-6xl font-extrabold text-[var(--tcw-orange)] tracking-widest leading-none">TC Wannweil e.V.</h1>
                               </div>
                            </div>
 
