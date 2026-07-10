@@ -2282,17 +2282,17 @@ export default function App() {
                        <div className="relative z-10 flex flex-col items-center w-full h-full text-center justify-between">
                            
                            {/* Header Banners */}
-                           <div className="flex justify-between items-start w-full px-4 pt-2">
-                              <div className="flex flex-col items-center">
-                                 <img src={BRAND.logo} alt="Logo" className="h-20 object-contain" />
-                                 <span className="font-bold text-[10px] mt-1 text-[var(--tcw-green-dark)] uppercase tracking-wider">TC Wannweil e.V. seit 1976</span>
+                           <div className="flex flex-col items-center w-full px-4 pt-4 space-y-6">
+                              <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-24 w-auto object-contain" />
+                              <div className="flex items-center justify-center space-x-4">
+                                 <img src={BRAND.logo} alt="Logo" className="h-10 w-auto object-contain" />
+                                 <h1 className="heading-font text-4xl font-extrabold text-[var(--contrast)] uppercase tracking-widest leading-none">TC Wannweil e.V.</h1>
                               </div>
-                              <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-20 w-auto object-contain" />
                            </div>
 
                            {/* Title */}
-                           <div className="mt-4 mb-2">
-                              <h1 className="heading-font text-5xl font-black uppercase text-[var(--contrast)] tracking-[0.4em] mb-2">Urkunde</h1>
+                           <div className="mt-6 mb-2">
+                              <div className="heading-font text-5xl font-black uppercase text-[var(--contrast)] tracking-[0.4em] mb-2">Urkunde</div>
                               <div className="h-1 w-32 bg-[var(--tcw-orange)] mx-auto"></div>
                            </div>
 
