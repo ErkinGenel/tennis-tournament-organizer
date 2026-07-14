@@ -1424,7 +1424,7 @@ export default function App() {
               </div>
 
               <div className="hidden xl:flex flex-1 justify-center px-8">
-                 <img src={BRAND.sponsorBanner} alt="Sponsor" className="h-18 w-auto object-contain" />
+                 <img src={BRAND.sponsorBanner} alt="Sponsor" className="h-16 w-auto object-contain bg-[var(--base-3)] p-2 rounded shadow-sm" />
               </div>
 
               <div className="flex items-center space-x-6 shrink-0">
@@ -1883,7 +1883,7 @@ export default function App() {
                   <div className="flex justify-between items-center mb-4">
                      <h3 className="heading-font font-bold text-lg text-[var(--contrast)]">Registrierte Teams ({teams.length})</h3>
                   </div>
-                  <div className="overflow-auto max-h-[600px] border border-[var(--contrast-3)] rounded bg-[var(--base-3)]">
+                  <div className="overflow-auto max-h-[600px] border border-[var(--contrast-3)] rounded bg-[var(--base-3)] print:max-h-none print:overflow-visible print:border-none">
                     <table className="w-full text-left text-sm table-fixed">
                       <thead className="bg-[var(--base)] sticky top-0 shadow-sm z-10 text-[var(--contrast-2)] border-b border-[var(--contrast-3)]">
                         <tr>
@@ -1936,12 +1936,16 @@ export default function App() {
               {['U50', 'O50'].map(cat => (
                  groups[cat] && Object.keys(groups[cat]).length > 0 && (
                    <div key={cat} className="mb-10 page-break-after">
-                     <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center">
+                     <div className="hidden print:block mb-6 border-b-2 border-[var(--contrast)] pb-2">
+                        <h1 className="heading-font text-3xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
+                        <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Gruppenübersicht - {CATEGORIES[cat]}</h2>
+                     </div>
+                     <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center print:hidden">
                        {CATEGORIES[cat]} <span className="ml-3 text-sm border border-[var(--contrast-3)] px-3 py-1 rounded text-[var(--contrast-2)]">{Object.keys(groups[cat]).length} Gruppen</span>
                      </h2>
-                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:gap-4">
                         {Object.entries(groups[cat]).sort((a,b) => a[0].localeCompare(b[0])).map(([groupName, groupTeams]) => (
-                          <div key={groupName} className="border border-[var(--contrast-3)] rounded overflow-hidden">
+                          <div key={groupName} className="border border-[var(--contrast-3)] rounded overflow-hidden break-inside-avoid print:border-2">
                             <div className="bg-[var(--base)] p-3 font-bold text-[var(--contrast)] border-b border-[var(--contrast-3)]">{groupName}</div>
                             <table className="w-full text-sm text-left table-fixed">
                               <thead className="bg-[var(--base-3)] text-[var(--contrast-2)] uppercase text-xs border-b border-[var(--contrast-3)]">
@@ -1997,6 +2001,10 @@ export default function App() {
                </div>
 
                <div className="space-y-8">
+                 <div className="hidden print:block mb-4 border-b-2 border-[var(--contrast)] pb-2">
+                    <h1 className="heading-font text-3xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
+                    <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Offizieller Spielplan</h2>
+                 </div>
                  {[1, 2].map(day => {
                     const dayMatches = matches.filter(m => m.day === day && m.time !== null).sort((a,b) => {
                        if (a.time === 'Flexibel' && b.time === 'Flexibel') {
@@ -2013,22 +2021,22 @@ export default function App() {
                     
                     return (
                       <div key={day} className="mb-8">
-                        <h3 className="heading-font text-lg font-bold bg-[var(--tcw-green)] text-[var(--base-3)] p-4 rounded-t flex justify-between items-center">
+                        <h3 className="heading-font text-lg font-bold bg-[var(--tcw-green)] print:bg-[var(--contrast)] print:text-white text-[var(--base-3)] p-4 print:p-2 rounded-t flex justify-between items-center">
                           <span>{tournamentDays === 1 ? `Alle Spiele (${getFormattedDate(startDate, 0)})` : `Tag ${day} (${getFormattedDate(startDate, day - 1)}) ${day===1 ? '(Gruppenphase)' : '(Finals & Platzierungen)'}`}</span>
-                          <span className="text-sm border border-[var(--base-3)] px-3 py-1 rounded">
+                          <span className="text-sm border border-[var(--base-3)] px-3 py-1 rounded print:hidden">
                             {tournamentDays === 1 ? `Gruppen: ${day1Start} | K.O.: ${day2Start}` : `Start: ${day===1 ? day1Start : day2Start}`}
                           </span>
                         </h3>
-                        <div className="border border-[var(--contrast-3)] rounded-b overflow-x-auto bg-[var(--base-3)]">
-                          <table className="w-full text-sm table-fixed min-w-[900px]">
-                            <thead className="bg-[var(--base)] text-[var(--contrast-2)] uppercase text-xs border-b border-[var(--contrast-3)]">
+                        <div className="border border-[var(--contrast-3)] rounded-b overflow-x-auto bg-[var(--base-3)] print:overflow-visible print:border-x-0 print:border-b-0">
+                          <table className="w-full text-sm table-fixed min-w-[900px] print:min-w-0 print:text-xs">
+                            <thead className="bg-[var(--base)] text-[var(--contrast-2)] uppercase text-xs border-b border-[var(--contrast-3)] print:bg-white print:text-[var(--contrast)] print:border-b-2 print:border-[var(--contrast)]">
                               <tr>
-                                <th className="p-3 text-left w-32">Zeit</th>
-                                <th className="p-3 text-left w-24">Platz</th>
-                                <th className="p-3 text-left w-48">Phase</th>
-                                <th className="p-3 text-right">Team 1</th>
-                                <th className="p-3 text-center w-40">Ergebnis</th>
-                                <th className="p-3 text-left">Team 2</th>
+                                <th className="p-3 print:p-2 text-left w-32 print:w-24">Zeit</th>
+                                <th className="p-3 print:p-2 text-left w-24 print:w-16">Platz</th>
+                                <th className="p-3 print:p-2 text-left w-48 print:w-40">Phase</th>
+                                <th className="p-3 print:p-2 text-right">Team 1</th>
+                                <th className="p-3 print:p-2 text-center w-40 print:w-28">Ergebnis</th>
+                                <th className="p-3 print:p-2 text-left">Team 2</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--base)]">
@@ -2040,27 +2048,27 @@ export default function App() {
                                 const isUnscheduled = m.time === null;
                                 
                                 return (
-                                <tr key={m.id} className={`transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-[var(--base-2)]'}`} 
+                                <tr key={m.id} className={`transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-[var(--base-2)]'} print:border-b print:border-[var(--base)]`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 whitespace-nowrap font-bold ${isUnscheduled ? 'text-[var(--tcw-orange)]' : (m.time === 'Flexibel' ? 'text-[var(--tcw-green-dark)] text-xs tracking-widest' : 'text-[var(--contrast)]')}`}>
+                                  <td className={`p-3 print:p-2 whitespace-nowrap font-bold ${isUnscheduled ? 'text-[var(--tcw-orange)]' : (m.time === 'Flexibel' ? 'text-[var(--tcw-green-dark)] text-xs tracking-widest' : 'text-[var(--contrast)]')}`}>
                                       <div>
                                         <div>{m.time || 'Nicht angesetzt'}</div>
                                         {m.endTime && <div className="text-[10px] text-[var(--contrast-2)] font-medium">bis {m.endTime}</div>}
                                       </div>
                                   </td>
-                                  <td className="p-3 whitespace-nowrap">{m.court ? <span className="border border-[var(--contrast-3)] px-2 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
-                                  <td className="p-3 text-xs truncate">
-                                    <span className="block font-bold text-[var(--tcw-green)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span>
-                                    <span className="text-[var(--contrast-2)]">{formatStageGroupName(m.stage, m.groupName)}</span>
-                                    {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)]">{matchCodeMap[m.id]}</span>}
+                                  <td className="p-3 print:p-2 whitespace-nowrap">{m.court ? <span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
+                                  <td className="p-3 print:p-2 text-xs truncate">
+                                    <span className="block font-bold text-[var(--tcw-green)] print:text-[var(--contrast)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span>
+                                    <span className="text-[var(--contrast-2)] print:text-[var(--contrast)]">{formatStageGroupName(m.stage, m.groupName)}</span>
+                                    {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)] print:hidden">{matchCodeMap[m.id]}</span>}
                                   </td>
-                                  <td className={`p-3 text-right truncate ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>
+                                  <td className={`p-3 print:p-2 text-right truncate ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
                                     {m.team1?.isBye ? <span className="text-[var(--tcw-orange)] font-bold italic">Freilos</span> : (m.team1?.name || 'Offen')}
                                   </td>
-                                  <td className="p-3 text-center bg-[var(--base-2)] border-x border-[var(--base)]">
+                                  <td className="p-3 print:p-2 text-center bg-[var(--base-2)] border-x border-[var(--base)] print:bg-white print:border-x-0 print:border-dashed print:border-[var(--contrast-3)]">
                                      {isBye ? <span className="text-[var(--contrast-3)] italic text-xs font-bold">KEIN SPIEL</span> : renderScore(m.score)}
                                   </td>
-                                  <td className={`p-3 text-left truncate ${isT2Winner ? 'font-bold text-[var(--tcw-green-dark)]' : 'text-[var(--contrast)]'}`}>
+                                  <td className={`p-3 print:p-2 text-left truncate ${isT2Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
                                     {m.team2?.isBye ? <span className="text-[var(--tcw-orange)] font-bold italic">Freilos</span> : (m.team2?.name || 'Offen')}
                                   </td>
                                 </tr>
@@ -2154,28 +2162,32 @@ export default function App() {
                  
                  return (
                    <div key={cat} className="page-break-after">
-                      <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center">
+                      <div className="hidden print:block mb-6 border-b-2 border-[var(--contrast)] pb-2">
+                        <h1 className="heading-font text-3xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
+                        <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Abschlussplatzierungen - {CATEGORIES[cat]}</h2>
+                      </div>
+                      <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center print:hidden">
                         <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {CATEGORIES[cat]}
                       </h2>
-                      <div className="border border-[var(--contrast-3)] rounded overflow-hidden">
+                      <div className="border border-[var(--contrast-3)] rounded overflow-hidden print:border-none">
                         <table className="w-full text-left text-sm table-fixed">
-                           <thead className="bg-[var(--base)] text-[var(--contrast-2)] uppercase text-xs border-b border-[var(--contrast-3)]">
+                           <thead className="bg-[var(--base)] text-[var(--contrast-2)] uppercase text-xs border-b border-[var(--contrast-3)] print:bg-white print:text-[var(--contrast)] print:border-b-2 print:border-[var(--contrast)]">
                              <tr>
-                               <th className="p-4 w-20 text-center border-r border-[var(--contrast-3)]">Platz</th>
-                               <th className="p-4 w-1/3">Team</th>
-                               <th className="p-4">Vereine</th>
-                               <th className="p-4 w-32 text-center">Status</th>
+                               <th className="p-4 print:p-2 w-20 text-center border-r border-[var(--contrast-3)] print:border-none">Platz</th>
+                               <th className="p-4 print:p-2 w-1/3 text-left">Team</th>
+                               <th className="p-4 print:p-2 text-left">Vereine</th>
+                               <th className="p-4 print:p-2 w-32 text-center">Status</th>
                              </tr>
                            </thead>
                            <tbody className="divide-y divide-[var(--base)]">
                              {finalRankings[cat].map((item, idx) => (
-                               <tr key={item.team?.id} className="hover:bg-[var(--base-2)] transition bg-[var(--base-3)]">
-                                 <td className="p-4 text-center font-bold text-lg border-r border-[var(--contrast-3)] text-[var(--contrast)]">
+                               <tr key={item.team?.id} className="hover:bg-[var(--base-2)] transition bg-[var(--base-3)] print:border-b print:border-[var(--base)] break-inside-avoid">
+                                 <td className="p-4 print:p-2 text-center font-bold text-lg border-r border-[var(--contrast-3)] print:border-none text-[var(--contrast)]">
                                    {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : item.rank}
                                  </td>
-                                 <td className="p-4 font-bold text-[var(--contrast)] truncate">{item.team?.name}</td>
-                                 <td className="p-4 text-[var(--contrast-2)] truncate">{item.team?.clubs.join(' / ')}</td>
-                                 <td className="p-4 text-center">
+                                 <td className="p-4 print:p-2 font-bold text-[var(--contrast)] truncate text-left">{item.team?.name}</td>
+                                 <td className="p-4 print:p-2 text-[var(--contrast-2)] print:text-[var(--contrast)] truncate text-left">{item.team?.clubs.join(' / ')}</td>
+                                 <td className="p-4 print:p-2 text-center">
                                    {idx < 8 
                                      ? <span className="border border-[var(--tcw-green)] text-[var(--tcw-green)] px-2 py-1 rounded text-xs font-bold">K.O.-Phase</span> 
                                      : <span className="border border-[var(--contrast-3)] text-[var(--contrast-2)] px-2 py-1 rounded text-xs font-bold">Gruppenphase</span>}
@@ -2428,7 +2440,10 @@ export default function App() {
             body { background: white; -webkit-print-color-adjust: exact; margin: 0; padding: 0; } 
             .page-break-after { page-break-after: always; } 
             .break-inside-avoid { break-inside: avoid; } 
-            @page { size: A4 portrait; margin: 0; } 
+            @page { 
+                size: A4 portrait; 
+                margin: ${printView === 'normal' ? '15mm' : '0'}; 
+            } 
         }
       `}} />
     </div>
