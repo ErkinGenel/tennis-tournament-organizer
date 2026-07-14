@@ -55,7 +55,6 @@ const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'tennis-organizer-live';
 
 const COURTS = 6;
-const CATEGORIES = { U50: 'Herren unter 50', O50: 'Herren über 50' };
 const LEVELS = [3, 2, 1]; 
 const MOCK_CLUBS = ['TC Wannweil', 'TC Reutlingen', 'TC Tübingen', 'TC Metzingen', 'TC Pfullingen', 'TV Kirchentellinsfurt'];
 const MOCK_FIRST_NAMES = ['Lukas', 'Maximilian', 'Jonas', 'Paul', 'Leon', 'Finn', 'Elias', 'Ben', 'Luis', 'Felix', 'Markus', 'Thomas', 'Michael', 'Andreas', 'Stefan', 'Christian', 'Martin', 'Daniel'];
@@ -189,7 +188,7 @@ const OfficialMatchBox = ({ match, title, isFinal=false }) => {
    );
 };
 
-const ScoreEntryModal = ({ match, onClose, onSave }) => {
+const ScoreEntryModal = ({ match, onClose, onSave, categories }) => {
   const [score, setScore] = useState(() => {
     if (match.score) {
       const parsed = JSON.parse(JSON.stringify(match.score));
@@ -237,7 +236,7 @@ const ScoreEntryModal = ({ match, onClose, onSave }) => {
         <div className="bg-[var(--tcw-green)] p-5 flex justify-between items-center text-[var(--base-3)] shrink-0">
            <div>
               <h3 className="font-bold text-xl heading-font flex items-center"><Edit2 size={24} className="mr-2"/> Ergebnis eintragen</h3>
-              <div className="text-sm font-medium opacity-90 mt-1">{match.time} Uhr • Platz {match.court} • {CATEGORIES[match.category]?.substring(0,3)} {match.category}</div>
+              <div className="text-sm font-medium opacity-90 mt-1">{match.time} Uhr • Platz {match.court} • {categories[match.category]?.substring(0,3)} {match.category}</div>
            </div>
            <button onClick={onClose} className="p-2 hover:bg-[var(--tcw-green-dark)] rounded-full transition"><X size={28}/></button>
         </div>
@@ -296,6 +295,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('registration');
   const [resultsFilter, setResultsFilter] = useState('pending'); 
   
+  const [categories, setCategories] = useState({ U50: 'Herren unter 50', O50: 'Herren über 50' });
   const [teams, setTeams] = useState([]);
   const [groups, setGroups] = useState({ U50: {}, O50: {} });
   const [matches, setMatches] = useState([]);
@@ -369,6 +369,7 @@ export default function App() {
     const unsubscribe = onSnapshot(tournamentDocRef, (docSnap) => {
       if (docSnap.exists() && appMode !== 'organizer') {
         const liveData = docSnap.data();
+        if (liveData.categories) setCategories(prev => ({ ...prev, ...liveData.categories }));
         if (liveData.teams) setTeams(liveData.teams);
         if (liveData.groups) setGroups(liveData.groups);
         if (liveData.matches) setMatches(liveData.matches);
@@ -389,13 +390,13 @@ export default function App() {
       if ((appMode === 'organizer' || appMode === 'director') && user) {
         try {
           const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
-          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, lastUpdated: new Date().toISOString() });
+          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, categories, lastUpdated: new Date().toISOString() });
         } catch (error) { console.error("Failed to push updates to live server:", error); }
       }
     };
     const timeoutId = setTimeout(syncToCloud, 800);
     return () => clearTimeout(timeoutId);
-  }, [teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, appMode, user, appId]);
+  }, [teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, categories, appMode, user, appId]);
 
   useEffect(() => {
     if (appMode === 'monitor') {
@@ -507,7 +508,7 @@ export default function App() {
             const grps = Object.entries(groups[cat] || {}).sort((a,b) => a[0].localeCompare(b[0]));
             if (grps.length > 0) {
                for(let i=0; i<grps.length; i+=4) {
-                   newSlides.push({ type: 'groups', cat, title: `Gruppen ${CATEGORIES[cat]}`, data: grps.slice(i, i+4), pageInfo: grps.length>4 ? `(Teil ${Math.floor(i/4)+1}/${Math.ceil(grps.length/4)})` : '' });
+                   newSlides.push({ type: 'groups', cat, title: `Gruppen ${categories[cat]}`, data: grps.slice(i, i+4), pageInfo: grps.length>4 ? `(Teil ${Math.floor(i/4)+1}/${Math.ceil(grps.length/4)})` : '' });
                }
             }
         });
@@ -545,8 +546,8 @@ export default function App() {
     if (hasBrackets) {
         ['U50', 'O50'].forEach(cat => {
             if (brackets[cat]) {
-                newSlides.push({ type: 'bracket_main', cat, title: `K.O.-Baum: ${CATEGORIES[cat]}` });
-                newSlides.push({ type: 'bracket_placement', cat, title: `Platzierungsspiele: ${CATEGORIES[cat]}` });
+                newSlides.push({ type: 'bracket_main', cat, title: `K.O.-Baum: ${categories[cat]}` });
+                newSlides.push({ type: 'bracket_placement', cat, title: `Platzierungsspiele: ${categories[cat]}` });
             }
         });
     }
@@ -557,7 +558,7 @@ export default function App() {
             const ranks = finalRankings[cat] || [];
             if (ranks.length > 0) {
                 for(let i=0; i<ranks.length; i+=12) {
-                    newSlides.push({ type: 'rankings', cat, title: `Abschlussplatzierungen: ${CATEGORIES[cat]}`, data: ranks.slice(i, i+12), pageInfo: ranks.length>12 ? `(Plätze ${i+1}-${Math.min(i+12, ranks.length)})` : '' });
+                    newSlides.push({ type: 'rankings', cat, title: `Abschlussplatzierungen: ${categories[cat]}`, data: ranks.slice(i, i+12), pageInfo: ranks.length>12 ? `(Plätze ${i+1}-${Math.min(i+12, ranks.length)})` : '' });
                 }
             }
         }
@@ -567,7 +568,7 @@ export default function App() {
 
     setMonitorSlides(newSlides);
     if (monitorSlideIdx >= newSlides.length) setMonitorSlideIdx(0);
-  }, [appMode, matches, groups, brackets, finalRankings]);
+  }, [appMode, matches, groups, brackets, finalRankings, categories]);
 
   useEffect(() => {
     if (appMode === 'monitor' && monitorSlides.length > 0) {
@@ -703,7 +704,7 @@ export default function App() {
   };
 
   const handleExportTournament = () => {
-    const dataStr = JSON.stringify({ teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration });
+    const dataStr = JSON.stringify({ teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, categories });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -724,6 +725,7 @@ export default function App() {
         const data = JSON.parse(e.target.result);
         if (Array.isArray(data)) setTeams(data);
         else {
+           if (data.categories) setCategories(data.categories);
            if (data.teams) setTeams(data.teams);
            if (data.groups) setGroups(data.groups);
            if (data.matches) setMatches(data.matches);
@@ -1222,7 +1224,7 @@ export default function App() {
               </div>
               <h1 className="heading-font text-2xl font-bold leading-tight mb-1">{myTeam.name}</h1>
               <div className="flex items-center space-x-2 text-[var(--base)] text-sm font-medium">
-                 <span>{CATEGORIES[myTeam.category]}</span> <span>•</span>
+                 <span>{categories[myTeam.category]}</span> <span>•</span>
                  <span className="truncate">{myTeam.clubs.join(' / ')}</span>
               </div>
             </div>
@@ -1298,7 +1300,7 @@ export default function App() {
                   if (!isEnded) {
                     return (
                       <div className="bg-[var(--base-3)] p-6 rounded text-center shadow-sm border border-[var(--base)] text-[var(--contrast-2)] font-medium">
-                        Die endgültige Rangliste für {CATEGORIES[myTeam.category]} wird nach Abschluss des Finales veröffentlicht.
+                        Die endgültige Rangliste für {categories[myTeam.category]} wird nach Abschluss des Finales veröffentlicht.
                       </div>
                     );
                   }
@@ -1458,7 +1460,7 @@ export default function App() {
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>
                             {getFormattedDate(startDate, m.day - 1)} • {m.time} {m.endTime ? `- ${m.endTime}`:''} • Platz {m.court}
                           </span>
-                          <span className="text-[var(--contrast-3)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                          <span className="text-[var(--contrast-3)]">{categories[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl px-2">
                           <span className={`whitespace-nowrap flex-1 text-right ${m.winnerId === m.team1?.id ? 'text-[var(--base-3)] font-extrabold' : 'text-[var(--contrast-3)]'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1477,7 +1479,7 @@ export default function App() {
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>
                             {getFormattedDate(startDate, m.day - 1)} • {m.time} {m.endTime ? `- ${m.endTime}`:''} • Platz {m.court}
                           </span>
-                          <span className="text-[var(--contrast-3)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                          <span className="text-[var(--contrast-3)]">{categories[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl px-2">
                           <span className={`whitespace-nowrap flex-1 text-right ${m.winnerId === m.team1?.id ? 'text-[var(--base-3)] font-extrabold' : 'text-[var(--contrast-3)]'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1668,7 +1670,7 @@ export default function App() {
                                            <span className="text-[var(--contrast)] font-black text-xl">{m.time} Uhr</span>
                                            <span className="bg-[var(--contrast)] text-[var(--base-3)] text-xs px-2 py-1 rounded font-bold tracking-widest">{mCode}</span>
                                         </div>
-                                        <span className="text-xs font-bold text-[var(--contrast-2)] mt-1">{CATEGORIES[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                                        <span className="text-xs font-bold text-[var(--contrast-2)] mt-1">{categories[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
                                     </div>
                                     <span className="bg-[var(--base-3)] text-[var(--contrast)] px-4 py-1.5 rounded-lg font-black tracking-widest shadow-sm border border-[var(--contrast-3)]">
                                         Platz {m.court || '?'}
@@ -1720,7 +1722,7 @@ export default function App() {
                 </div>
             </main>
 
-            {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} />}
+            {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} categories={categories} />}
         </div>
     );
   }
@@ -1847,6 +1849,21 @@ export default function App() {
                     <input type="number" min="15" step="15" value={matchDuration} onChange={(e) => setMatchDuration(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-24" />
                   </div>
                 </div>
+                
+                {/* Dynamische Kategorien Bearbeiten */}
+                <div className="flex flex-col md:flex-row gap-4 mt-4 pt-4 border-t border-[var(--contrast-3)]">
+                  <div className="flex items-center space-x-3 w-full md:w-1/2">
+                    <Users className="text-[var(--contrast-2)]" />
+                    <div className="font-bold text-[var(--contrast)] whitespace-nowrap">Name Kat. 1:</div>
+                    <input type="text" value={categories.U50} onChange={(e) => setCategories({...categories, U50: e.target.value})} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-full" />
+                  </div>
+                  <div className="flex items-center space-x-3 w-full md:w-1/2">
+                    <Users className="text-[var(--contrast-2)]" />
+                    <div className="font-bold text-[var(--contrast)] whitespace-nowrap">Name Kat. 2:</div>
+                    <input type="text" value={categories.O50} onChange={(e) => setCategories({...categories, O50: e.target.value})} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-full" />
+                  </div>
+                </div>
+
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -1873,7 +1890,8 @@ export default function App() {
                         </select></div>
                       <div><label className="block text-sm font-bold text-[var(--contrast)] mb-1">Kategorie</label>
                         <select value={regForm.category} onChange={e=>setRegForm({...regForm, category: e.target.value})} className="w-full p-2 border border-[var(--contrast-3)] rounded bg-[var(--base-3)]">
-                          <option value="U50">U50</option><option value="O50">O50</option>
+                          <option value="U50">{categories.U50}</option>
+                          <option value="O50">{categories.O50}</option>
                         </select></div>
                     </div>
                     <div className="flex space-x-2 pt-2">
@@ -1948,10 +1966,10 @@ export default function App() {
                    <div key={cat} className="mb-10 page-break-after">
                      <div className="hidden print:block mb-6 border-b-2 border-[var(--contrast)] pb-2">
                         <h1 className="heading-font text-3xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
-                        <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Gruppenübersicht - {CATEGORIES[cat]}</h2>
+                        <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Gruppenübersicht - {categories[cat]}</h2>
                      </div>
                      <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center print:hidden">
-                       {CATEGORIES[cat]} <span className="ml-3 text-sm border border-[var(--contrast-3)] px-3 py-1 rounded text-[var(--contrast-2)]">{Object.keys(groups[cat]).length} Gruppen</span>
+                       {categories[cat]} <span className="ml-3 text-sm border border-[var(--contrast-3)] px-3 py-1 rounded text-[var(--contrast-2)]">{Object.keys(groups[cat]).length} Gruppen</span>
                      </h2>
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:gap-4">
                         {Object.entries(groups[cat]).sort((a,b) => a[0].localeCompare(b[0])).map(([groupName, groupTeams]) => (
@@ -2068,7 +2086,7 @@ export default function App() {
                                   </td>
                                   <td className="p-3 print:p-2 whitespace-nowrap print:whitespace-normal">{m.court ? <span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
                                   <td className="p-3 print:p-2 text-xs truncate print:whitespace-normal print:break-words">
-                                    <span className="block font-bold text-[var(--tcw-green)] print:text-[var(--contrast)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span>
+                                    <span className="block font-bold text-[var(--tcw-green)] print:text-[var(--contrast)]">{categories[m.category]?.substring(0,3)} {m.category}</span>
                                     <span className="text-[var(--contrast-2)] print:text-[var(--contrast)]">{formatStageGroupName(m.stage, m.groupName)}</span>
                                     {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)]">{matchCodeMap[m.id]}</span>}
                                   </td>
@@ -2103,7 +2121,7 @@ export default function App() {
                  return (
                    <div key={cat} className="mb-16 page-break-after">
                       <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-8 border-b border-[var(--contrast-3)] pb-2 flex items-center">
-                         <Trophy className="text-[var(--tcw-yellow)] mr-3" strokeWidth={2.5}/> Hauptrunde: {CATEGORIES[cat]}
+                         <Trophy className="text-[var(--tcw-yellow)] mr-3" strokeWidth={2.5}/> Hauptrunde: {categories[cat]}
                       </h2>
                       
                       <div className="flex items-stretch min-w-max h-[500px]">
@@ -2159,7 +2177,7 @@ export default function App() {
                    return (
                      <div key={cat} className="page-break-after">
                         <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center">
-                          <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {CATEGORIES[cat]}
+                          <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {categories[cat]}
                         </h2>
                         <div className="bg-[var(--base-2)] p-6 rounded text-center border border-[var(--contrast-3)] text-[var(--contrast-2)] font-bold">
                            Die finale Rangliste wird erst nach Abschluss des Finales veröffentlicht.
@@ -2174,10 +2192,10 @@ export default function App() {
                    <div key={cat} className="page-break-after">
                       <div className="hidden print:block mb-6 border-b-2 border-[var(--contrast)] pb-2">
                         <h1 className="heading-font text-3xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
-                        <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Abschlussplatzierungen - {CATEGORIES[cat]}</h2>
+                        <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Abschlussplatzierungen - {categories[cat]}</h2>
                       </div>
                       <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-6 border-b border-[var(--contrast-3)] pb-2 flex items-center print:hidden">
-                        <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {CATEGORIES[cat]}
+                        <Award className="mr-3 text-[var(--tcw-yellow)]" /> Abschlussplatzierungen: {categories[cat]}
                       </h2>
                       <div className="border border-[var(--contrast-3)] rounded overflow-hidden print:border-none">
                         <table className="w-full text-left text-sm table-fixed">
@@ -2227,7 +2245,7 @@ export default function App() {
                      <img src={BRAND.logo} alt="Logo" className="h-16 object-contain" />
                   </div>
                   <h2 className="heading-font text-2xl font-black mb-1">{t.name}</h2>
-                  <p className="text-[var(--contrast-2)] font-bold mb-6">{t.clubs.join(' / ')} • {CATEGORIES[t.category]}</p>
+                  <p className="text-[var(--contrast-2)] font-bold mb-6">{t.clubs.join(' / ')} • {categories[t.category]}</p>
                   <div className="border-4 border-[var(--contrast)] p-3 rounded mb-6">
                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(loginUrl)}`} alt="QR Code" className="w-40 h-40" />
                   </div>
@@ -2261,7 +2279,7 @@ export default function App() {
                          <div className="text-md font-bold text-[var(--contrast-3)] mt-1">Tag 1 ({getFormattedDate(startDate, 0)})</div>
                       </div>
                       <div className="text-right">
-                         <h2 className="heading-font text-3xl font-extrabold text-[var(--contrast)]">{CATEGORIES[cat]}</h2>
+                         <h2 className="heading-font text-3xl font-extrabold text-[var(--contrast)]">{categories[cat]}</h2>
                          <h3 className="text-2xl font-bold text-[var(--tcw-green)] mt-1">{groupName} • Platz {courtNum}</h3>
                       </div>
                    </div>
@@ -2378,7 +2396,7 @@ export default function App() {
       )}
 
       {/* Modals */}
-      {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} />}
+      {scoreModal && <ScoreEntryModal match={scoreModal} onClose={() => setScoreModal(null)} onSave={handleSaveScore} categories={categories} />}
 
       {schedulePrompt && (
         <div className="fixed inset-0 bg-[var(--contrast)]/80 flex items-center justify-center z-50 print:hidden p-4">
