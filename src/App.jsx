@@ -1100,9 +1100,19 @@ export default function App() {
 
   const renderScore = (score) => {
     if (!score) return <span className="text-[var(--contrast-3)]">vs</span>;
-    let text = `${score.s1?.[0] ?? '-'}:${score.s1?.[1] ?? '-'} | ${score.s2?.[0] ?? '-'}:${score.s2?.[1] ?? '-'}`;
-    if (score.tb && (score.tb[0] > 0 || score.tb[1] > 0)) text += ` | [${score.tb[0]}:${score.tb[1]}]`;
-    return <span className="font-bold text-[var(--contrast)]">{text}</span>;
+    return (
+      <span className="font-bold text-[var(--contrast)] inline-flex flex-wrap justify-center items-center gap-x-1 gap-y-0.5">
+        <span className="whitespace-nowrap">{score.s1?.[0] ?? '-'}:{score.s1?.[1] ?? '-'}</span>
+        <span className="text-[var(--contrast-3)] font-normal">|</span>
+        <span className="whitespace-nowrap">{score.s2?.[0] ?? '-'}:{score.s2?.[1] ?? '-'}</span>
+        {score.tb && (score.tb[0] > 0 || score.tb[1] > 0) && (
+          <>
+            <span className="text-[var(--contrast-3)] font-normal">|</span>
+            <span className="whitespace-nowrap text-[var(--tcw-orange)]">[{score.tb[0]}:{score.tb[1]}]</span>
+          </>
+        )}
+      </span>
+    );
   };
 
   const groupMatches = matches.filter(m => m.stage === 'Group');
@@ -1960,9 +1970,9 @@ export default function App() {
                                 {(standings[cat][groupName] || groupTeams).map((t, index) => (
                                   <tr key={t.id} className="hover:bg-[var(--base-2)] transition">
                                     <td className="px-4 py-3 font-bold text-[var(--contrast-3)]">{index + 1}</td>
-                                    <td className="px-4 py-3 truncate">
-                                      <div className="font-bold text-[var(--contrast)] truncate">{t.name}</div>
-                                      <div className="text-xs text-[var(--contrast-2)] truncate">{t.clubs.join(' / ')}</div>
+                                    <td className="px-4 py-3 truncate print:whitespace-normal print:break-words">
+                                      <div className="font-bold text-[var(--contrast)] truncate print:whitespace-normal">{t.name}</div>
+                                      <div className="text-xs text-[var(--contrast-2)] truncate print:whitespace-normal">{t.clubs.join(' / ')}</div>
                                     </td>
                                     <td className="px-4 py-3 text-center font-bold text-[var(--contrast)]">{t.won !== undefined ? `${t.won}-${t.lost}` : '0-0'}</td>
                                     <td className="px-4 py-3 text-center text-[var(--contrast-2)]">{t.setsWon !== undefined ? `${t.setsWon}:${t.setsLost}` : '0:0'}</td>
@@ -2065,7 +2075,7 @@ export default function App() {
                                   <td className={`p-3 print:p-2 text-right truncate print:whitespace-normal print:break-words ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
                                     {m.team1?.isBye ? <span className="text-[var(--tcw-orange)] font-bold italic">Freilos</span> : (m.team1?.name || 'Offen')}
                                   </td>
-                                  <td className="p-3 print:p-2 text-center bg-[var(--base-2)] border-x border-[var(--base)] print:bg-white print:border-x-0 print:border-dashed print:border-[var(--contrast-3)]">
+                                  <td className="p-3 print:p-2 text-center bg-[var(--base-2)] border-x border-[var(--base)] print:bg-white print:border-x-0 print:border-dashed print:border-[var(--contrast-3)] print:whitespace-normal">
                                      {isBye ? <span className="text-[var(--contrast-3)] italic text-xs font-bold">KEIN SPIEL</span> : renderScore(m.score)}
                                   </td>
                                   <td className={`p-3 print:p-2 text-left truncate print:whitespace-normal print:break-words ${isT2Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
@@ -2185,8 +2195,8 @@ export default function App() {
                                  <td className="p-4 print:p-2 text-center font-bold text-lg border-r border-[var(--contrast-3)] print:border-none text-[var(--contrast)]">
                                    {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : item.rank}
                                  </td>
-                                 <td className="p-4 print:p-2 font-bold text-[var(--contrast)] truncate text-left">{item.team?.name}</td>
-                                 <td className="p-4 print:p-2 text-[var(--contrast-2)] print:text-[var(--contrast)] truncate text-left">{item.team?.clubs.join(' / ')}</td>
+                                 <td className="p-4 print:p-2 font-bold text-[var(--contrast)] truncate print:whitespace-normal print:break-words text-left">{item.team?.name}</td>
+                                 <td className="p-4 print:p-2 text-[var(--contrast-2)] print:text-[var(--contrast)] truncate print:whitespace-normal print:break-words text-left">{item.team?.clubs.join(' / ')}</td>
                                  <td className="p-4 print:p-2 text-center">
                                    {idx < 8 
                                      ? <span className="border border-[var(--tcw-green)] text-[var(--tcw-green)] px-2 py-1 rounded text-xs font-bold">K.O.-Phase</span> 
