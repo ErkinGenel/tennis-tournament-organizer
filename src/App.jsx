@@ -2050,25 +2050,25 @@ export default function App() {
                                 return (
                                 <tr key={m.id} className={`transition ${isMissingTeams || isBye || isUnscheduled ? '' : 'cursor-pointer hover:bg-[var(--base-2)]'} print:border-b print:border-[var(--base)]`} 
                                     onClick={() => !isMissingTeams && !isBye && !isUnscheduled && setScoreModal(m)}>
-                                  <td className={`p-3 print:p-2 whitespace-nowrap font-bold ${isUnscheduled ? 'text-[var(--tcw-orange)]' : (m.time === 'Flexibel' ? 'text-[var(--tcw-green-dark)] text-xs tracking-widest' : 'text-[var(--contrast)]')}`}>
+                                  <td className={`p-3 print:p-2 whitespace-nowrap print:whitespace-normal font-bold ${isUnscheduled ? 'text-[var(--tcw-orange)]' : (m.time === 'Flexibel' ? 'text-[var(--tcw-green-dark)] text-xs tracking-widest' : 'text-[var(--contrast)]')}`}>
                                       <div>
                                         <div>{m.time || 'Nicht angesetzt'}</div>
                                         {m.endTime && <div className="text-[10px] text-[var(--contrast-2)] font-medium">bis {m.endTime}</div>}
                                       </div>
                                   </td>
-                                  <td className="p-3 print:p-2 whitespace-nowrap">{m.court ? <span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
-                                  <td className="p-3 print:p-2 text-xs truncate">
+                                  <td className="p-3 print:p-2 whitespace-nowrap print:whitespace-normal">{m.court ? <span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
+                                  <td className="p-3 print:p-2 text-xs truncate print:whitespace-normal print:break-words">
                                     <span className="block font-bold text-[var(--tcw-green)] print:text-[var(--contrast)]">{CATEGORIES[m.category]?.substring(0,3)} {m.category}</span>
                                     <span className="text-[var(--contrast-2)] print:text-[var(--contrast)]">{formatStageGroupName(m.stage, m.groupName)}</span>
-                                    {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)] print:hidden">{matchCodeMap[m.id]}</span>}
+                                    {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)]">{matchCodeMap[m.id]}</span>}
                                   </td>
-                                  <td className={`p-3 print:p-2 text-right truncate ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
+                                  <td className={`p-3 print:p-2 text-right truncate print:whitespace-normal print:break-words ${isT1Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
                                     {m.team1?.isBye ? <span className="text-[var(--tcw-orange)] font-bold italic">Freilos</span> : (m.team1?.name || 'Offen')}
                                   </td>
                                   <td className="p-3 print:p-2 text-center bg-[var(--base-2)] border-x border-[var(--base)] print:bg-white print:border-x-0 print:border-dashed print:border-[var(--contrast-3)]">
                                      {isBye ? <span className="text-[var(--contrast-3)] italic text-xs font-bold">KEIN SPIEL</span> : renderScore(m.score)}
                                   </td>
-                                  <td className={`p-3 print:p-2 text-left truncate ${isT2Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
+                                  <td className={`p-3 print:p-2 text-left truncate print:whitespace-normal print:break-words ${isT2Winner ? 'font-bold text-[var(--tcw-green-dark)] print:text-black' : 'text-[var(--contrast)]'}`}>
                                     {m.team2?.isBye ? <span className="text-[var(--tcw-orange)] font-bold italic">Freilos</span> : (m.team2?.name || 'Offen')}
                                   </td>
                                 </tr>
@@ -2441,7 +2441,7 @@ export default function App() {
             .page-break-after { page-break-after: always; } 
             .break-inside-avoid { break-inside: avoid; } 
             @page { 
-                size: A4 portrait; 
+                size: A4 ${printView === 'normal' && activeTab === 'bracket' ? 'landscape' : 'portrait'}; 
                 margin: ${printView === 'normal' ? '15mm' : '0'}; 
             } 
         }
