@@ -748,6 +748,44 @@ export default function App() {
     e.target.value = null;
   };
 
+  const handleExportTeams = () => {
+    const dataStr = JSON.stringify(teams, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `teilnehmerliste_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportTeams = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (Array.isArray(data)) {
+            setTeams(data);
+            setGroups({ U50: {}, O50: {} });
+            setMatches([]);
+            setBrackets({ U50: null, O50: null });
+        } else {
+            setAuthError('Fehler: Die Datei enthält keine gültige Teilnehmerliste.');
+            setTimeout(() => setAuthError(''), 4000);
+        }
+      } catch (err) {
+        setAuthError('Fehler: Ungültiges JSON-Dateiformat.');
+        setTimeout(() => setAuthError(''), 4000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null;
+  };
+
   const generateGroups = () => {
     const newGroups = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
@@ -1792,23 +1830,30 @@ export default function App() {
           
           {/* Registration Tab */}
           {activeTab === 'registration' && (
-            <div className="space-y-8 print:hidden">
-              <div className="flex justify-between items-center bg-[var(--base-2)] p-6 rounded border border-[var(--base)]">
+            <div className="space-y-8">
+              <div className="hidden print:block mb-6 border-b-2 border-[var(--contrast)] pb-2">
+                <h1 className="heading-font text-3xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
+                <h2 className="text-xl font-bold text-[var(--contrast-2)] mt-1">Teilnehmerliste & Anwesenheit</h2>
+              </div>
+              <div className="flex justify-between items-center bg-[var(--base-2)] p-6 rounded border border-[var(--base)] print:hidden">
                 <div>
                   <h2 className="heading-font text-xl font-bold text-[var(--contrast)]">Turnier-Einstellungen</h2>
                   <p className="text-[var(--contrast-2)] text-sm mt-1">Teams manuell registrieren oder Testdaten laden.</p>
                 </div>
-                <div className="flex space-x-3">
-                   <button onClick={() => { setPrintView('tickets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 500); }} disabled={teams.length === 0} className="flex items-center space-x-2 bg-[var(--base-3)] text-[var(--contrast)] border border-[var(--contrast-3)] px-5 py-2 rounded hover:bg-[var(--base)] font-bold transition disabled:opacity-50">
-                     <QrCode size={18} /> <span>Tickets drucken</span>
+                <div className="flex flex-wrap justify-end gap-3">
+                   <button onClick={() => window.print()} disabled={teams.length === 0} className="flex items-center space-x-2 bg-[var(--base-3)] text-[var(--contrast)] border border-[var(--contrast-3)] px-4 py-2 rounded hover:bg-[var(--base)] font-bold transition disabled:opacity-50">
+                     <Users size={18} /> <span className="hidden md:inline">Anwesenheitsliste</span>
                    </button>
-                   <button onClick={loadMockData} className="flex items-center space-x-2 bg-[var(--tcw-green)] text-[var(--base-3)] border border-[var(--tcw-green-dark)] px-5 py-2 rounded hover:bg-[var(--tcw-green-dark)] font-bold transition">
-                     <Play size={18} /> <span>Test-Teams laden</span>
+                   <button onClick={() => { setPrintView('tickets'); setTimeout(() => { window.print(); setPrintView('normal'); }, 500); }} disabled={teams.length === 0} className="flex items-center space-x-2 bg-[var(--base-3)] text-[var(--contrast)] border border-[var(--contrast-3)] px-4 py-2 rounded hover:bg-[var(--base)] font-bold transition disabled:opacity-50">
+                     <QrCode size={18} /> <span className="hidden md:inline">Tickets drucken</span>
+                   </button>
+                   <button onClick={loadMockData} className="flex items-center space-x-2 bg-[var(--tcw-green)] text-[var(--base-3)] border border-[var(--tcw-green-dark)] px-4 py-2 rounded hover:bg-[var(--tcw-green-dark)] font-bold transition">
+                     <Play size={18} /> <span className="hidden md:inline">Testdaten</span>
                    </button>
                 </div>
               </div>
 
-              <div className="bg-[var(--base-2)] p-4 rounded border border-[var(--base)]">
+              <div className="bg-[var(--base-2)] p-4 rounded border border-[var(--base)] print:hidden">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b border-[var(--contrast-3)]">
                    <div className="flex items-center space-x-3 col-span-1 md:col-span-1">
                      <Calendar className="text-[var(--contrast-2)]" />
@@ -1866,8 +1911,8 @@ export default function App() {
 
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="col-span-1 bg-[var(--base-2)] p-6 rounded border border-[var(--base)] h-fit">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 print:block">
+                <div className="col-span-1 bg-[var(--base-2)] p-6 rounded border border-[var(--base)] h-fit print:hidden">
                   <h3 className="heading-font font-bold text-lg mb-4 flex items-center text-[var(--contrast)]">
                     {editingTeam ? <Edit2 size={18} className="mr-2 text-[var(--tcw-orange)]"/> : <PlusCircle size={18} className="mr-2 text-[var(--tcw-green)]"/>} 
                     {editingTeam ? 'Team bearbeiten' : 'Neues Team'}
@@ -1907,30 +1952,43 @@ export default function App() {
                   </form>
                 </div>
                 
-                <div className="col-span-2">
-                  <div className="flex justify-between items-center mb-4">
+                <div className="col-span-2 print:w-full">
+                  <div className="flex justify-between items-center mb-4 print:hidden">
                      <h3 className="heading-font font-bold text-lg text-[var(--contrast)]">Registrierte Teams ({teams.length})</h3>
+                     <div className="flex space-x-2">
+                       <label className="flex items-center space-x-2 bg-[var(--base-2)] text-[var(--contrast)] border border-[var(--contrast-3)] px-3 py-1.5 rounded hover:bg-[var(--base)] font-bold transition cursor-pointer text-sm shadow-sm">
+                         <Upload size={16} /> <span className="hidden xl:inline">Laden</span>
+                         <input type="file" accept=".json" className="hidden" onChange={handleImportTeams} />
+                       </label>
+                       <button onClick={handleExportTeams} disabled={teams.length === 0} className="flex items-center space-x-2 bg-[var(--base-2)] text-[var(--contrast)] border border-[var(--contrast-3)] px-3 py-1.5 rounded hover:bg-[var(--base)] font-bold transition disabled:opacity-50 text-sm shadow-sm">
+                         <Download size={16} /> <span className="hidden xl:inline">Speichern</span>
+                       </button>
+                     </div>
                   </div>
                   <div className="overflow-auto max-h-[600px] border border-[var(--contrast-3)] rounded bg-[var(--base-3)] print:max-h-none print:overflow-visible print:border-none">
                     <table className="w-full text-left text-sm table-fixed">
-                      <thead className="bg-[var(--base)] sticky top-0 shadow-sm z-10 text-[var(--contrast-2)] border-b border-[var(--contrast-3)]">
+                      <thead className="bg-[var(--base)] sticky top-0 shadow-sm z-10 text-[var(--contrast-2)] border-b border-[var(--contrast-3)] print:bg-white print:text-[var(--contrast)] print:border-b-2 print:border-[var(--contrast)]">
                         <tr>
-                          <th className="p-3 w-1/3">Team</th>
-                          <th className="p-3 w-1/4">Vereine</th>
-                          <th className="p-3 w-20">Kat</th>
-                          <th className="p-3 w-16 text-center text-[var(--tcw-green)]">PIN</th>
-                          <th className="p-3 w-24"></th>
+                          <th className="p-3 w-1/3 print:w-1/3">Team</th>
+                          <th className="p-3 w-1/4 print:w-1/3">Vereine</th>
+                          <th className="p-3 w-20 print:w-24">Kat</th>
+                          <th className="p-3 w-16 text-center text-[var(--tcw-green)] print:hidden">PIN</th>
+                          <th className="hidden print:table-cell p-3 w-24 text-center border-l border-[var(--contrast-3)]">Anwesend</th>
+                          <th className="p-3 w-24 print:hidden"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[var(--base)]">
-                        {teams.length === 0 ? <tr><td colSpan="5" className="p-8 text-center text-[var(--contrast-2)]">Noch keine Teams registriert.</td></tr> : 
+                      <tbody className="divide-y divide-[var(--base)] print:divide-[var(--contrast-3)]">
+                        {teams.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-[var(--contrast-2)]">Noch keine Teams registriert.</td></tr> : 
                          teams.map((t) => (
-                          <tr key={t.id} className={`hover:bg-[var(--base-2)] transition ${editingTeam?.id === t.id ? 'bg-[var(--base)]' : ''}`}>
-                            <td className="p-3 font-bold text-[var(--contrast)] truncate">{t.name}</td>
-                            <td className="p-3 text-xs text-[var(--contrast-2)] truncate">{t.clubs.join(' / ') || 'Kein Verein'}</td>
-                            <td className="p-3"><span className="border border-[var(--contrast-3)] px-2 py-1 rounded text-xs font-bold">{t.category}</span></td>
-                            <td className="p-3 text-center font-mono font-bold text-[var(--tcw-green)]">{t.pin}</td>
-                            <td className="p-3 text-right space-x-2">
+                          <tr key={t.id} className={`hover:bg-[var(--base-2)] transition print:border-b print:border-[var(--base)] ${editingTeam?.id === t.id ? 'bg-[var(--base)]' : ''}`}>
+                            <td className="p-3 font-bold text-[var(--contrast)] truncate print:whitespace-normal print:break-words print:py-4 print:text-base">{t.name}</td>
+                            <td className="p-3 text-xs text-[var(--contrast-2)] truncate print:whitespace-normal print:break-words print:text-sm print:text-[var(--contrast)] print:py-4">{t.clubs.join(' / ') || 'Kein Verein'}</td>
+                            <td className="p-3 print:py-4"><span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold print:text-sm">{categories[t.category]?.substring(0,3)} {t.category}</span></td>
+                            <td className="p-3 text-center font-mono font-bold text-[var(--tcw-green)] print:hidden">{t.pin}</td>
+                            <td className="hidden print:table-cell p-3 text-center align-middle border-l border-[var(--contrast-3)]">
+                                <div className="w-6 h-6 border-2 border-[var(--contrast)] rounded mx-auto"></div>
+                            </td>
+                            <td className="p-3 text-right space-x-2 print:hidden">
                                <button onClick={() => handleEdit(t)} className="text-[var(--contrast-3)] hover:text-[var(--tcw-green)] transition"><Edit2 size={16}/></button>
                                <button onClick={() => confirmDelete === t.id ? handleDelete(t.id) : setConfirmDelete(t.id)} className={`transition ${confirmDelete === t.id ? 'text-[var(--base-3)] bg-[var(--tcw-orange)] px-2 rounded font-bold' : 'text-[var(--contrast-3)] hover:text-[var(--tcw-orange)]'}`}>
                                   {confirmDelete === t.id ? 'Sicher?' : <Trash2 size={16}/>}
