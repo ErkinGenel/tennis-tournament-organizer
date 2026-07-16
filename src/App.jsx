@@ -77,6 +77,22 @@ const formatStageGroupName = (stage, rawName) => {
     return rawName;
 };
 
+const getShortCategoryName = (name) => {
+    if (!name) return '';
+    const n = name.trim();
+    if (/(unter|über|u|ü|under|over)?\s*\d+/i.test(n)) {
+        const prefix = n.charAt(0).toUpperCase();
+        const match = n.match(/(unter|über|u|ü|under|over)?\s*(\d+)/i);
+        if (match) {
+            let modifier = match[1] ? match[1].charAt(0).toUpperCase() : '';
+            return `${prefix}${modifier}${match[2]}`;
+        }
+    }
+    const words = n.split(/\s+/);
+    if (words.length === 1) return n.substring(0, 3).toUpperCase();
+    return words.map(w => w.charAt(0).toUpperCase()).join('').substring(0, 4);
+};
+
 const getFormattedDate = (baseDateStr, dayOffset) => {
   if (!baseDateStr) return '';
   const d = new Date(baseDateStr);
@@ -236,7 +252,7 @@ const ScoreEntryModal = ({ match, onClose, onSave, categories }) => {
         <div className="bg-[var(--tcw-green)] p-5 flex justify-between items-center text-[var(--base-3)] shrink-0">
            <div>
               <h3 className="font-bold text-xl heading-font flex items-center"><Edit2 size={24} className="mr-2"/> Ergebnis eintragen</h3>
-              <div className="text-sm font-medium opacity-90 mt-1">{match.time} Uhr • Platz {match.court} • {categories[match.category]?.substring(0,3)} {match.category}</div>
+              <div className="text-sm font-medium opacity-90 mt-1">{match.time} Uhr • Platz {match.court} • {getShortCategoryName(categories[match.category])}</div>
            </div>
            <button onClick={onClose} className="p-2 hover:bg-[var(--tcw-green-dark)] rounded-full transition"><X size={28}/></button>
         </div>
@@ -1498,7 +1514,7 @@ export default function App() {
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>
                             {getFormattedDate(startDate, m.day - 1)} • {m.time} {m.endTime ? `- ${m.endTime}`:''} • Platz {m.court}
                           </span>
-                          <span className="text-[var(--contrast-3)]">{categories[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                          <span className="text-[var(--contrast-3)]">{getShortCategoryName(categories[m.category])} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl px-2">
                           <span className={`whitespace-nowrap flex-1 text-right ${m.winnerId === m.team1?.id ? 'text-[var(--base-3)] font-extrabold' : 'text-[var(--contrast-3)]'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1517,7 +1533,7 @@ export default function App() {
                           <span className={`font-bold ${m.time === 'Flexibel' ? 'text-[var(--tcw-yellow)] text-sm tracking-widest' : 'text-[var(--tcw-green-light)]'}`}>
                             {getFormattedDate(startDate, m.day - 1)} • {m.time} {m.endTime ? `- ${m.endTime}`:''} • Platz {m.court}
                           </span>
-                          <span className="text-[var(--contrast-3)]">{categories[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                          <span className="text-[var(--contrast-3)]">{getShortCategoryName(categories[m.category])} • {formatStageGroupName(m.stage, m.groupName)}</span>
                        </div>
                        <div className="flex justify-between items-center text-2xl px-2">
                           <span className={`whitespace-nowrap flex-1 text-right ${m.winnerId === m.team1?.id ? 'text-[var(--base-3)] font-extrabold' : 'text-[var(--contrast-3)]'}`}>{m.team1?.name || 'Offen'}</span>
@@ -1708,7 +1724,7 @@ export default function App() {
                                            <span className="text-[var(--contrast)] font-black text-xl">{m.time} Uhr</span>
                                            <span className="bg-[var(--contrast)] text-[var(--base-3)] text-xs px-2 py-1 rounded font-bold tracking-widest">{mCode}</span>
                                         </div>
-                                        <span className="text-xs font-bold text-[var(--contrast-2)] mt-1">{categories[m.category]?.substring(0,3)} {m.category} • {formatStageGroupName(m.stage, m.groupName)}</span>
+                                        <span className="text-xs font-bold text-[var(--contrast-2)] mt-1">{getShortCategoryName(categories[m.category])} • {formatStageGroupName(m.stage, m.groupName)}</span>
                                     </div>
                                     <span className="bg-[var(--base-3)] text-[var(--contrast)] px-4 py-1.5 rounded-lg font-black tracking-widest shadow-sm border border-[var(--contrast-3)]">
                                         Platz {m.court || '?'}
@@ -1969,6 +1985,7 @@ export default function App() {
                     <table className="w-full text-left text-sm table-fixed">
                       <thead className="bg-[var(--base)] sticky top-0 shadow-sm z-10 text-[var(--contrast-2)] border-b border-[var(--contrast-3)] print:bg-white print:text-[var(--contrast)] print:border-b-2 print:border-[var(--contrast)]">
                         <tr>
+                          <th className="p-3 w-10 text-center text-[var(--contrast-3)] font-bold">#</th>
                           <th className="p-3 w-1/3 print:w-1/3">Team</th>
                           <th className="p-3 w-1/4 print:w-1/3">Vereine</th>
                           <th className="p-3 w-20 print:w-24">Kat</th>
@@ -1978,12 +1995,13 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--base)] print:divide-[var(--contrast-3)]">
-                        {teams.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-[var(--contrast-2)]">Noch keine Teams registriert.</td></tr> : 
-                         teams.map((t) => (
+                        {teams.length === 0 ? <tr><td colSpan="7" className="p-8 text-center text-[var(--contrast-2)]">Noch keine Teams registriert.</td></tr> : 
+                         teams.map((t, idx) => (
                           <tr key={t.id} className={`hover:bg-[var(--base-2)] transition print:border-b print:border-[var(--base)] ${editingTeam?.id === t.id ? 'bg-[var(--base)]' : ''}`}>
+                            <td className="p-3 text-center text-[var(--contrast-3)] font-bold print:py-4">{idx + 1}</td>
                             <td className="p-3 font-bold text-[var(--contrast)] truncate print:whitespace-normal print:break-words print:py-4 print:text-base">{t.name}</td>
                             <td className="p-3 text-xs text-[var(--contrast-2)] truncate print:whitespace-normal print:break-words print:text-sm print:text-[var(--contrast)] print:py-4">{t.clubs.join(' / ') || 'Kein Verein'}</td>
-                            <td className="p-3 print:py-4"><span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold print:text-sm">{categories[t.category]?.substring(0,3)} {t.category}</span></td>
+                            <td className="p-3 print:py-4"><span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold print:text-sm">{getShortCategoryName(categories[t.category])}</span></td>
                             <td className="p-3 text-center font-mono font-bold text-[var(--tcw-green)] print:hidden">{t.pin}</td>
                             <td className="hidden print:table-cell p-3 text-center align-middle border-l border-[var(--contrast-3)]">
                                 <div className="w-6 h-6 border-2 border-[var(--contrast)] rounded mx-auto"></div>
@@ -2144,7 +2162,7 @@ export default function App() {
                                   </td>
                                   <td className="p-3 print:p-2 whitespace-nowrap print:whitespace-normal">{m.court ? <span className="border border-[var(--contrast-3)] print:border-none px-2 print:px-0 py-1 rounded text-xs font-bold">Platz {m.court}</span> : '-'}</td>
                                   <td className="p-3 print:p-2 text-xs truncate print:whitespace-normal print:break-words">
-                                    <span className="block font-bold text-[var(--tcw-green)] print:text-[var(--contrast)]">{categories[m.category]?.substring(0,3)} {m.category}</span>
+                                    <span className="block font-bold text-[var(--tcw-green)] print:text-[var(--contrast)]">{getShortCategoryName(categories[m.category])}</span>
                                     <span className="text-[var(--contrast-2)] print:text-[var(--contrast)]">{formatStageGroupName(m.stage, m.groupName)}</span>
                                     {matchCodeMap[m.id] && <span className="inline-block mt-1 bg-[var(--base-2)] border border-[var(--contrast-3)] px-1.5 py-0.5 rounded text-[10px] font-bold text-[var(--contrast)]">{matchCodeMap[m.id]}</span>}
                                   </td>
