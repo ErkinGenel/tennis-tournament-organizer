@@ -2421,11 +2421,18 @@ export default function App() {
           {['U50', 'O50'].map(cat => {
             if (!groups[cat] || Object.keys(groups[cat]).length === 0) return null;
             return Object.entries(groups[cat]).sort((a,b) => a[0].localeCompare(b[0])).map(([groupName, groupTeams]) => {
-              const gMatches = matches.filter(m => m.category === cat && m.groupName === groupName && m.stage === 'Group').sort((a,b) => (a.matchOrder || 0) - (b.matchOrder || 0));
-              if (gMatches.length === 0) return null;
-              const courtNum = gMatches[0].court;
-              return (
-                <div key={`${cat}-${groupName}`} className="page-break-after pb-10">
+              const groupAllMatches = matches.filter(m => m.category === cat && m.groupName === groupName && m.stage === 'Group').sort((a,b) => (a.matchOrder || 0) - (b.matchOrder || 0));
+              if (groupAllMatches.length === 0) return null;
+              
+              const matchesByCourt = {};
+              groupAllMatches.forEach(m => {
+                  const c = m.court || 'Unbekannt';
+                  if (!matchesByCourt[c]) matchesByCourt[c] = [];
+                  matchesByCourt[c].push(m);
+              });
+
+              return Object.entries(matchesByCourt).map(([courtNum, cMatches]) => (
+                <div key={`${cat}-${groupName}-${courtNum}`} className="page-break-after pb-10">
                    <div className="flex justify-between items-end border-b-4 border-[var(--contrast)] pb-4 mb-6">
                       <div>
                          <h1 className="heading-font text-4xl font-black uppercase text-[var(--contrast)]">{BRAND.name}</h1>
@@ -2450,7 +2457,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--contrast)]">
-                        {gMatches.map(m => (
+                        {cMatches.map(m => (
                           <tr key={m.id}>
                              <td className="border-r border-[var(--contrast)] p-5 text-center font-black text-xl bg-[var(--base-2)]">{matchCodeMap[m.id] || '-'}</td>
                              <td className="border-r border-[var(--contrast)] p-5 font-bold text-xl">{m.team1?.name || 'Offen'}</td>
@@ -2464,7 +2471,7 @@ export default function App() {
                    </table>
                    <div className="text-[var(--contrast-2)] font-medium text-lg text-center mt-8">Bitte füllen Sie die Ergebnisse leserlich aus und bringen Sie diesen Bogen zur Turnierleitung.</div>
                 </div>
-              )
+              ));
             })
           })}
         </div>
