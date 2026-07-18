@@ -907,6 +907,37 @@ export default function App() {
           gIdx++;
         });
       });
+    } else if (mode === 'twoCourtsPerGroup') {
+      let currentCourt = 1;
+      ['U50', 'O50'].forEach(cat => {
+        if (!groups[cat]) return;
+        Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
+          const courtA = currentCourt;
+          const courtB = currentCourt + 1;
+          let pairs = [];
+          for (let i = 0; i < groupTeams.length; i++) {
+            for (let j = i + 1; j < groupTeams.length; j++) { pairs.push({ t1: groupTeams[i], t2: groupTeams[j] }); }
+          }
+          let orderedPairs = []; let lastPlayed = {};
+          while(pairs.length > 0) {
+            let bestIdx = 0; let bestScore = -1;
+            for(let i=0; i<pairs.length; i++) {
+               let dist1 = lastPlayed[pairs[i].t1.id] !== undefined ? orderedPairs.length - lastPlayed[pairs[i].t1.id] : 999;
+               let dist2 = lastPlayed[pairs[i].t2.id] !== undefined ? orderedPairs.length - lastPlayed[pairs[i].t2.id] : 999;
+               let score = Math.min(dist1, dist2);
+               if(score > bestScore) { bestScore = score; bestIdx = i; }
+            }
+            let selected = pairs.splice(bestIdx, 1)[0];
+            orderedPairs.push(selected);
+            lastPlayed[selected.t1.id] = orderedPairs.length - 1;
+            lastPlayed[selected.t2.id] = orderedPairs.length - 1;
+          }
+          orderedPairs.forEach((p, idx) => {
+            newMatches.push({ id: generateId(), day: 1, time: 'Flexibel', endTime: null, court: (idx % 2 === 0) ? courtA : courtB, category: cat, stage: 'Group', groupName, team1: p.t1, team2: p.t2, score: null, winnerId: null, matchOrder: idx + 1 });
+          });
+          currentCourt += 2;
+        });
+      });
     }
 
     const koMatches = matches.filter(m => m.stage !== 'Group');
@@ -2523,6 +2554,12 @@ export default function App() {
                    <span className="text-lg mb-1">2. Plätze an Gruppen zuweisen</span> 
                    <span className="text-sm font-medium opacity-90">Jede Gruppe bekommt einen Platz für den Tag. Flexibel.</span>
                 </button>
+                {(Object.keys(groups.U50 || {}).length + Object.keys(groups.O50 || {}).length > 0) && courtCount >= (Object.keys(groups.U50 || {}).length + Object.keys(groups.O50 || {}).length) * 2 && (
+                  <button onClick={() => generateSchedule('twoCourtsPerGroup')} className="bg-[var(--tcw-orange)] text-[var(--base-3)] border border-[var(--global-color-13)] p-4 rounded font-bold hover:bg-[var(--global-color-13)] transition text-left flex flex-col shadow-md">
+                     <span className="text-lg mb-1">3. Zwei Plätze pro Gruppe</span> 
+                     <span className="text-sm font-medium opacity-90">Jede Gruppe erhält zwei eigene Plätze (ausreichend Plätze vorhanden).</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
