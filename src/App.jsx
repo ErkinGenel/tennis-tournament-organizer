@@ -982,35 +982,56 @@ export default function App() {
       if (groupCount > 0 && groupCount * koQualifyCount < 8) needsWildcard = true;
     });
 
-    if (simState === 'idle') {
-       setKoConfig({ active: true, needsWildcard });
+    let suggestedQfTime = day1Start;
+    const day1GroupMatches = matches.filter(m => m.stage === 'Group' && m.day === 1 && m.endTime);
+    let isFlexible = false;
+    if (day1GroupMatches.length > 0) {
+        const latestEndMins = Math.max(...day1GroupMatches.map(m => timeToMins(m.endTime)));
+        suggestedQfTime = addMinutes(`${Math.floor(latestEndMins/60).toString().padStart(2,'0')}:${(latestEndMins%60).toString().padStart(2,'0')}`, 15);
     } else {
-       generateKO(2, true, tournamentDays === 1 ? 1 : 2);
+        isFlexible = true;
+        suggestedQfTime = '14:00'; // Default start time when flexible group games were used
+    }
+
+    if (simState === 'idle') {
+       setKoConfig({ 
+          active: true, 
+          needsWildcard, 
+          suggestedQfTime, 
+          isFlexible,
+          qfDay: tournamentDays === 1 ? 1 : 2,
+          customTime: suggestedQfTime
+       });
+    } else {
+       generateKO(2, true, tournamentDays === 1 ? 1 : 2, suggestedQfTime);
     }
   };
 
   const handleKoSubmit = (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
-      const qfDay = tournamentDays === 1 ? 1 : parseInt(fd.get('qfDay') || '2', 10);
+      const qfDay = tournamentDays === 1 ? 1 : parseInt(fd.get('qfDay') || koConfig.qfDay || '2', 10);
       const useWildcards = koConfig.needsWildcard ? (fd.get('wildcards') === 'true') : false;
+      const customQfTime = fd.get('customQfTime');
       
-      generateKO(2, useWildcards, qfDay);
+      generateKO(2, useWildcards, qfDay, customQfTime);
       setKoConfig(null);
   };
 
-  const generateKO = (qualCount, useWildcards = false, qfDay = 2) => {
+  const generateKO = (qualCount, useWildcards = false, qfDay = 2, customQfTime = null) => {
     setKoQualifyCount(qualCount);
     const newBrackets = { U50: null, O50: null };
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
     const sfDay = tournamentDays;
     
-    let day1AvailableStart = day1Start;
-    const day1GroupMatches = newMatches.filter(m => m.day === 1 && m.endTime);
-    if (day1GroupMatches.length > 0) {
-        const latestEndMins = Math.max(...day1GroupMatches.map(m => timeToMins(m.endTime)));
-        day1AvailableStart = addMinutes(`${Math.floor(latestEndMins/60).toString().padStart(2,'0')}:${(latestEndMins%60).toString().padStart(2,'0')}`, 15);
+    let day1AvailableStart = customQfTime || day1Start;
+    if (!customQfTime) {
+        const day1GroupMatches = newMatches.filter(m => m.day === 1 && m.endTime);
+        if (day1GroupMatches.length > 0) {
+            const latestEndMins = Math.max(...day1GroupMatches.map(m => timeToMins(m.endTime)));
+            day1AvailableStart = addMinutes(`${Math.floor(latestEndMins/60).toString().padStart(2,'0')}:${(latestEndMins%60).toString().padStart(2,'0')}`, 15);
+        }
     }
     
     const timeSlotSpacing = matchDuration + 15;
@@ -2579,10 +2600,24 @@ export default function App() {
                 {tournamentDays === 2 && (
                   <div>
                     <label className="block text-[var(--contrast)] font-bold mb-2">Viertelfinal-Spiele (QFs) terminieren auf:</label>
-                    <select name="qfDay" className="w-full p-3 border border-[var(--contrast-3)] rounded bg-[var(--base-2)] font-bold text-[var(--contrast)]">
+                    <select name="qfDay" 
+                            value={koConfig.qfDay || 2} 
+                            onChange={(e) => setKoConfig({...koConfig, qfDay: parseInt(e.target.value)})}
+                            className="w-full p-3 border border-[var(--contrast-3)] rounded bg-[var(--base-2)] font-bold text-[var(--contrast)]">
                        <option value="1">Tag 1 (Im Anschluss an Gruppenphase)</option>
                        <option value="2">Tag 2 (Zu Beginn von Tag 2)</option>
                     </select>
+                  </div>
+                )}
+
+                {(koConfig.qfDay === 1 || tournamentDays === 1) && (
+                  <div className="animate-in fade-in zoom-in-95 duration-200">
+                    <label className="block text-[var(--contrast)] font-bold mb-2">Startzeit der K.O.-Runde (Tag 1):</label>
+                    <input type="time" name="customQfTime"
+                           value={koConfig.customTime || '14:00'}
+                           onChange={(e) => setKoConfig({...koConfig, customTime: e.target.value})}
+                           className="w-full p-3 border border-[var(--contrast-3)] rounded bg-[var(--base-2)] font-bold text-[var(--tcw-green)]" />
+                    {koConfig.isFlexible && <p className="text-sm text-[var(--tcw-orange)] mt-2 font-bold flex items-start"><AlertTriangle size={16} className="mr-1.5 mt-0.5 shrink-0"/> Gruppenspiele waren flexibel. Bitte gewünschte Startzeit für die Viertelfinals eintragen.</p>}
                   </div>
                 )}
 
