@@ -54,7 +54,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'tennis-organizer-live';
 
-const COURTS = 6;
 const LEVELS = [3, 2, 1]; 
 const MOCK_CLUBS = ['TC Wannweil', 'TC Reutlingen', 'TC Tübingen', 'TC Metzingen', 'TC Pfullingen', 'TV Kirchentellinsfurt'];
 const MOCK_FIRST_NAMES = ['Lukas', 'Maximilian', 'Jonas', 'Paul', 'Leon', 'Finn', 'Elias', 'Ben', 'Luis', 'Felix', 'Markus', 'Thomas', 'Michael', 'Andreas', 'Stefan', 'Christian', 'Martin', 'Daniel'];
@@ -323,12 +322,15 @@ export default function App() {
   const [tournamentDays, setTournamentDays] = useState(2);
   const [isolateGrandFinals, setIsolateGrandFinals] = useState(true);
   const [matchDuration, setMatchDuration] = useState(90);
+  const [courtCount, setCourtCount] = useState(6);
 
   const [regForm, setRegForm] = useState({ p1Name: '', p1Club: '', p2Name: '', p2Club: '', level: '2', category: 'U50' });
   const [editingTeam, setEditingTeam] = useState(null);
   const [scoreModal, setScoreModal] = useState(null);
   const [koConfig, setKoConfig] = useState(null); 
   const [schedulePrompt, setSchedulePrompt] = useState(false);
+  const [groupGenPrompt, setGroupGenPrompt] = useState(false);
+  const [groupConfig, setGroupConfig] = useState(null);
   
   const [printView, setPrintView] = useState('normal');
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -396,6 +398,7 @@ export default function App() {
         if (liveData.tournamentDays) setTournamentDays(liveData.tournamentDays);
         if (liveData.isolateGrandFinals !== undefined) setIsolateGrandFinals(liveData.isolateGrandFinals);
         if (liveData.matchDuration !== undefined) setMatchDuration(liveData.matchDuration);
+        if (liveData.courtCount !== undefined) setCourtCount(liveData.courtCount);
       }
     });
     return () => unsubscribe();
@@ -406,13 +409,13 @@ export default function App() {
       if ((appMode === 'organizer' || appMode === 'director') && user) {
         try {
           const tournamentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'tournament', 'mainState');
-          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, categories, lastUpdated: new Date().toISOString() });
+          await setDoc(tournamentDocRef, { teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, courtCount, categories, lastUpdated: new Date().toISOString() });
         } catch (error) { console.error("Failed to push updates to live server:", error); }
       }
     };
     const timeoutId = setTimeout(syncToCloud, 800);
     return () => clearTimeout(timeoutId);
-  }, [teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, categories, appMode, user, appId]);
+  }, [teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, courtCount, categories, appMode, user, appId]);
 
   useEffect(() => {
     if (appMode === 'monitor') {
@@ -720,7 +723,7 @@ export default function App() {
   };
 
   const handleExportTournament = () => {
-    const dataStr = JSON.stringify({ teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, categories });
+    const dataStr = JSON.stringify({ teams, groups, matches, brackets, startDate, day1Start, day2Start, tournamentDays, isolateGrandFinals, matchDuration, courtCount, categories });
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -752,6 +755,7 @@ export default function App() {
            if (data.tournamentDays) setTournamentDays(data.tournamentDays);
            if (data.isolateGrandFinals !== undefined) setIsolateGrandFinals(data.isolateGrandFinals);
            if (data.matchDuration !== undefined) setMatchDuration(data.matchDuration);
+           if (data.courtCount !== undefined) setCourtCount(data.courtCount);
            if (data.matches && data.matches.length > 0) setActiveTab('schedule');
         }
         setAuthError('');
@@ -764,51 +768,29 @@ export default function App() {
     e.target.value = null;
   };
 
-  const handleExportTeams = () => {
-    const dataStr = JSON.stringify(teams, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `teilnehmerliste_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleOpenGroupGen = () => {
+    const config = {};
+    ['U50', 'O50'].forEach(cat => {
+      const count = teams.filter(t => t.category === cat).length;
+      config[cat] = { teamCount: count, mode: 'optimal', customCount: Math.ceil(count / 4) || 1 };
+    });
+    setGroupConfig(config);
+    setGroupGenPrompt(true);
   };
 
-  const handleImportTeams = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (Array.isArray(data)) {
-            setTeams(data);
-            setGroups({ U50: {}, O50: {} });
-            setMatches([]);
-            setBrackets({ U50: null, O50: null });
-        } else {
-            setAuthError('Fehler: Die Datei enthält keine gültige Teilnehmerliste.');
-            setTimeout(() => setAuthError(''), 4000);
-        }
-      } catch (err) {
-        setAuthError('Fehler: Ungültiges JSON-Dateiformat.');
-        setTimeout(() => setAuthError(''), 4000);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = null;
-  };
-
-  const generateGroups = () => {
+  const generateGroups = (customConfig) => {
     const newGroups = { U50: {}, O50: {} };
     ['U50', 'O50'].forEach(cat => {
       const catTeams = teams.filter(t => t.category === cat).sort((a, b) => b.level - a.level);
       if (catTeams.length === 0) return;
 
-      const numGroups = Math.ceil(catTeams.length / 4) || 1;
+      let numGroups = 1;
+      if (customConfig && customConfig[cat]) {
+          numGroups = customConfig[cat].mode === 'optimal' ? (Math.ceil(catTeams.length / 4) || 1) : customConfig[cat].customCount;
+      } else {
+          numGroups = Math.ceil(catTeams.length / 4) || 1;
+      }
+      
       const groupArrays = Array.from({ length: numGroups }, () => []);
       let dir = 1; let gIndex = 0;
       const unassigned = [...catTeams];
@@ -850,7 +832,7 @@ export default function App() {
       newMatches.forEach(match => {
         for (const time of timeSlots) {
           const slot = scheduleState[time];
-          if (slot.courtsUsed < COURTS && !slot.playingTeams.has(match.team1?.id) && !slot.playingTeams.has(match.team2?.id)) {
+          if (slot.courtsUsed < courtCount && !slot.playingTeams.has(match.team1?.id) && !slot.playingTeams.has(match.team2?.id)) {
              match.time = time; match.endTime = addMinutes(time, matchDuration); match.court = slot.courtsUsed + 1;
              slot.courtsUsed++; slot.playingTeams.add(match.team1?.id); slot.playingTeams.add(match.team2?.id); break;
           }
@@ -861,7 +843,7 @@ export default function App() {
       ['U50', 'O50'].forEach(cat => {
         if (!groups[cat]) return;
         Object.entries(groups[cat]).forEach(([groupName, groupTeams]) => {
-          const courtNum = (gIdx % COURTS) + 1;
+          const courtNum = (gIdx % courtCount) + 1;
           let pairs = [];
           for (let i = 0; i < groupTeams.length; i++) {
             for (let j = i + 1; j < groupTeams.length; j++) { pairs.push({ t1: groupTeams[i], t2: groupTeams[j] }); }
@@ -1059,7 +1041,7 @@ export default function App() {
             let assigned = false;
             for (let i = startIdx; i < slotsArr.length; i++) {
                 const time = slotsArr[i];
-                if (slotUsage[targetDay][time] < COURTS) {
+                if (slotUsage[targetDay][time] < courtCount) {
                     slotUsage[targetDay][time]++;
                     match.time = time;
                     match.endTime = addMinutes(time, matchDuration);
@@ -1073,7 +1055,7 @@ export default function App() {
                 const lastTime = slotsArr[slotsArr.length - 1];
                 match.time = lastTime;
                 match.endTime = addMinutes(lastTime, matchDuration);
-                match.court = Math.floor(Math.random() * COURTS) + 1;
+                match.court = Math.floor(Math.random() * courtCount) + 1;
             }
         });
         return maxSlotUsed + 1;
@@ -1900,14 +1882,19 @@ export default function App() {
                   )}
                 </div>
                 <div className="flex flex-col md:flex-row gap-4 mt-4 pt-4 border-t border-[var(--contrast-3)]">
-                  <div className="flex items-center space-x-3">
-                    <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-[var(--contrast-3)]" />
-                    <label htmlFor="isolateFinals" className="font-bold text-[var(--contrast)]">Finale isolieren (Nach anderen Spielen ansetzen)</label>
+                  <div className="flex items-center space-x-3 md:w-1/3">
+                    <input type="checkbox" id="isolateFinals" checked={isolateGrandFinals} onChange={(e) => setIsolateGrandFinals(e.target.checked)} className="w-5 h-5 rounded border-[var(--contrast-3)] shrink-0" />
+                    <label htmlFor="isolateFinals" className="font-bold text-[var(--contrast)] text-sm">Finale isolieren</label>
                   </div>
-                  <div className="flex items-center space-x-3 md:ml-auto">
-                    <Clock className="text-[var(--contrast-2)]" />
-                    <div className="font-bold text-[var(--contrast)]">Spieldauer (Min.):</div>
-                    <input type="number" min="15" step="15" value={matchDuration} onChange={(e) => setMatchDuration(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-24" />
+                  <div className="flex items-center space-x-3 md:w-1/3">
+                    <Clock className="text-[var(--contrast-2)] shrink-0" />
+                    <div className="font-bold text-[var(--contrast)] whitespace-nowrap text-sm">Spieldauer (Min.):</div>
+                    <input type="number" min="15" step="15" value={matchDuration} onChange={(e) => setMatchDuration(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-20" />
+                  </div>
+                  <div className="flex items-center space-x-3 md:w-1/3">
+                    <LayoutDashboard className="text-[var(--contrast-2)] shrink-0" />
+                    <div className="font-bold text-[var(--contrast)] whitespace-nowrap text-sm">Anzahl Plätze:</div>
+                    <input type="number" min="1" max="20" value={courtCount} onChange={(e) => setCourtCount(Number(e.target.value))} className="p-2 border border-[var(--contrast-3)] rounded font-bold text-[var(--contrast)] bg-[var(--base-3)] w-20" />
                   </div>
                 </div>
                 
@@ -2028,7 +2015,7 @@ export default function App() {
               <div className="flex justify-between items-center print:hidden">
                 <p className="text-[var(--contrast-2)]">Gruppen, ausbalanciert nach Spielstärke und Vereinszugehörigkeit.</p>
                 <div className="space-x-3">
-                   <button onClick={generateGroups} disabled={teams.length < 4} className="bg-[var(--base)] text-[var(--contrast)] border border-[var(--contrast-3)] hover:bg-[var(--base-2)] px-4 py-2 rounded font-bold disabled:opacity-50 transition">
+                   <button onClick={handleOpenGroupGen} disabled={teams.length < 4} className="bg-[var(--base)] text-[var(--contrast)] border border-[var(--contrast-3)] hover:bg-[var(--base-2)] px-4 py-2 rounded font-bold disabled:opacity-50 transition">
                      1. Gruppen neu generieren
                    </button>
                    <button onClick={() => setSchedulePrompt(true)} disabled={Object.keys(groups.U50).length === 0 && Object.keys(groups.O50).length === 0} className="bg-[var(--tcw-green)] text-[var(--base-3)] hover:bg-[var(--tcw-green-dark)] px-4 py-2 rounded font-bold disabled:opacity-50 transition">
@@ -2410,10 +2397,13 @@ export default function App() {
                        <div className="relative z-10 flex flex-col items-center w-full h-full text-center justify-between">
                            
                            {/* Header Banners */}
-                           <div className="flex flex-col items-center w-full px-4 pt-4 space-y-6">
+                           <div className="flex flex-col items-center w-full px-4 pt-4">
                               <img src={BRAND.sponsorBanner} alt="WTB Kessler Sponsor" className="h-24 w-auto object-contain" />
-                              <div className="flex items-center justify-center space-x-4">
-                                 <h1 className="heading-font text-6xl font-extrabold text-[var(--tcw-orange)] tracking-widest leading-none">TC Wannweil e.V.</h1>
+                              
+                              {/* Spacer inserted between banner and logo/club line */}
+                              <div className="mt-12 flex items-center justify-center space-x-5">
+                                 <img src={BRAND.logo} alt="Club Logo" className="h-12 w-12 object-contain" />
+                                 <h1 className="heading-font text-[36px] font-extrabold text-[var(--tcw-orange)] tracking-widest leading-none">{BRAND.name}</h1>
                               </div>
                            </div>
 
@@ -2535,6 +2525,60 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {groupGenPrompt && groupConfig && (
+        <div className="fixed inset-0 bg-[var(--contrast)]/80 flex items-center justify-center z-50 print:hidden p-4">
+          <div className="bg-[var(--base-3)] rounded shadow-xl w-full max-w-lg overflow-hidden border border-[var(--contrast-3)] animate-in fade-in zoom-in">
+            <div className="bg-[var(--tcw-green)] p-4 flex justify-between items-center text-[var(--base-3)]">
+               <h3 className="font-bold flex items-center"><Shield size={20} className="mr-2"/> Gruppen-Erstellung</h3>
+               <button onClick={() => setGroupGenPrompt(false)} className="hover:opacity-70 transition"><X size={20}/></button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-6">
+                {['U50', 'O50'].map(cat => {
+                   if(groupConfig[cat].teamCount === 0) return null;
+                   const isCustom = groupConfig[cat].mode === 'custom';
+                   const cCount = groupConfig[cat].customCount;
+                   const tCount = groupConfig[cat].teamCount;
+                   const isInvalid = isCustom && (cCount * 3 > tCount);
+                   
+                   return (
+                     <div key={cat} className="p-4 border border-[var(--contrast-3)] rounded-lg bg-[var(--base-2)]">
+                        <h4 className="font-bold text-lg mb-3 flex justify-between items-center">
+                          <span>{categories[cat]}</span>
+                          <span className="text-sm font-medium text-[var(--contrast-2)] bg-[var(--base-3)] px-2 py-1 rounded border border-[var(--contrast-3)]">{tCount} Teams</span>
+                        </h4>
+                        <div className="flex flex-col space-y-3">
+                           <label className="flex items-center space-x-2 cursor-pointer">
+                              <input type="radio" checked={!isCustom} onChange={() => setGroupConfig({...groupConfig, [cat]: {...groupConfig[cat], mode: 'optimal'}})} className="w-4 h-4 text-[var(--tcw-green)]" /> 
+                              <span className="font-bold text-[var(--contrast)]">Optimal (~4 Teams pro Gruppe)</span>
+                           </label>
+                           <label className="flex items-center space-x-2 cursor-pointer">
+                              <input type="radio" checked={isCustom} onChange={() => setGroupConfig({...groupConfig, [cat]: {...groupConfig[cat], mode: 'custom'}})} className="w-4 h-4 text-[var(--tcw-green)]" /> 
+                              <span className="font-bold text-[var(--contrast)]">Benutzerdefiniert</span>
+                           </label>
+                        </div>
+                        {isCustom && (
+                           <div className="mt-4 flex items-center space-x-3 bg-[var(--base-3)] p-3 rounded border border-[var(--contrast-3)]">
+                              <span className="font-bold text-[var(--contrast)]">Anzahl Gruppen:</span>
+                              <input type="number" min="1" value={cCount} onChange={(e) => setGroupConfig({...groupConfig, [cat]: {...groupConfig[cat], customCount: parseInt(e.target.value)||1}})} className="border border-[var(--contrast-3)] p-2 w-20 rounded bg-[var(--base-3)] font-bold" />
+                           </div>
+                        )}
+                        {isInvalid && <div className="mt-3 text-[var(--tcw-orange)] text-sm font-bold flex items-start"><AlertTriangle size={18} className="mr-1 mt-0.5 shrink-0"/> Mindestens 3 Teams pro Gruppe erforderlich. Bitte reduzieren Sie die Anzahl der Gruppen.</div>}
+                     </div>
+                   )
+                })}
+                <button 
+                   disabled={['U50', 'O50'].some(cat => groupConfig[cat].teamCount > 0 && groupConfig[cat].mode === 'custom' && (groupConfig[cat].customCount * 3 > groupConfig[cat].teamCount))} 
+                   onClick={() => { generateGroups(groupConfig); setGroupGenPrompt(false); }} 
+                   className="w-full bg-[var(--tcw-green)] text-[var(--base-3)] py-3 px-4 rounded font-bold hover:bg-[var(--tcw-green-dark)] transition disabled:opacity-50 disabled:cursor-not-allowed">
+                   Gruppen jetzt erstellen
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
