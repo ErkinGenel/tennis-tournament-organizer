@@ -65,14 +65,8 @@ const generatePin = () => Math.floor(1000 + Math.random() * 9000).toString();
 
 const formatStageGroupName = (stage, rawName) => {
     if (!rawName) return 'Offen';
-    if (stage === 'Placement' || rawName.includes('Platzierungsspiel')) {
-        if (rawName.includes('5-8') || rawName.includes('Halbfinale')) return 'Platzierungsspiel, 5-8';
-        if (rawName.includes('Platz 3')) return 'Platzierungsspiel, Platz 3';
-        if (rawName.includes('Platz 5')) return 'Platzierungsspiel, Platz 5';
-        if (rawName.includes('Platz 7')) return 'Platzierungsspiel, Platz 7';
-        return rawName.includes('Platzierungsspiel') ? rawName : `Platzierungsspiel, ${rawName}`; 
-    }
     if (stage === 'Group') return rawName.includes('Gruppe') ? rawName : 'Gruppe ' + rawName;
+    if (rawName.startsWith('Platzierungsspiel') || rawName.startsWith('Spiel um Platz') || rawName.startsWith('Halbfinale') || rawName.startsWith('Finale') || rawName.startsWith('Viertelfinale')) return rawName;
     return rawName;
 };
 
@@ -1041,18 +1035,11 @@ export default function App() {
   };
 
   const handleKoGeneration = () => {
-    let needsWildcard = false;
-    ['U50', 'O50'].forEach(cat => {
-      if (!groups[cat]) return;
-      const groupCount = Object.keys(groups[cat]).length;
-      if (groupCount > 0 && groupCount * koQualifyCount < 8) needsWildcard = true;
-    });
-
     if (simState === 'idle') {
-       setKoConfig({ active: true, needsWildcard });
+       setKoConfig({ active: true });
        setQfDaySel(tournamentDays === 1 ? 1 : 2);
     } else {
-       generateKO(2, true, tournamentDays === 1 ? 1 : 2);
+       generateKO(tournamentDays === 1 ? 1 : 2);
     }
   };
 
@@ -1060,19 +1047,17 @@ export default function App() {
       e.preventDefault();
       const fd = new FormData(e.target);
       const qfDay = tournamentDays === 1 ? 1 : parseInt(fd.get('qfDay') || '2', 10);
-      const useWildcards = koConfig.needsWildcard ? (fd.get('wildcards') === 'true') : false;
       
       let customStartTime = null;
       if (fd.get('qfStartTime')) {
           customStartTime = fd.get('qfStartTime');
       }
       
-      generateKO(2, useWildcards, qfDay, customStartTime);
+      generateKO(qfDay, customStartTime);
       setKoConfig(null);
   };
 
-  const generateKO = (qualCount, useWildcards = false, qfDay = 2, customStartTime = null) => {
-    setKoQualifyCount(qualCount);
+  const generateKO = (qfDay = 2, customStartTime = null) => {
     const newBrackets = { U50: null, O50: null };
     let newMatches = [...matches.filter(m => m.stage === 'Group')];
     
@@ -1122,8 +1107,8 @@ export default function App() {
         ];
         
         const sfNodes = [
-            { id: `${prefix}_sf1_${cat}`, title: isMain ? 'Halbfinale 1' : `Halbfinale 1 (Plätze ${rankOffset}-${rankOffset+7})`, team1: null, team2: null, next: `${prefix}_final_${cat}`, nextLoser: `${prefix}_place_3_${cat}` },
-            { id: `${prefix}_sf2_${cat}`, title: isMain ? 'Halbfinale 2' : `Halbfinale 2 (Plätze ${rankOffset}-${rankOffset+7})`, team1: null, team2: null, next: `${prefix}_final_${cat}`, nextLoser: `${prefix}_place_3_${cat}` }
+            { id: `${prefix}_sf1_${cat}`, title: isMain ? 'Halbfinale 1' : `Halbfinale 1 (Plätze ${rankOffset}-${rankOffset+3})`, team1: null, team2: null, next: `${prefix}_final_${cat}`, nextLoser: `${prefix}_place_3_${cat}` },
+            { id: `${prefix}_sf2_${cat}`, title: isMain ? 'Halbfinale 2' : `Halbfinale 2 (Plätze ${rankOffset}-${rankOffset+3})`, team1: null, team2: null, next: `${prefix}_final_${cat}`, nextLoser: `${prefix}_place_3_${cat}` }
         ];
         const pSfNodes = [
             { id: `${prefix}_place_sf1_${cat}`, title: `Platzierungsspiel, ${rankOffset+4}-${rankOffset+7}`, team1: null, team2: null, next: `${prefix}_place_5_${cat}`, nextLoser: `${prefix}_place_7_${cat}` },
@@ -1142,47 +1127,29 @@ export default function App() {
     ['U50', 'O50'].forEach(cat => {
       if (!standings[cat] || Object.keys(standings[cat]).length === 0) return;
 
-      let mainTeams = [];
-      let otherTeams = []; 
-
-      Object.values(standings[cat]).forEach(groupStandings => {
-        groupStandings.forEach((team, i) => {
-           if (i < qualCount) mainTeams.push({ ...team, seedType: `${i+1}st` });
-           else otherTeams.push(team);
-        });
-      });
-      if (mainTeams.length === 0) return;
-
-      if (useWildcards && mainTeams.length < 8) {
-         otherTeams.sort((a, b) => {
-           if (b.won !== a.won) return b.won - a.won;
-           const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
-           if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
-           return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
-         });
-         const needed = 8 - mainTeams.length;
-         const wildcards = otherTeams.slice(0, needed).map(t => ({ ...t, seedType: `Wildcard` }));
-         mainTeams = [...mainTeams, ...wildcards];
-         otherTeams = otherTeams.slice(needed);
+      let allRankedTeams = [];
+      let maxPos = 0;
+      Object.values(standings[cat]).forEach(g => { if(g.length > maxPos) maxPos = g.length; });
+      
+      for (let i = 0; i < maxPos; i++) {
+          let posTeams = [];
+          Object.values(standings[cat]).forEach(g => {
+              if (g[i]) posTeams.push(g[i]);
+          });
+          posTeams.sort((a, b) => {
+             if (b.won !== a.won) return b.won - a.won;
+             const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
+             if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
+             return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
+          });
+          allRankedTeams.push(...posTeams);
       }
 
-      mainTeams.sort((a, b) => {
-        if (a.seedType !== b.seedType) return a.seedType.localeCompare(b.seedType);
-        if (b.won !== a.won) return b.won - a.won;
-        return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
-      });
-      mainTeams = mainTeams.slice(0, 8);
+      if (allRankedTeams.length === 0) return;
 
-      otherTeams.sort((a, b) => {
-         if (b.won !== a.won) return b.won - a.won;
-         const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
-         if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
-         return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
-      });
-      
-      const chunks = [mainTeams];
-      for (let i = 0; i < otherTeams.length; i += 8) {
-          chunks.push(otherTeams.slice(i, i + 8));
+      const chunks = [];
+      for (let i = 0; i < allRankedTeams.length; i += 8) {
+          chunks.push(allRankedTeams.slice(i, i + 8));
       }
 
       const mainNodes = buildBracketNodes(chunks[0], cat, 1, 'main');
@@ -1204,7 +1171,8 @@ export default function App() {
           });
           bNodes.finals.forEach(node => {
              const match = { id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: sfDay };
-             if (node.id.includes('final_')) allGrandFinals.push(match);
+             // Das Grand Final wird isoliert. Alles andere sind reguläre Platzierungsspiele.
+             if (node.id === `main_final_${cat}`) allGrandFinals.push(match);
              else allPlacements.push(match);
           });
       };
@@ -1249,11 +1217,13 @@ export default function App() {
     
     currentSfSlotIdx = scheduleBatch(allSFs, sfDay, sfTargetSlots, currentSfSlotIdx);
     
+    let placementsIdx = scheduleBatch(allPlacements, sfDay, sfTargetSlots, currentSfSlotIdx);
+
     if (isolateGrandFinals) {
-        currentSfSlotIdx = scheduleBatch(allPlacements, sfDay, sfTargetSlots, currentSfSlotIdx);
-        currentSfSlotIdx = scheduleBatch(allGrandFinals, sfDay, sfTargetSlots, currentSfSlotIdx);
+        // Das echte Grand Final startet zwingend erst NACH allen Platzierungsspielen
+        scheduleBatch(allGrandFinals, sfDay, sfTargetSlots, placementsIdx);
     } else {
-        currentSfSlotIdx = scheduleBatch([...allPlacements, ...allGrandFinals], sfDay, sfTargetSlots, currentSfSlotIdx);
+        scheduleBatch(allGrandFinals, sfDay, sfTargetSlots, currentSfSlotIdx);
     }
 
     setBrackets(newBrackets);
@@ -1765,7 +1735,7 @@ export default function App() {
                      </div>
                      <BracketConnector count={1} width="w-16" borderColor="border-[var(--contrast-2)]" />
                      <div className="flex flex-col justify-around z-10 h-full w-[400px]">
-                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_main' ? brackets[slide.cat].finals[0].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[0].id} title={slide.type === 'bracket_main' ? "FINALE" : `SPIEL UM PLATZ ${slide.consIdx}`} isFinal={true} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_main' ? brackets[slide.cat].finals[0].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[0].id} title={slide.type === 'bracket_main' ? brackets[slide.cat].finals[0].title : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[0].title} isFinal={true} />
                      </div>
                  </div>
              </div>
@@ -1780,11 +1750,11 @@ export default function App() {
                         ))}
                      </div>
                      <div className="flex flex-col space-y-12">
-                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[2].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[2].id} title={slide.type === 'bracket_placement' ? "Spiel um Platz 5" : `Spiel um Platz ${slide.consIdx + 4}`} />
-                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[3].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[3].id} title={slide.type === 'bracket_placement' ? "Spiel um Platz 7" : `Spiel um Platz ${slide.consIdx + 6}`} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[2].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[2].id} title={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[2].title : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[2].title} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[3].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[3].id} title={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[3].title : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[3].title} />
                      </div>
                      <div className="flex flex-col space-y-12">
-                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[1].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[1].id} title={slide.type === 'bracket_placement' ? "Spiel um Platz 3" : `Spiel um Platz ${slide.consIdx + 2}`} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[1].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[1].id} title={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[1].title : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[1].title} />
                      </div>
                  </div>
              </div>
@@ -2396,7 +2366,7 @@ export default function App() {
                         </div>
                         <BracketConnector count={1} width="w-10" borderColor="border-[var(--contrast-3)]" />
                         <div className="flex flex-col justify-around h-full w-64 z-10">
-                           <OfficialMatchBox match={getMatchData(bData.finals[0].id)} title={isMain ? "FINALE" : `Spiel um Platz ${rankOffset}`} isFinal={true} />
+                           <OfficialMatchBox match={getMatchData(bData.finals[0].id)} title={bData.finals[0].title} isFinal={true} />
                         </div>
                       </div>
 
@@ -2408,11 +2378,11 @@ export default function App() {
                            {bData.pSf.map((pSf, i) => <OfficialMatchBox key={i} match={getMatchData(pSf.id)} title={pSf.title} />)}
                         </div>
                         <div className="space-y-4">
-                           <OfficialMatchBox match={getMatchData(bData.finals[2].id)} title={isMain ? "Platzierungsspiel, Platz 5" : `Spiel um Platz ${rankOffset+4}`} />
-                           <OfficialMatchBox match={getMatchData(bData.finals[3].id)} title={isMain ? "Platzierungsspiel, Platz 7" : `Spiel um Platz ${rankOffset+6}`} />
+                           <OfficialMatchBox match={getMatchData(bData.finals[2].id)} title={bData.finals[2].title} />
+                           <OfficialMatchBox match={getMatchData(bData.finals[3].id)} title={bData.finals[3].title} />
                         </div>
                         <div className="space-y-4">
-                           <OfficialMatchBox match={getMatchData(bData.finals[1].id)} title={isMain ? "Platzierungsspiel, Platz 3" : `Spiel um Platz ${rankOffset+2}`} />
+                           <OfficialMatchBox match={getMatchData(bData.finals[1].id)} title={bData.finals[1].title} />
                         </div>
                       </div>
                    </div>
@@ -2734,16 +2704,6 @@ export default function App() {
                     <label className="block text-[var(--contrast)] font-bold mb-2">Gewünschte Startzeit (Tag 1 K.O.-Phase):</label>
                     <input type="time" name="qfStartTime" defaultValue="14:00" className="w-full p-3 border border-[var(--contrast-3)] rounded bg-[var(--base-2)] font-bold text-[var(--tcw-green)]" />
                     <p className="text-xs text-[var(--contrast-2)] mt-1 font-medium">Da die Gruppen flexibel gespielt wurden, muss die Startzeit manuell festgelegt werden, falls QFs an Tag 1 stattfinden.</p>
-                  </div>
-                )}
-
-                {koConfig.needsWildcard && (
-                  <div>
-                    <label className="block text-[var(--contrast)] font-bold mb-2">Nicht genügend Teams für 8er-Feld. Auffüllen durch:</label>
-                    <select name="wildcards" className="w-full p-3 border border-[var(--contrast-3)] rounded bg-[var(--base-2)] font-bold text-[var(--contrast)]">
-                       <option value="true">Beste Verlierer als Wildcards (Empfohlen)</option>
-                       <option value="false">Freilose (Byes)</option>
-                    </select>
                   </div>
                 )}
 
