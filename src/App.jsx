@@ -475,18 +475,25 @@ export default function App() {
       const getWinner = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1?.id ? m.team1 : m.team2) : null; };
       const getLoser = (id) => { const m = matches.find(x => x.id === id); return m?.winnerId ? (m.winnerId === m.team1?.id ? m.team2 : m.team1) : null; };
 
-      const top8 = [
-        getWinner(`final_${cat}`), getLoser(`final_${cat}`),
-        getWinner(`place_3_${cat}`), getLoser(`place_3_${cat}`),
-        getWinner(`place_5_${cat}`), getLoser(`place_5_${cat}`),
-        getWinner(`place_7_${cat}`), getLoser(`place_7_${cat}`)
-      ];
+      const placedIds = [];
+      const processFinals = (finalNodes) => {
+         const top8 = [
+            getWinner(finalNodes[0].id), getLoser(finalNodes[0].id),
+            getWinner(finalNodes[1].id), getLoser(finalNodes[1].id),
+            getWinner(finalNodes[2].id), getLoser(finalNodes[2].id),
+            getWinner(finalNodes[3].id), getLoser(finalNodes[3].id)
+         ];
+         top8.forEach(team => {
+             if (team && !team.isBye && !placedIds.includes(team.id)) {
+                 ranks[cat].push({ rank: ranks[cat].length + 1, team });
+                 placedIds.push(team.id);
+             }
+         });
+      };
+      
+      processFinals(b.finals);
+      if (b.consolations) b.consolations.forEach(cons => processFinals(cons.finals));
 
-      top8.forEach((team, idx) => {
-         if (team && !team.isBye) ranks[cat].push({ rank: idx + 1, team });
-      });
-
-      const placedIds = ranks[cat].map(r => r.team?.id).filter(id => id);
       let remaining = [];
       if (standings[cat]) {
         Object.values(standings[cat]).forEach(groupSt => {
@@ -512,9 +519,16 @@ export default function App() {
     
     const checkFinalStatus = (cat) => {
         if (!brackets || !brackets[cat]) return false;
-        const finalMatchId = brackets[cat].finals[0].id;
-        const finalMatch = matches.find(m => m.id === finalMatchId);
-        return finalMatch && finalMatch.winnerId !== null;
+        const mainFinal = matches.find(m => m.id === brackets[cat].finals[0].id);
+        if (!mainFinal || mainFinal.winnerId === null) return false;
+        
+        if (brackets[cat].consolations) {
+            for (const cons of brackets[cat].consolations) {
+                const cFinal = matches.find(m => m.id === cons.finals[0].id);
+                if (!cFinal || cFinal.winnerId === null) return false;
+            }
+        }
+        return true;
     };
     
     const u50Ended = checkFinalStatus('U50');
@@ -565,7 +579,14 @@ export default function App() {
         ['U50', 'O50'].forEach(cat => {
             if (brackets[cat]) {
                 newSlides.push({ type: 'bracket_main', cat, title: `K.O.-Baum: ${categories[cat]}` });
-                newSlides.push({ type: 'bracket_placement', cat, title: `Platzierungsspiele: ${categories[cat]}` });
+                newSlides.push({ type: 'bracket_placement', cat, title: `Platzierungsspiele: ${categories[cat]} (3-8)` });
+                
+                if (brackets[cat].consolations) {
+                    brackets[cat].consolations.forEach(cons => {
+                        newSlides.push({ type: 'bracket_cons_main', cat, consIdx: cons.rankOffset, title: `Plätze ${cons.rankOffset}-${cons.rankOffset+7}: ${categories[cat]}` });
+                        newSlides.push({ type: 'bracket_cons_placement', cat, consIdx: cons.rankOffset, title: `Platzierungsspiele ${cons.rankOffset+2}-${cons.rankOffset+7}: ${categories[cat]}` });
+                    });
+                }
             }
         });
     }
@@ -1072,8 +1093,8 @@ export default function App() {
     }
     
     const timeSlotSpacing = matchDuration + 15;
-    const d1Slots = generateTimeSlots(day1AvailableStart, 16, timeSlotSpacing);
-    const d2Slots = generateTimeSlots(day2Start, 16, timeSlotSpacing);
+    const d1Slots = generateTimeSlots(day1AvailableStart, 24, timeSlotSpacing);
+    const d2Slots = generateTimeSlots(day2Start, 24, timeSlotSpacing);
     
     const qfTargetSlots = qfDay === 1 ? d1Slots : d2Slots;
     const sfTargetSlots = sfDay === 1 ? d1Slots : d2Slots;
@@ -1087,77 +1108,111 @@ export default function App() {
     const allPlacements = [];
     const allGrandFinals = [];
 
+    const buildBracketNodes = (teamsArr, cat, rankOffset, prefix) => {
+        let padded = [...teamsArr];
+        while(padded.length < 8) padded.push({ isBye: true, name: 'FREILOS' });
+
+        const isMain = rankOffset === 1;
+
+        const qfNodes = [
+            { id: `${prefix}_qf1_${cat}`, team1: padded[0], team2: padded[7], next: `${prefix}_sf1_${cat}`, nextLoser: `${prefix}_place_sf1_${cat}` },
+            { id: `${prefix}_qf2_${cat}`, team1: padded[3], team2: padded[4], next: `${prefix}_sf1_${cat}`, nextLoser: `${prefix}_place_sf1_${cat}` },
+            { id: `${prefix}_qf3_${cat}`, team1: padded[2], team2: padded[5], next: `${prefix}_sf2_${cat}`, nextLoser: `${prefix}_place_sf2_${cat}` },
+            { id: `${prefix}_qf4_${cat}`, team1: padded[1], team2: padded[6], next: `${prefix}_sf2_${cat}`, nextLoser: `${prefix}_place_sf2_${cat}` }
+        ];
+        
+        const sfNodes = [
+            { id: `${prefix}_sf1_${cat}`, title: isMain ? 'Halbfinale 1' : `Halbfinale 1 (Plätze ${rankOffset}-${rankOffset+7})`, team1: null, team2: null, next: `${prefix}_final_${cat}`, nextLoser: `${prefix}_place_3_${cat}` },
+            { id: `${prefix}_sf2_${cat}`, title: isMain ? 'Halbfinale 2' : `Halbfinale 2 (Plätze ${rankOffset}-${rankOffset+7})`, team1: null, team2: null, next: `${prefix}_final_${cat}`, nextLoser: `${prefix}_place_3_${cat}` }
+        ];
+        const pSfNodes = [
+            { id: `${prefix}_place_sf1_${cat}`, title: `Platzierungsspiel, ${rankOffset+4}-${rankOffset+7}`, team1: null, team2: null, next: `${prefix}_place_5_${cat}`, nextLoser: `${prefix}_place_7_${cat}` },
+            { id: `${prefix}_place_sf2_${cat}`, title: `Platzierungsspiel, ${rankOffset+4}-${rankOffset+7}`, team1: null, team2: null, next: `${prefix}_place_5_${cat}`, nextLoser: `${prefix}_place_7_${cat}` }
+        ];
+        const finalNodes = [
+            { id: `${prefix}_final_${cat}`, title: isMain ? 'Finale' : `Spiel um Platz ${rankOffset}`, team1: null, team2: null },
+            { id: `${prefix}_place_3_${cat}`, title: isMain ? 'Platzierungsspiel, Platz 3' : `Spiel um Platz ${rankOffset+2}`, team1: null, team2: null },
+            { id: `${prefix}_place_5_${cat}`, title: isMain ? 'Platzierungsspiel, Platz 5' : `Spiel um Platz ${rankOffset+4}`, team1: null, team2: null },
+            { id: `${prefix}_place_7_${cat}`, title: isMain ? 'Platzierungsspiel, Platz 7' : `Spiel um Platz ${rankOffset+6}`, team1: null, team2: null }
+        ];
+        
+        return { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes, rankOffset };
+    };
+
     ['U50', 'O50'].forEach(cat => {
       if (!standings[cat] || Object.keys(standings[cat]).length === 0) return;
 
-      let qualifiers = [];
-      let remainingTeams = []; 
+      let mainTeams = [];
+      let otherTeams = []; 
 
       Object.values(standings[cat]).forEach(groupStandings => {
         groupStandings.forEach((team, i) => {
-           if (i < qualCount) qualifiers.push({ ...team, seedType: `${i+1}st` });
-           else remainingTeams.push(team);
+           if (i < qualCount) mainTeams.push({ ...team, seedType: `${i+1}st` });
+           else otherTeams.push(team);
         });
       });
-      if (qualifiers.length === 0) return;
+      if (mainTeams.length === 0) return;
 
-      if (useWildcards && qualifiers.length < 8) {
-         remainingTeams.sort((a, b) => {
+      if (useWildcards && mainTeams.length < 8) {
+         otherTeams.sort((a, b) => {
            if (b.won !== a.won) return b.won - a.won;
            const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
            if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
            return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
          });
-         const needed = 8 - qualifiers.length;
-         const wildcards = remainingTeams.slice(0, needed).map(t => ({ ...t, seedType: `Wildcard` }));
-         qualifiers = [...qualifiers, ...wildcards];
+         const needed = 8 - mainTeams.length;
+         const wildcards = otherTeams.slice(0, needed).map(t => ({ ...t, seedType: `Wildcard` }));
+         mainTeams = [...mainTeams, ...wildcards];
+         otherTeams = otherTeams.slice(needed);
       }
 
-      qualifiers.sort((a, b) => {
+      mainTeams.sort((a, b) => {
         if (a.seedType !== b.seedType) return a.seedType.localeCompare(b.seedType);
         if (b.won !== a.won) return b.won - a.won;
         return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
       });
+      mainTeams = mainTeams.slice(0, 8);
 
-      qualifiers = qualifiers.slice(0, 8);
-      while (qualifiers.length < 8) qualifiers.push({ isBye: true, name: 'FREILOS' });
-
-      const qfNodes = [
-        { id: `qf1_${cat}`, team1: qualifiers[0], team2: qualifiers[7], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
-        { id: `qf2_${cat}`, team1: qualifiers[3], team2: qualifiers[4], next: `sf1_${cat}`, nextLoser: `place_sf1_${cat}` },
-        { id: `qf3_${cat}`, team1: qualifiers[2], team2: qualifiers[5], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` },
-        { id: `qf4_${cat}`, team1: qualifiers[1], team2: qualifiers[6], next: `sf2_${cat}`, nextLoser: `place_sf2_${cat}` }
-      ];
-      const sfNodes = [
-        { id: `sf1_${cat}`, title: 'Halbfinale 1', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` },
-        { id: `sf2_${cat}`, title: 'Halbfinale 2', team1: null, team2: null, next: `final_${cat}`, nextLoser: `place_3_${cat}` }
-      ];
-      const pSfNodes = [
-        { id: `place_sf1_${cat}`, title: 'Platzierungsspiel, 5-8', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` },
-        { id: `place_sf2_${cat}`, title: 'Platzierungsspiel, 5-8', team1: null, team2: null, next: `place_5_${cat}`, nextLoser: `place_7_${cat}` }
-      ];
-      const finalNodes = [
-        { id: `final_${cat}`, title: 'Finale', team1: null, team2: null },
-        { id: `place_3_${cat}`, title: 'Platzierungsspiel, Platz 3', team1: null, team2: null },
-        { id: `place_5_${cat}`, title: 'Platzierungsspiel, Platz 5', team1: null, team2: null },
-        { id: `place_7_${cat}`, title: 'Platzierungsspiel, Platz 7', team1: null, team2: null }
-      ];
-
-      qfNodes.forEach(node => {
-        if (!node.team1.isBye && !node.team2.isBye) {
-           allQFs.push({ id: node.id, category: cat, stage: 'KO', groupName: 'Viertelfinale', team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: qfDay });
-        }
+      otherTeams.sort((a, b) => {
+         if (b.won !== a.won) return b.won - a.won;
+         const aSetDiff = a.setsWon - a.setsLost; const bSetDiff = b.setsWon - b.setsLost;
+         if (bSetDiff !== aSetDiff) return bSetDiff - aSetDiff;
+         return (b.gamesWon - b.gamesLost) - (a.gamesWon - a.gamesLost);
       });
-      [...sfNodes, ...pSfNodes].forEach(node => {
-         allSFs.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: sfDay });
-      });
-      finalNodes.forEach(node => {
-         const match = { id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: sfDay };
-         if (node.id.includes('final_')) allGrandFinals.push(match);
-         else allPlacements.push(match);
-      });
+      
+      const chunks = [mainTeams];
+      for (let i = 0; i < otherTeams.length; i += 8) {
+          chunks.push(otherTeams.slice(i, i + 8));
+      }
 
-      newBrackets[cat] = { qf: qfNodes, sf: sfNodes, pSf: pSfNodes, finals: finalNodes };
+      const mainNodes = buildBracketNodes(chunks[0], cat, 1, 'main');
+      const consolations = [];
+      for (let i = 1; i < chunks.length; i++) {
+          if (chunks[i].length > 0) consolations.push(buildBracketNodes(chunks[i], cat, (i*8)+1, `cons${i}`));
+      }
+
+      const addToScheduleArrays = (bNodes, isMain, rankOffset) => {
+          bNodes.qf.forEach(node => {
+            if (!node.team1.isBye && !node.team2.isBye) {
+               allQFs.push({ id: node.id, category: cat, stage: 'KO', groupName: isMain ? 'Viertelfinale' : `Plätze ${rankOffset}-${rankOffset+7} VF`, team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: qfDay });
+            } else {
+               newMatches.push({ id: node.id, category: cat, stage: 'KO', groupName: isMain ? 'Viertelfinale' : `Plätze ${rankOffset}-${rankOffset+7} VF`, team1: node.team1, team2: node.team2, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: qfDay, time: 'BYE', court: null });
+            }
+          });
+          [...bNodes.sf, ...bNodes.pSf].forEach(node => {
+             allSFs.push({ id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, nextMatchId: node.next, nextLoserId: node.nextLoser, day: sfDay });
+          });
+          bNodes.finals.forEach(node => {
+             const match = { id: node.id, category: cat, stage: node.id.includes('place') ? 'Placement' : 'KO', groupName: node.title, team1: null, team2: null, score: null, winnerId: null, day: sfDay };
+             if (node.id.includes('final_')) allGrandFinals.push(match);
+             else allPlacements.push(match);
+          });
+      };
+      
+      addToScheduleArrays(mainNodes, true, 1);
+      consolations.forEach(cons => addToScheduleArrays(cons, false, cons.rankOffset));
+
+      newBrackets[cat] = { ...mainNodes, consolations };
     });
 
     const scheduleBatch = (batch, targetDay, slotsArr, startIdx) => {
@@ -1213,24 +1268,32 @@ export default function App() {
     const pushToNode = (matchId, team) => {
        if (!matchId || !team) return;
        let targetMatch = updatedMatches.find(m => m.id === matchId);
-       if (targetMatch && !targetMatch.team1) { targetMatch.team1 = team; changesMade = true; }
-       else if (targetMatch && !targetMatch.team2 && targetMatch.team1?.id !== team.id) { targetMatch.team2 = team; changesMade = true; }
+       if (targetMatch) {
+           if (targetMatch.team1?.id === team.id || targetMatch.team2?.id === team.id) return; 
+           if (!targetMatch.team1) { targetMatch.team1 = team; changesMade = true; }
+           else if (!targetMatch.team2) { targetMatch.team2 = team; changesMade = true; }
+       }
     };
 
-    matches.filter(m => (m.stage === 'KO' || m.stage === 'Placement') && m.winnerId).forEach(m => {
-       const winner = m.winnerId === m.team1?.id ? m.team1 : m.team2;
-       const loser = m.winnerId === m.team1?.id ? m.team2 : m.team1;
-       pushToNode(m.nextMatchId, winner);
-       pushToNode(m.nextLoserId, loser);
-    });
-
-    ['U50', 'O50'].forEach(cat => {
-      if(brackets[cat]) {
-        brackets[cat].qf.forEach(qf => {
-          if (qf.team1?.isBye) pushToNode(qf.next, qf.team2);
-          if (qf.team2?.isBye) pushToNode(qf.next, qf.team1);
-        });
-      }
+    updatedMatches.forEach(m => {
+        if ((m.stage === 'KO' || m.stage === 'Placement') && !m.winnerId) {
+            if (m.team1?.isBye && !m.team2?.isBye && m.team2) {
+                m.winnerId = m.team2.id;
+                changesMade = true;
+            } else if (m.team2?.isBye && !m.team1?.isBye && m.team1) {
+                m.winnerId = m.team1.id;
+                changesMade = true;
+            } else if (m.team1?.isBye && m.team2?.isBye) {
+                m.winnerId = m.team1.id; 
+                changesMade = true;
+            }
+        }
+        if ((m.stage === 'KO' || m.stage === 'Placement') && m.winnerId) {
+            const winner = m.winnerId === m.team1?.id ? m.team1 : m.team2;
+            const loser = m.winnerId === m.team1?.id ? m.team2 : m.team1;
+            pushToNode(m.nextMatchId, winner);
+            pushToNode(m.nextLoserId, loser);
+        }
     });
 
     if (changesMade) setMatches(updatedMatches);
@@ -1521,14 +1584,19 @@ export default function App() {
     const getMonitorMatchData = (id) => {
       const liveMatch = matches.find(m => m.id === id);
       if (liveMatch) return liveMatch;
+      let matchFound = null;
       ['U50', 'O50'].forEach(cat => {
          if (brackets[cat]) {
-           const allNodes = [...brackets[cat].qf, ...brackets[cat].sf, ...brackets[cat].pSf, ...brackets[cat].finals];
-           const found = allNodes.find(n => n.id === id);
-           if (found) return found;
+           const bNodes = [brackets[cat]];
+           if (brackets[cat].consolations) bNodes.push(...brackets[cat].consolations);
+           bNodes.forEach(b => {
+               const allNodes = [...b.qf, ...b.sf, ...b.pSf, ...b.finals];
+               const found = allNodes.find(n => n.id === id);
+               if (found) matchFound = found;
+           });
          }
       });
-      return null;
+      return matchFound;
     };
 
     const OfficialMonitorMatchBox = ({ matchId, title, isFinal = false }) => {
@@ -1615,6 +1683,7 @@ export default function App() {
         </header>
 
         <main className="flex-1 overflow-hidden">
+          {/* ... existing schedule & groups slides ... */}
           {slide.type === 'schedule' && (
             <div className="grid grid-cols-2 gap-6 h-full content-start">
               <div className="flex flex-col space-y-4">
@@ -1680,42 +1749,42 @@ export default function App() {
              </div>
           )}
 
-          {slide.type === 'bracket_main' && brackets[slide.cat] && (
+          {(slide.type === 'bracket_main' || slide.type === 'bracket_cons_main') && brackets[slide.cat] && (
              <div className="h-full w-full flex items-center justify-center pb-8 overflow-visible">
                  <div className="flex items-stretch h-[700px]">
                      <div className="flex flex-col justify-around z-10 h-full w-[400px]">
-                        {brackets[slide.cat].qf.map((qfRef, i) => (
+                        {(slide.type === 'bracket_main' ? brackets[slide.cat].qf : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.qf || []).map((qfRef, i) => (
                             <OfficialMonitorMatchBox key={i} matchId={qfRef.id} title={`Viertelfinale ${i+1}`} />
                         ))}
                      </div>
                      <BracketConnector count={2} width="w-16" borderColor="border-[var(--contrast-2)]" />
                      <div className="flex flex-col justify-around z-10 h-full w-[400px]">
-                        {brackets[slide.cat].sf.map((sfRef, i) => (
+                        {(slide.type === 'bracket_main' ? brackets[slide.cat].sf : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.sf || []).map((sfRef, i) => (
                             <OfficialMonitorMatchBox key={i} matchId={sfRef.id} title={sfRef.title} />
                         ))}
                      </div>
                      <BracketConnector count={1} width="w-16" borderColor="border-[var(--contrast-2)]" />
                      <div className="flex flex-col justify-around z-10 h-full w-[400px]">
-                        <OfficialMonitorMatchBox matchId={brackets[slide.cat].finals[0].id} title="FINALE" isFinal={true} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_main' ? brackets[slide.cat].finals[0].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[0].id} title={slide.type === 'bracket_main' ? "FINALE" : `SPIEL UM PLATZ ${slide.consIdx}`} isFinal={true} />
                      </div>
                  </div>
              </div>
           )}
 
-          {slide.type === 'bracket_placement' && brackets[slide.cat] && (
+          {(slide.type === 'bracket_placement' || slide.type === 'bracket_cons_placement') && brackets[slide.cat] && (
              <div className="h-full w-full flex justify-center items-center pb-12 overflow-visible">
                  <div className="flex justify-center items-start gap-12">
                      <div className="flex flex-col space-y-12">
-                        {brackets[slide.cat].pSf.map((pSfRef, i) => (
+                        {(slide.type === 'bracket_placement' ? brackets[slide.cat].pSf : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.pSf || []).map((pSfRef, i) => (
                             <OfficialMonitorMatchBox key={i} matchId={pSfRef.id} title={pSfRef.title} />
                         ))}
                      </div>
                      <div className="flex flex-col space-y-12">
-                        <OfficialMonitorMatchBox matchId={brackets[slide.cat].finals[2].id} title={brackets[slide.cat].finals[2].title} />
-                        <OfficialMonitorMatchBox matchId={brackets[slide.cat].finals[3].id} title={brackets[slide.cat].finals[3].title} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[2].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[2].id} title={slide.type === 'bracket_placement' ? "Spiel um Platz 5" : `Spiel um Platz ${slide.consIdx + 4}`} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[3].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[3].id} title={slide.type === 'bracket_placement' ? "Spiel um Platz 7" : `Spiel um Platz ${slide.consIdx + 6}`} />
                      </div>
                      <div className="flex flex-col space-y-12">
-                        <OfficialMonitorMatchBox matchId={brackets[slide.cat].finals[1].id} title={brackets[slide.cat].finals[1].title} />
+                        <OfficialMonitorMatchBox matchId={slide.type === 'bracket_placement' ? brackets[slide.cat].finals[1].id : brackets[slide.cat].consolations.find(c => c.rankOffset === slide.consIdx)?.finals[1].id} title={slide.type === 'bracket_placement' ? "Spiel um Platz 3" : `Spiel um Platz ${slide.consIdx + 2}`} />
                      </div>
                  </div>
              </div>
@@ -2310,39 +2379,49 @@ export default function App() {
                  if (!brackets[cat]) return null;
                  const getMatchData = (id) => matches.find(m => m.id === id);
                  
-                 return (
-                   <div key={cat} className="mb-16 page-break-after">
+                 const renderBracketView = (bData, isMain, rankOffset) => (
+                   <div key={`${cat}-${rankOffset}`} className="mb-16 page-break-after">
                       <h2 className="heading-font text-2xl font-bold text-[var(--contrast)] mb-8 border-b border-[var(--contrast-3)] pb-2 flex items-center">
-                         <Trophy className="text-[var(--tcw-yellow)] mr-3" strokeWidth={2.5}/> Hauptrunde: {categories[cat]}
+                         <Trophy className={isMain ? "text-[var(--tcw-yellow)] mr-3" : "text-[var(--contrast-3)] mr-3"} strokeWidth={2.5}/> 
+                         {isMain ? `Hauptrunde: ${categories[cat]}` : `Platzierungsrunde (Plätze ${rankOffset}-${rankOffset+7}): ${categories[cat]}`}
                       </h2>
                       
                       <div className="flex items-stretch min-w-max h-[500px]">
                         <div className="flex flex-col justify-around h-full w-64 z-10">
-                           {brackets[cat].qf.map((qf, i) => <OfficialMatchBox key={i} match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} />)}
+                           {bData.qf.map((qf, i) => <OfficialMatchBox key={i} match={getMatchData(qf.id)} title={`Viertelfinale ${i+1}`} />)}
                         </div>
                         <BracketConnector count={2} width="w-10" borderColor="border-[var(--contrast-3)]" />
                         <div className="flex flex-col justify-around h-full w-64 z-10">
-                           {brackets[cat].sf.map((sf, i) => <OfficialMatchBox key={i} match={getMatchData(sf.id)} title={sf.title} />)}
+                           {bData.sf.map((sf, i) => <OfficialMatchBox key={i} match={getMatchData(sf.id)} title={sf.title} />)}
                         </div>
                         <BracketConnector count={1} width="w-10" borderColor="border-[var(--contrast-3)]" />
                         <div className="flex flex-col justify-around h-full w-64 z-10">
-                           <OfficialMatchBox match={getMatchData(brackets[cat].finals[0].id)} title="FINALE" isFinal={true} />
+                           <OfficialMatchBox match={getMatchData(bData.finals[0].id)} title={isMain ? "FINALE" : `Spiel um Platz ${rankOffset}`} isFinal={true} />
                         </div>
                       </div>
 
-                      <h3 className="heading-font text-xl font-bold text-[var(--contrast-2)] mt-12 mb-4 border-b border-[var(--contrast-3)] pb-2">Platzierungsspiele (Plätze 3-8)</h3>
+                      <h3 className="heading-font text-xl font-bold text-[var(--contrast-2)] mt-12 mb-4 border-b border-[var(--contrast-3)] pb-2">
+                          {isMain ? 'Platzierungsspiele (Plätze 3-8)' : `Platzierungsspiele (Plätze ${rankOffset+2}-${rankOffset+7})`}
+                      </h3>
                       <div className="flex flex-wrap gap-8">
                         <div className="space-y-4">
-                           {brackets[cat].pSf.map((pSf, i) => <OfficialMatchBox key={i} match={getMatchData(pSf.id)} title={pSf.title} />)}
+                           {bData.pSf.map((pSf, i) => <OfficialMatchBox key={i} match={getMatchData(pSf.id)} title={pSf.title} />)}
                         </div>
                         <div className="space-y-4">
-                           <OfficialMatchBox match={getMatchData(brackets[cat].finals[2].id)} title="Platzierungsspiel, Platz 5" />
-                           <OfficialMatchBox match={getMatchData(brackets[cat].finals[3].id)} title="Platzierungsspiel, Platz 7" />
+                           <OfficialMatchBox match={getMatchData(bData.finals[2].id)} title={isMain ? "Platzierungsspiel, Platz 5" : `Spiel um Platz ${rankOffset+4}`} />
+                           <OfficialMatchBox match={getMatchData(bData.finals[3].id)} title={isMain ? "Platzierungsspiel, Platz 7" : `Spiel um Platz ${rankOffset+6}`} />
                         </div>
                         <div className="space-y-4">
-                           <OfficialMatchBox match={getMatchData(brackets[cat].finals[1].id)} title="Platzierungsspiel, Platz 3" />
+                           <OfficialMatchBox match={getMatchData(bData.finals[1].id)} title={isMain ? "Platzierungsspiel, Platz 3" : `Spiel um Platz ${rankOffset+2}`} />
                         </div>
                       </div>
+                   </div>
+                 );
+
+                 return (
+                   <div key={cat}>
+                       {renderBracketView(brackets[cat], true, 1)}
+                       {brackets[cat].consolations?.map(cons => renderBracketView(cons, false, cons.rankOffset))}
                    </div>
                  )
                })}
